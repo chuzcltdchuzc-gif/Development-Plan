@@ -28,6 +28,7 @@ Every rule in `docs/ENGINEERING_RULES.md` and every non-negotiable in `docs/DOD.
 | [`docs/ENGINEERING_RULES.md`](./docs/ENGINEERING_RULES.md) | When Claude may act autonomously vs. must stop and ask; the non-negotiable engineering rules |
 | [`docs/adr/`](./docs/adr/) | Architecture Decision Records — ADR-001 through ADR-008 |
 | [`docs/audits/`](./docs/audits/) | The full audit reports behind every decision above |
+| [`docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf`](./docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf) | Single-file PDF export of this whole planning package, plus the superseded v3 snapshot preserved for provenance — see the PDF's own preface for which parts are current |
 
 ---
 
