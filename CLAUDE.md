@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: Phase 0/1 (Enterprise Planning / System Architecture) — planning package complete, Architecture v1.0 not yet frozen. No implementation sprint has started.**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: Phase 2 (Development Environment) in progress — B0.0 scaffold landed: backend B0 kernel (fail-closed config, structured logging, RFC-7807 errors, health checks — tests green, lint/mypy clean), frontend F0 shell (Next.js App Router + Tailwind — builds clean), Docker Compose (Postgres+PostGIS, Keycloak, backend, frontend) and a Terraform baseline. Docker Compose has not been booted end-to-end in any session yet — no Docker daemon has been available in the environment this was built in; the backend was instead verified directly via `uvicorn` (real HTTP requests, not just TestClient) and the compose YAML was schema-checked, but neither is a substitute for an observed `docker compose up`. Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still an open decision, see `docs/REBUILD_PLAN.md` §6).**
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
@@ -23,12 +23,12 @@ This file is the always-loaded operational summary. It is a pointer, not the sou
 | Why a specific architectural decision was made | `docs/adr/` |
 | The audit findings everything above is derived from | `docs/audits/` |
 
-## Repo layout (once code lands)
+## Repo layout
 
 ```
-/frontend   — Next.js + TypeScript
-/backend    — Python + FastAPI, one folder per bounded context
-/infra      — Terraform, Docker
+/frontend   — Next.js + TypeScript (F0 shell landed; bounded-context UI stages land per docs/REBUILD_PLAN.md §3)
+/backend    — Python + FastAPI (B0 kernel landed in app/kernel/; one folder per bounded context as B1+ land)
+/infra      — Terraform (version-pinned baseline, no provider yet), Docker (infra/docker/docker-compose.yml)
 /docs       — this planning package
 ```
 
@@ -36,4 +36,28 @@ This file is the always-loaded operational summary. It is a pointer, not the sou
 
 Sprints are one per bounded context (13 total, dependency-ordered per `docs/REBUILD_PLAN.md` §1), each gated through the Claude Code Loop in `docs/PHASE_GATES.md` and signed off against `docs/DOD.md` before merge. Do not start a sprint whose dependencies (per the bounded-context ordering) aren't yet Sprint Done.
 
-Build/test/run commands land here once Phase 2 (Development Environment) is complete.
+## Build/test/run commands
+
+**Backend** (from `/backend`):
+```
+python -m venv .venv && .venv/Scripts/pip install -e ".[dev]"
+.venv/Scripts/pytest                 # unit tests
+.venv/Scripts/ruff check .           # lint
+.venv/Scripts/mypy app tests         # type check
+.venv/Scripts/uvicorn app.main:app --reload   # run locally; needs env vars, see .env.example
+```
+
+**Frontend** (from `/frontend`):
+```
+npm install
+npm run typecheck
+npm run lint
+npm run build && npm run start       # or `npm run dev` for local development
+```
+
+**Full stack** (from repo root, requires Docker):
+```
+cp .env.example .env   # then fill in real values
+docker compose -f infra/docker/docker-compose.yml up --build
+```
+Not yet verified in any session — see the status note above.

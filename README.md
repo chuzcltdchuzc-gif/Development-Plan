@@ -2,7 +2,7 @@
 
 A land-registry and verification platform for Nigeria — parcel registration, GIS-backed spatial validation, evidence chain-of-custody, community/traditional-authority attestation, survey network management, inheritance & customary-law resolution, and an economic/billing layer, built around an explainable, continuously-recalculated per-parcel trust score.
 
-**Status:** Planning — Architecture v1.0 not yet frozen. No application code has been written yet. This repository currently holds the full governance/planning package produced from a from-scratch architecture and security audit of two prior implementations of this product.
+**Status:** Phase 2 (Development Environment) in progress. Architecture v1.0 (Phase 0/1) is frozen per `docs/adr/`. The B0.0 scaffold has landed — see `CLAUDE.md` for exactly what's built, tested, and what's not yet verified.
 
 ---
 
@@ -76,7 +76,7 @@ Sprints are organized **one per bounded context** (13 total — see `docs/REBUIL
 
 ## Quick start
 
-No runnable code yet — this repository is currently documentation-only, at the close of Phase 0/1. Setup instructions land here at Phase 2 (Development Environment).
+See `CLAUDE.md`'s "Build/test/run commands" section for backend, frontend, and full-stack (Docker Compose) instructions.
 
 ---
 
