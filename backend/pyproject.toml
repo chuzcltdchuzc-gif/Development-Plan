@@ -11,13 +11,14 @@ dependencies = [
     "sqlalchemy==2.0.51",
     "asyncpg==0.31.0",
     "alembic==1.18.5",
+    "pyjwt[crypto]==2.13.0",
+    "httpx==0.28.1",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
-    "httpx==0.28.1",
     "ruff==0.15.21",
     "mypy==2.3.0",
 ]
@@ -36,10 +37,27 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's Depends()/Header()/Cookie() are designed to be called in argument
+# defaults — that's the framework's own idiom, not the mutable-default-arg
+# bug B008 exists to catch.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Cookie", "app.kernel.authorization.pep.require_role"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
 disallow_untyped_defs = true
+# Payload/resource/claims dicts (audit entries, PDP resource descriptors, JWT
+# claims, JSON request/response bodies) are genuinely untyped JSON — requiring
+# dict[str, Any] everywhere adds verbosity with no real safety benefit here.
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+# Test helpers routinely return parsed response.json() (Any) typed loosely
+# as dict for readability — not worth threading precise types through.
+warn_return_any = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

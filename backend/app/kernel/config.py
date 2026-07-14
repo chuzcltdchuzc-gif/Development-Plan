@@ -25,6 +25,21 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     app_name: str = "landvault-api"
 
+    # ---- Keycloak (B1 — Identity & Authorization) ------------------------
+    keycloak_realm_url: str
+    keycloak_client_id: str
+    keycloak_client_secret: str
+    keycloak_admin_token_url: str
+    keycloak_admin_api_url: str
+    jwt_audience: str
+
+    @property
+    def cookie_secure(self) -> bool:
+        """Secure by construction, not by configuration: only ever False in
+        `development`, so there is no env var whose omission silently
+        weakens cookie security (docs/ENGINEERING_RULES.md #2)."""
+        return self.environment != "development"
+
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
     def _parse_and_guard_origins(cls, value: str | list[str]) -> list[str]:

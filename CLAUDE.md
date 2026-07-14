@@ -1,6 +1,27 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: Phase 2 (Development Environment) in progress — B0.0 scaffold landed: backend B0 kernel (fail-closed config, structured logging, RFC-7807 errors, health checks — tests green, lint/mypy clean), frontend F0 shell (Next.js App Router + Tailwind — builds clean), Docker Compose (Postgres+PostGIS, Keycloak, backend, frontend) and a Terraform baseline. Docker Compose has not been booted end-to-end in any session yet — no Docker daemon has been available in the environment this was built in; the backend was instead verified directly via `uvicorn` (real HTTP requests, not just TestClient) and the compose YAML was schema-checked, but neither is a substitute for an observed `docker compose up`. Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still an open decision, see `docs/REBUILD_PLAN.md` §6).**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B0.0 (dev environment scaffold) done; B1 (Identity & Authorization) application/domain logic done and fully tested — see "B1 status" below for exactly what that does and doesn't cover.**
+
+Docker Compose has never been booted end-to-end in any session this was built in — no Docker daemon has been available in the environment. The backend/frontend were instead verified directly (real `uvicorn`/`npm` processes, not just TestClient), and the compose YAML was schema-checked, but neither substitutes for an observed `docker compose up`. Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
+
+## B1 status (Identity & Authorization)
+
+**Done and verified (27/27 tests pass, including all 11 acceptance criteria the Operator specified — anonymous-blocked, expired-JWT-rejected, refresh-rotates, logout-invalidates, stolen-refresh-rejected, role-escalation-impossible, self-registration-cannot-assign-roles, policy-engine-default-deny, CORS-rejects-unknown-origins, rate-limiting-enabled, all-events-audited; ruff + mypy clean):**
+- Kernel PDP/PEP/PIP authorization engine, ported closely from `landverify-nigeria-101-NEW`'s audited-sound design (real reference code read, not just the audit's prose)
+- JWT verification against a JWKS provider (Keycloak-shaped, real RS256/kid flow)
+- Hash-chained append-only audit log with a real `verify_chain()`
+- Security headers + sliding-window rate-limit middleware
+- Identity domain (User/Session aggregates), role hierarchy with a real assignment-time check (fixes the exact `assign_role` self-escalation defect the Emergent audit found — no hierarchy check existed there at all)
+- AuthService/AdminService, `/v1/auth/*` + `/v1/admin/*` routes
+
+**Scope of that verification:** Keycloak and Postgres are swapped for in-memory fakes at the port boundary (`tests/fakes/`, `tests/app_factory.py`) — this is real business logic under test, not mocked-out logic, but the *adapters* to the actual external systems are separately real code (below) that hasn't been run against live infra.
+
+**Written but NOT yet run against live infrastructure** (no Docker/Postgres/Keycloak available in this environment):
+- `app/contexts/identity/adapters/postgres_repositories.py` + `orm.py` — Postgres repositories/ORM models
+- `migrations/versions/0001_identity_and_audit.py` — Alembic migration, RLS policies for tenant isolation + an append-only guarantee on `audit_log` (UPDATE/DELETE revoked at the grant level)
+- `app/contexts/identity/adapters/keycloak.py` — Direct Access Grant + JWKS + admin user-creation calls
+
+**Not wired into `app/main.py` yet, and deliberately so:** the Identity routes aren't mounted on the production app. Doing that correctly requires a per-request database session (fresh `AsyncSession` per request, with `SET LOCAL app.tenant_id` set from the `ExecutionContext` for the RLS policies above to do anything) — a Unit-of-Work pattern that doesn't exist yet and is a cross-cutting kernel concern every future bounded context will also need, not something to bolt on as a one-off for B1. Wiring it in without that pattern would mean sharing one `AsyncSession` across concurrent requests, which is a correctness bug, not just an untested path. This is the concrete next step before B1 is deployable.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

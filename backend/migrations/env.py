@@ -1,9 +1,9 @@
 """Alembic migration environment.
 
 Reads the database URL from the same fail-closed app settings used at
-runtime, rather than duplicating connection config here. No bounded
-context owns domain models yet (B0 kernel only) — target_metadata is
-wired up when the first context (B3 Registry) lands.
+runtime, rather than duplicating connection config here. target_metadata is
+Base.metadata, populated by importing every context's ORM module below so
+`alembic revision --autogenerate` can see the full schema.
 """
 import asyncio
 from logging.config import fileConfig
@@ -12,14 +12,16 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.contexts.identity.adapters.orm  # noqa: F401 — registers models with Base.metadata
 from app.kernel.config import get_settings
+from app.kernel.db import Base
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def get_url() -> str:
