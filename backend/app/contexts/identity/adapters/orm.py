@@ -1,4 +1,6 @@
-"""SQLAlchemy ORM models for the Identity context + the kernel audit log.
+"""SQLAlchemy ORM models for the Identity context (User, Session). The
+audit log lives in app.kernel.audit_orm — it's a cross-cutting kernel
+concern, not Identity's.
 
 Every table here ships its Postgres RLS policy in the same migration
 (docs/ENGINEERING_RULES.md #1) — see
@@ -79,26 +81,3 @@ class SessionRecord(Base):
     )
 
     __table_args__ = (Index("ix_identity_sessions_user", "user_id"),)
-
-
-class AuditLogRecord(Base):
-    """Append-only, hash-chained (app.kernel.audit). No ORM update/delete
-    path exists anywhere in this codebase; the migration additionally
-    revokes UPDATE/DELETE at the database grant level as defence in depth."""
-
-    __tablename__ = "audit_log"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    action: Mapped[str] = mapped_column(String, nullable=False)
-    resource_type: Mapped[str] = mapped_column(String, nullable=False)
-    resource_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    decision: Mapped[str | None] = mapped_column(String, nullable=True)
-    principal_id: Mapped[str] = mapped_column(String, nullable=False)
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    prev_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    created_at: Mapped[datetime] = mapped_column(
-        TZDateTime, server_default=func.now(), nullable=False
-    )
-
-    __table_args__ = (Index("ix_audit_log_created_at", "created_at"),)

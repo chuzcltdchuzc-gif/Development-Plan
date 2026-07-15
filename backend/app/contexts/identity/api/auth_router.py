@@ -1,7 +1,10 @@
 """Identity API router — /v1/auth/*.
 
 Routers are composition only: parse + validate via DTOs, call AuthService,
-shape the response and set the refresh cookie. No business logic lives here.
+shape the response and set the refresh cookie. No business logic lives
+here. AuthService is built fresh per request (Depends(get_auth_service)),
+never a fixed instance shared across requests — see
+app.contexts.identity.dependencies for why.
 """
 from __future__ import annotations
 
@@ -9,6 +12,7 @@ from fastapi import APIRouter, Cookie, Depends, Header, Request, Response, statu
 
 from app.contexts.identity.api.dtos import LoginRequest, RegisterRequest, TokenResponse
 from app.contexts.identity.application.auth_service import AuthService
+from app.contexts.identity.dependencies import get_auth_service
 from app.kernel.authorization.pep import require_auth
 from app.kernel.config import get_settings
 from app.kernel.context import ExecutionContext
@@ -17,19 +21,6 @@ REFRESH_COOKIE_NAME = "lv_refresh"
 REFRESH_COOKIE_PATH = "/v1/auth"
 
 router = APIRouter(prefix="/v1/auth", tags=["identity"])
-
-_service: AuthService | None = None
-
-
-def configure_router(service: AuthService) -> None:
-    global _service
-    _service = service
-
-
-def _svc() -> AuthService:
-    if _service is None:
-        raise RuntimeError("AuthService not configured")
-    return _service
 
 
 def _client_meta(request: Request) -> tuple[str | None, str | None]:
@@ -63,25 +54,31 @@ def _token_response(tokens: dict) -> dict:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(body: RegisterRequest, request: Request, response: Response) -> dict:
-    tokens = await _svc().register_local(
+async def register(
+    body: RegisterRequest,
+    request: Request,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict:
+    tokens = await auth_service.register_local(
         email=body.email, password=body.password, full_name=body.full_name, country=body.country
     )
-    _set_refresh_cookie(
-        response, tokens["refresh_token"], secure=get_settings().cookie_secure
-    )
+    _set_refresh_cookie(response, tokens["refresh_token"], secure=get_settings().cookie_secure)
     return _token_response(tokens)
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, request: Request, response: Response) -> dict:
+async def login(
+    body: LoginRequest,
+    request: Request,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict:
     ua, ip = _client_meta(request)
-    tokens = await _svc().login_local(
+    tokens = await auth_service.login_local(
         email=body.email, password=body.password, user_agent=ua, ip=ip
     )
-    _set_refresh_cookie(
-        response, tokens["refresh_token"], secure=get_settings().cookie_secure
-    )
+    _set_refresh_cookie(response, tokens["refresh_token"], secure=get_settings().cookie_secure)
     return _token_response(tokens)
 
 
@@ -91,13 +88,12 @@ async def refresh(
     response: Response,
     refresh_cookie: str | None = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
     x_refresh_token: str | None = Header(default=None),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> dict:
     refresh_token = refresh_cookie or x_refresh_token or ""
     ua, ip = _client_meta(request)
-    tokens = await _svc().refresh(refresh_token=refresh_token, user_agent=ua, ip=ip)
-    _set_refresh_cookie(
-        response, tokens["refresh_token"], secure=get_settings().cookie_secure
-    )
+    tokens = await auth_service.refresh(refresh_token=refresh_token, user_agent=ua, ip=ip)
+    _set_refresh_cookie(response, tokens["refresh_token"], secure=get_settings().cookie_secure)
     return _token_response(tokens)
 
 
@@ -106,8 +102,9 @@ async def logout(
     response: Response,
     refresh_cookie: str | None = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
     _ctx: ExecutionContext = Depends(require_auth),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Response:
-    await _svc().logout(refresh_token=refresh_cookie)
+    await auth_service.logout(refresh_token=refresh_cookie)
     _clear_refresh_cookie(response)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response

@@ -4,7 +4,11 @@ the Postgres RLS session variables set before any query runs.
 `SET LOCAL var = :value` does not accept a bind parameter — confirmed
 against a live Postgres (`syntax error at or near "$1"`), since SET is not
 a regular parameterized statement. `set_config(name, value, is_local)` is
-the parameterizable equivalent and is what this module actually uses.
+the parameterizable equivalent and is what this module actually uses, with
+`is_local=true` (transaction-scoped, not session/connection-scoped — a
+connection-scoped setting would leak into whatever unrelated request later
+reuses the same pooled physical connection, a real cross-request RLS-bypass
+risk, not just a style choice).
 
 Anonymous requests (register/login — no tenant established yet) and
 super_admin both get the cross-tenant `app.is_super_admin` flag rather than
@@ -13,6 +17,18 @@ is no pre-existing one to scope to (see the Phase 3/5 commits for the full
 reasoning); super_admin is explicitly allowed cross-tenant access by the
 RLS policies themselves (migrations/versions/0001_identity_and_audit.py).
 Every other authenticated request is scoped strictly to its own tenant.
+
+Deliberately does NOT bind this session as the audit store (unlike an
+earlier version of this module): `app.kernel.audit`'s `audit()` always
+writes through the eager, independently-committing store instead (see
+app.kernel.audit_postgres.EagerPostgresAuditStore, configured once at
+startup) — confirmed against a live Postgres that binding the per-request
+session caused a second bug on top of the one it fixed: audit()'s own
+commit ends the transaction `is_local=true` was scoped to, silently
+clearing the RLS bypass/tenant-scope for everything the same request does
+afterward. `audit_log`'s RLS policies don't need either variable anyway
+(migrations/versions/0001 grants SELECT/INSERT on it unconditionally), so
+there's no reason for audit() to share the main session's transaction.
 """
 from __future__ import annotations
 

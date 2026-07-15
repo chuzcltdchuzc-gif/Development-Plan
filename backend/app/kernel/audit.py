@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol
@@ -87,18 +88,43 @@ class AuditStore(Protocol):
     async def all_entries(self) -> list[AuditEntry]: ...
 
 
-_store: AuditStore | None = None
+_store_var: ContextVar[AuditStore | None] = ContextVar("landvault_audit_store", default=None)
+
+# Write-once at startup, read-only afterward — safe as a plain global
+# (unlike _store_var, nothing ever mutates this per-request). Backstops
+# audit() calls that happen before any per-request session exists, e.g. the
+# PEP's authz-deny audit (app.kernel.authorization.pep) runs during
+# dependency resolution, before app.kernel.uow.get_db_session is ever
+# reached — confirmed against a live server: without this, such a call
+# raised "audit store not configured" (RuntimeError -> 500) instead of the
+# expected 403.
+_eager_fallback: AuditStore | None = None
 
 
-def configure_audit_store(store: AuditStore) -> None:
-    global _store
-    _store = store
+def configure_eager_fallback(store: AuditStore) -> None:
+    global _eager_fallback
+    _eager_fallback = store
+
+
+def configure_audit_store(store: AuditStore) -> Token[AuditStore | None]:
+    """A ContextVar, not a plain global: under real concurrent requests
+    (each its own asyncio Task), a global would let one request's audit
+    store binding stomp another's mid-flight. Production binds this per
+    request (app.kernel.uow.get_db_session); tests bind it once per test."""
+    return _store_var.set(store)
+
+
+def reset_audit_store(token: Token[AuditStore | None]) -> None:
+    _store_var.reset(token)
 
 
 def get_audit_store() -> AuditStore:
-    if _store is None:
-        raise RuntimeError("audit store not configured — call configure_audit_store() at startup")
-    return _store
+    store = _store_var.get()
+    if store is not None:
+        return store
+    if _eager_fallback is not None:
+        return _eager_fallback
+    raise RuntimeError("audit store not configured — call configure_audit_store() at startup")
 
 
 async def audit(

@@ -1,12 +1,13 @@
 """Postgres-backed adapters for the Identity ports (app.contexts.identity.
-ports) — implements UserRepository, SessionRepository, and the kernel's
-AuditStore protocol (app.kernel.audit) against the ORM models in
-app.contexts.identity.adapters.orm.
+ports) — implements UserRepository and SessionRepository against the ORM
+models in app.contexts.identity.adapters.orm. (The AuditStore adapter lives
+in app.kernel.audit_postgres — audit logging is a kernel concern, not
+Identity's.)
 
 Verified against a live Postgres (B1 infrastructure validation) — see
 CLAUDE.md for the full list of defects that verification found and fixed
-here. tests/fakes/identity.py and tests/fakes/audit_store.py implement the
-exact same protocols for the fast, hermetic 11-acceptance-test suite.
+here. tests/fakes/identity.py implements the same repository protocols for
+the fast, hermetic 11-acceptance-test suite.
 """
 from __future__ import annotations
 
@@ -16,11 +17,10 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.contexts.identity.adapters.orm import AuditLogRecord, SessionRecord, UserRecord
+from app.contexts.identity.adapters.orm import SessionRecord, UserRecord
 from app.contexts.identity.domain.session import Session
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import OptimisticLockError
-from app.kernel.audit import GENESIS_HASH, AuditEntry
 
 
 def _user_from_record(record: UserRecord) -> User:
@@ -168,73 +168,6 @@ class PostgresSessionRepository:
             record.revoked_at = now
             record.revoked_reason = reason
         await self._session.flush()
-
-
-class PostgresAuditStore:
-    """Implements app.kernel.audit.AuditStore. UPDATE/DELETE on this table
-    are revoked at the database-grant level for the application role (see
-    the migration) — this class simply never attempts them."""
-
-    def __init__(self, session: AsyncSession) -> None:
-        self._session = session
-
-    async def append(self, entry: AuditEntry) -> None:
-        self._session.add(
-            AuditLogRecord(
-                id=uuid.UUID(entry.entry_id) if _looks_like_uuid(entry.entry_id) else uuid.uuid4(),
-                action=entry.action,
-                resource_type=entry.resource_type,
-                resource_id=entry.resource_id,
-                decision=entry.decision,
-                principal_id=entry.principal_id,
-                payload=entry.payload,
-                prev_hash=entry.prev_hash,
-                hash=entry.hash,
-                # MUST match entry.created_at exactly — it's part of the
-                # hashed content (app.kernel.audit._compute_hash). Letting
-                # the column's server_default=func.now() generate its own
-                # value here (as this used to do) means the persisted
-                # created_at never matches what was actually hashed, so
-                # verify_chain() fails on every single entry — confirmed
-                # against a live Postgres, not a hypothetical.
-                created_at=datetime.fromisoformat(entry.created_at),
-            )
-        )
-        await self._session.flush()
-
-    async def last_hash(self) -> str:
-        result = await self._session.execute(
-            select(AuditLogRecord.hash).order_by(AuditLogRecord.created_at.desc()).limit(1)
-        )
-        row = result.scalar_one_or_none()
-        return row or GENESIS_HASH
-
-    async def all_entries(self) -> list[AuditEntry]:
-        result = await self._session.execute(
-            select(AuditLogRecord).order_by(AuditLogRecord.created_at.asc())
-        )
-        return [
-            AuditEntry(
-                # .hex, NOT str(): entry_id was originally uuid.uuid4().hex
-                # (32 chars, no hyphens) and is part of the hashed content —
-                # str(uuid.UUID(...)) produces the canonical 36-char
-                # hyphenated form, a different string for the same UUID
-                # value, which silently broke every hash's recomputation
-                # (confirmed against a live Postgres: prev_hash linkage was
-                # intact but recompute_hash() never matched the stored hash).
-                entry_id=record.id.hex,
-                action=record.action,
-                resource_type=record.resource_type,
-                resource_id=record.resource_id,
-                decision=record.decision,
-                principal_id=record.principal_id,
-                payload=record.payload,
-                created_at=record.created_at.isoformat(),
-                prev_hash=record.prev_hash,
-                hash=record.hash,
-            )
-            for record in result.scalars()
-        ]
 
 
 def _looks_like_uuid(value: str) -> bool:

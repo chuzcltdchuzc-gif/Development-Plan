@@ -1,8 +1,11 @@
 """Builds a fully-wired FastAPI app for acceptance tests — real kernel +
 Identity application logic, with Keycloak and Postgres swapped for
-in-memory fakes at the port boundary (app.contexts.identity.ports). This is
-the same wiring shape app.main uses in production, just with adapters
-substituted (docs/adr/ADR-002: ports & adapters).
+in-memory fakes at the port boundary (app.contexts.identity.ports), wired
+in via FastAPI's dependency_overrides (the same mechanism production uses
+to inject the real Postgres-backed repositories per request — see
+app.contexts.identity.dependencies). This is the same wiring shape
+app.main uses in production, just with adapters substituted
+(docs/adr/ADR-002: ports & adapters).
 """
 from __future__ import annotations
 
@@ -11,9 +14,12 @@ from dataclasses import dataclass
 from fastapi import Depends, FastAPI, HTTPException, status
 
 from app.contexts.identity.api import admin_router, auth_router
-from app.contexts.identity.application.admin_service import AdminService
-from app.contexts.identity.application.auth_service import AuthService
 from app.contexts.identity.context_hydration import build_context_hydrator
+from app.contexts.identity.dependencies import (
+    get_identity_provider,
+    get_session_repository,
+    get_user_repository,
+)
 from app.kernel.audit import configure_audit_store
 from app.kernel.authorization.pep import configure_pep, current_context_dep, require_role
 from app.kernel.context import ExecutionContext
@@ -51,16 +57,18 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
     configure_pep(verifier, build_context_hydrator(users))
 
-    auth_service = AuthService(users=users, sessions=sessions, identity_provider=identity_provider)
-    admin_service = AdminService(users=users)
-    auth_router.configure_router(auth_service)
-    admin_router.configure_router(admin_service)
-
     app = FastAPI(title="landvault-api-test")
     register_error_handlers(app)
     configure_security(app, rate_limit_enabled=rate_limit_enabled)
     app.include_router(auth_router.router)
     app.include_router(admin_router.router)
+
+    # Same DI seam production uses (app.contexts.identity.dependencies) —
+    # tests never touch get_db_session at all, since these overrides short-
+    # circuit the dependency chain before it's ever resolved.
+    app.dependency_overrides[get_user_repository] = lambda: users
+    app.dependency_overrides[get_session_repository] = lambda: sessions
+    app.dependency_overrides[get_identity_provider] = lambda: identity_provider
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
