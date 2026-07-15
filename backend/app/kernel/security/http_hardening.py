@@ -129,9 +129,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _client_ip(request: Request) -> str:
-        fwd = request.headers.get("x-forwarded-for")
-        if fwd:
-            return fwd.split(",")[0].strip()
+        """The direct TCP peer only — NEVER X-Forwarded-For, which any
+        client can set to an arbitrary value. Confirmed against a live
+        server: trusting it made the rate limiter completely bypassable
+        (a different spoofed IP per request, zero 429s across 15 requests
+        that would otherwise have tripped the limit at request 11). There
+        is no configured trusted-reverse-proxy allowlist in this
+        deployment (docs/adr/ADR-004's "only trusted behind a configured
+        proxy allowlist" — the allowlist doesn't exist yet, so the header
+        is untrusted, full stop, not partially trusted)."""
         return request.client.host if request.client else "unknown"
 
     @staticmethod

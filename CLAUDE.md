@@ -65,7 +65,10 @@ python -m venv .venv && .venv/Scripts/pip install -e ".[dev]"
 .venv/Scripts/pytest                 # unit tests
 .venv/Scripts/ruff check .           # lint
 .venv/Scripts/mypy app tests         # type check
-.venv/Scripts/uvicorn app.main:app --reload   # run locally; needs env vars, see .env.example
+.venv/Scripts/uvicorn app.main:app --reload --no-proxy-headers   # run locally; needs env vars, see .env.example
+# --no-proxy-headers: no trusted reverse proxy is configured (ADR-004) — without
+# this flag uvicorn trusts X-Forwarded-For from 127.0.0.1 by default and rewrites
+# request.client, defeating the app's own anti-spoofing rate-limiter logic.
 ```
 
 **Frontend** (from `/frontend`):

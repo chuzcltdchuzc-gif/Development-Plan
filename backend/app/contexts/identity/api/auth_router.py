@@ -24,8 +24,12 @@ router = APIRouter(prefix="/v1/auth", tags=["identity"])
 
 
 def _client_meta(request: Request) -> tuple[str | None, str | None]:
-    fwd = request.headers.get("x-forwarded-for")
-    ip = fwd.split(",", 1)[0].strip() if fwd else (request.client.host if request.client else None)
+    # Direct TCP peer only, never X-Forwarded-For — same reasoning as
+    # app.kernel.security.http_hardening.RateLimitMiddleware._client_ip.
+    # This IP is stored on the Session record for forensic/incident review;
+    # trusting a client-supplied header there would let an attacker plant a
+    # misleading IP in their own session's audit trail.
+    ip = request.client.host if request.client else None
     return request.headers.get("user-agent"), ip
 
 
