@@ -1,13 +1,12 @@
 """Keycloak adapters — IdentityProvider (Direct Access Grant + admin user
 creation) and JWKSProvider (fetches/caches the realm's public signing keys).
 
-Not exercised against a live Keycloak in this session (no Keycloak instance
-available where this was written) — verified via tests/fakes/jwks.py and
-tests/fakes/identity.py instead, which implement the identical protocols
+Verified against a live Keycloak realm (docs/adr/ADR-004: Direct Access
+Grants enabled, confidential client whose service account has
+`manage-users` on realm-management). tests/fakes/jwks.py and
+tests/fakes/identity.py implement the identical protocols
 (app.kernel.security.jwt.JWKSProvider, app.contexts.identity.ports.
-IdentityProvider). Requires a realm with Direct Access Grants enabled and a
-confidential client whose service account has `manage-users` on
-realm-management (docs/adr/ADR-004).
+IdentityProvider) for the hermetic unit-test suite.
 """
 from __future__ import annotations
 
@@ -72,7 +71,17 @@ class KeycloakIdentityProvider:
 
     async def create_user(self, *, email: str, password: str, full_name: str) -> str:
         token = await self._admin_token()
-        first_name, _, last_name = full_name.partition(" ")
+        first_name, sep, last_name = full_name.partition(" ")
+        if not sep:
+            # Single-word full_name (no space): partition() would otherwise
+            # leave last_name empty. Keycloak's declarative User Profile
+            # requires a non-empty lastName for a "complete" profile —
+            # confirmed live that an empty lastName here silently produces a
+            # user who fails their very first login with "Account is not
+            # fully set up" (resolve_required_actions), even though creation
+            # itself returns 201. Reuse the single word for both fields
+            # rather than sending an empty string.
+            last_name = first_name
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
                 f"{self._admin_api_url}/users",
