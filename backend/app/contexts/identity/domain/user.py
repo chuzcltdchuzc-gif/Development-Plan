@@ -48,7 +48,14 @@ class User:
         organization_id: str | None = None,
     ) -> User:
         return cls(
-            user_id="usr_" + uuid.uuid4().hex,
+            # A bare UUID string, matching the Postgres UUID primary key
+            # column exactly — a "usr_"-prefixed id here used to silently
+            # get discarded and replaced with a fresh random UUID on
+            # persist (PostgresUserRepository._looks_like_uuid() correctly
+            # rejects it), which was harmless in practice (everything after
+            # add() consistently uses the DB-assigned id) but meant the
+            # aggregate's own id was never the one actually persisted.
+            user_id=str(uuid.uuid4()),
             keycloak_subject=keycloak_subject,
             email=email.strip().lower(),
             full_name=full_name.strip(),

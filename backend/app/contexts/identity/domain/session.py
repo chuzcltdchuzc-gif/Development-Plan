@@ -55,7 +55,9 @@ class Session:
         rotated_from: str | None = None,
     ) -> Session:
         return cls(
-            session_id="ses_" + uuid.uuid4().hex,
+            # Bare UUID string — matches the Postgres UUID primary key
+            # column exactly (see User.new()'s comment for why).
+            session_id=str(uuid.uuid4()),
             user_id=user_id,
             refresh_token_hash=refresh_token_hash,
             idp_refresh_token=idp_refresh_token,

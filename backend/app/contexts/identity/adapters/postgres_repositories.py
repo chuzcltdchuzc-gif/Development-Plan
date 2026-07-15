@@ -3,16 +3,15 @@ ports) — implements UserRepository, SessionRepository, and the kernel's
 AuditStore protocol (app.kernel.audit) against the ORM models in
 app.contexts.identity.adapters.orm.
 
-Not yet exercised against a live Postgres in any session this was written
-in (no Docker/Postgres available) — see CLAUDE.md for what's verified vs.
-not. tests/fakes/identity.py and tests/fakes/audit_store.py implement the
-exact same protocols and are what the 11 B1 acceptance tests actually run
-against.
+Verified against a live Postgres (B1 infrastructure validation) — see
+CLAUDE.md for the full list of defects that verification found and fixed
+here. tests/fakes/identity.py and tests/fakes/audit_store.py implement the
+exact same protocols for the fast, hermetic 11-acceptance-test suite.
 """
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -94,6 +93,7 @@ class PostgresUserRepository:
         record.last_login_at = (
             datetime.fromisoformat(user.last_login_at) if user.last_login_at else None
         )
+        record.updated_at = datetime.fromisoformat(user.updated_at)
         record.version = expected_version + 1
         await self._session.flush()
         return _user_from_record(record)
@@ -162,7 +162,7 @@ class PostgresSessionRepository:
                 SessionRecord.user_id == uuid.UUID(user_id), SessionRecord.status == "ACTIVE"
             )
         )
-        now = datetime.now()
+        now = datetime.now(UTC)
         for record in result.scalars():
             record.status = "REVOKED"
             record.revoked_at = now
@@ -190,6 +190,14 @@ class PostgresAuditStore:
                 payload=entry.payload,
                 prev_hash=entry.prev_hash,
                 hash=entry.hash,
+                # MUST match entry.created_at exactly — it's part of the
+                # hashed content (app.kernel.audit._compute_hash). Letting
+                # the column's server_default=func.now() generate its own
+                # value here (as this used to do) means the persisted
+                # created_at never matches what was actually hashed, so
+                # verify_chain() fails on every single entry — confirmed
+                # against a live Postgres, not a hypothetical.
+                created_at=datetime.fromisoformat(entry.created_at),
             )
         )
         await self._session.flush()
@@ -207,7 +215,14 @@ class PostgresAuditStore:
         )
         return [
             AuditEntry(
-                entry_id=str(record.id),
+                # .hex, NOT str(): entry_id was originally uuid.uuid4().hex
+                # (32 chars, no hyphens) and is part of the hashed content —
+                # str(uuid.UUID(...)) produces the canonical 36-char
+                # hyphenated form, a different string for the same UUID
+                # value, which silently broke every hash's recomputation
+                # (confirmed against a live Postgres: prev_hash linkage was
+                # intact but recompute_hash() never matched the stored hash).
+                entry_id=record.id.hex,
                 action=record.action,
                 resource_type=record.resource_type,
                 resource_id=record.resource_id,

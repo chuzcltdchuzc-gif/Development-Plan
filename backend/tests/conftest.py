@@ -11,7 +11,9 @@ os.environ.setdefault("KEYCLOAK_REALM_URL", "https://idp.test/realms/landvault")
 os.environ.setdefault("KEYCLOAK_CLIENT_ID", "landvault-api-test")
 os.environ.setdefault("KEYCLOAK_CLIENT_SECRET", "test-secret")
 os.environ.setdefault(
-    "KEYCLOAK_ADMIN_TOKEN_URL", "https://idp.test/realms/master/protocol/openid-connect/token"
+    # Client-credentials tokens come from the client's OWN realm, not
+    # `master` — confirmed against a live Keycloak (401 otherwise).
+    "KEYCLOAK_ADMIN_TOKEN_URL", "https://idp.test/realms/landvault/protocol/openid-connect/token"
 )
 os.environ.setdefault("KEYCLOAK_ADMIN_API_URL", "https://idp.test/admin/realms/landvault")
 os.environ.setdefault("JWT_AUDIENCE", "landvault-api")
