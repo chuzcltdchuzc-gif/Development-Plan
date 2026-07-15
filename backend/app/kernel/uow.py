@@ -29,12 +29,24 @@ clearing the RLS bypass/tenant-scope for everything the same request does
 afterward. `audit_log`'s RLS policies don't need either variable anyway
 (migrations/versions/0001 grants SELECT/INSERT on it unconditionally), so
 there's no reason for audit() to share the main session's transaction.
+
+HTTPException is committed, not rolled back, when it propagates — it
+represents a deliberate, correctly-handled application decision (401, 403,
+409, ...), not a crash. Confirmed against a live server this distinction is
+load-bearing, not cosmetic: AuthService.refresh()'s replay-detection branch
+calls sessions.revoke_all_active_for_user() *and then* raises 401 to reject
+the replay — treating that raise as "rollback everything" silently undid
+the revocation it was reporting, so a detected stolen-refresh-token replay
+would reject the thief's request but leave the legitimate session chain
+alive, defeating the point of detecting the theft at all. Only a genuinely
+unexpected exception (not one of our own application's deliberate rejections)
+still triggers a full rollback.
 """
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -66,6 +78,9 @@ async def get_db_session(
         try:
             yield session
             await session.commit()
+        except HTTPException:
+            await session.commit()
+            raise
         except Exception:
             await session.rollback()
             raise
