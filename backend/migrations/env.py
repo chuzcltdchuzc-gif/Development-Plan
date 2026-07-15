@@ -1,11 +1,20 @@
 """Alembic migration environment.
 
-Reads the database URL from the same fail-closed app settings used at
-runtime, rather than duplicating connection config here. target_metadata is
-Base.metadata, populated by importing every context's ORM module below so
-`alembic revision --autogenerate` can see the full schema.
+Deliberately does NOT reuse app.kernel.config.get_settings().database_url —
+migrations run as the schema-owning Postgres role (able to CREATE TABLE,
+CREATE ROLE, GRANT/REVOKE), while the application runs as a separate,
+non-owning least-privilege role (0002_app_role_least_privilege.py; a
+Postgres table owner bypasses GRANT/REVOKE and RLS regardless of what's
+revoked from it — verified against a live Postgres, not assumed). Sharing
+one connection string between the two would silently put migrations back
+on the least-privilege role, breaking DDL, or the app back on the owning
+role, breaking the whole point of 0002.
+
+target_metadata is Base.metadata, populated by importing every context's
+ORM module below so `alembic revision --autogenerate` can see the schema.
 """
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -13,7 +22,6 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 import app.contexts.identity.adapters.orm  # noqa: F401 — registers models with Base.metadata
-from app.kernel.config import get_settings
 from app.kernel.db import Base
 
 config = context.config
@@ -25,7 +33,13 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    return str(get_settings().database_url)
+    url = os.environ.get("MIGRATIONS_DATABASE_URL")
+    if not url:
+        raise RuntimeError(
+            "MIGRATIONS_DATABASE_URL must be set — migrations run as the "
+            "schema-owning role, never the app's least-privilege DATABASE_URL."
+        )
+    return url
 
 
 def run_migrations_offline() -> None:

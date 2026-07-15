@@ -38,7 +38,13 @@ services:
     restart: unless-stopped
     env_file: ../../.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Least-privilege role — never the schema-owning POSTGRES_USER. See
+      # migrations/versions/0002_app_role_least_privilege.py.
+      DATABASE_URL: postgresql+asyncpg://landvault_app:${POSTGRES_APP_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Only used if migrations are run via `docker compose exec backend
+      # alembic upgrade head`; the owning role, deliberately not what the
+      # running app uses (DATABASE_URL above).
+      MIGRATIONS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     depends_on:
       postgres:
         condition: service_healthy
