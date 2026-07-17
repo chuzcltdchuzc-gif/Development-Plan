@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 
 from app.contexts.identity.domain.invitation import Invitation
+from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import IdentityProviderTokens
 from app.kernel.audit import verify_chain
@@ -42,6 +43,12 @@ async def _seed_user_with_role(
     user = User.new(keycloak_subject=subject, email=email, full_name="Seed User", country="NG")
     user.roles = [role]
     user = await harness.users.add(user)
+    # B2 slice 3: the context hydrator requires an ACTIVE Tenant row for
+    # the user's tenant_id, or it hydrates zero roles (tenant not found ->
+    # not active) — without this, every governance-gated call below would
+    # be denied for the wrong reason (no tenant) rather than exercising the
+    # invitation/hierarchy logic these tests actually target.
+    await harness.tenants.add(Tenant.new(name="Seed Tenant", tenant_id=user.tenant_id))
     idp_tokens = await harness.identity_provider.authenticate(email=email, password=password)
     return idp_tokens, user
 

@@ -17,9 +17,15 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.contexts.identity.adapters.orm import InvitationRecord, SessionRecord, UserRecord
+from app.contexts.identity.adapters.orm import (
+    InvitationRecord,
+    SessionRecord,
+    TenantRecord,
+    UserRecord,
+)
 from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.session import Session
+from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import OptimisticLockError
 
@@ -253,6 +259,64 @@ class PostgresInvitationRepository:
         )
         await self._session.flush()
         return _invitation_from_record(record)
+
+
+def _tenant_from_record(record: TenantRecord) -> Tenant:
+    return Tenant(
+        tenant_id=record.id,
+        name=record.name,
+        owner_user_id=str(record.owner_user_id) if record.owner_user_id else None,
+        status=record.status,
+        created_at=record.created_at.isoformat(),
+        updated_at=record.updated_at.isoformat(),
+        suspended_at=record.suspended_at.isoformat() if record.suspended_at else None,
+        suspension_reason=record.suspension_reason,
+        archived_at=record.archived_at.isoformat() if record.archived_at else None,
+    )
+
+
+class PostgresTenantRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, tenant: Tenant) -> Tenant:
+        record = TenantRecord(
+            id=tenant.tenant_id,
+            name=tenant.name,
+            status=tenant.status,
+            owner_user_id=uuid.UUID(tenant.owner_user_id) if tenant.owner_user_id else None,
+        )
+        self._session.add(record)
+        await self._session.flush()
+        return _tenant_from_record(record)
+
+    async def get(self, tenant_id: str) -> Tenant | None:
+        record = await self._session.get(TenantRecord, tenant_id)
+        return _tenant_from_record(record) if record else None
+
+    async def list_all(self) -> list[Tenant]:
+        result = await self._session.execute(
+            select(TenantRecord).order_by(TenantRecord.created_at.desc())
+        )
+        return [_tenant_from_record(record) for record in result.scalars()]
+
+    async def update(self, tenant: Tenant) -> Tenant:
+        record = await self._session.get(TenantRecord, tenant.tenant_id)
+        if record is None:
+            raise ValueError(f"tenant {tenant.tenant_id} not found")
+        record.name = tenant.name
+        record.status = tenant.status
+        record.owner_user_id = uuid.UUID(tenant.owner_user_id) if tenant.owner_user_id else None
+        record.suspension_reason = tenant.suspension_reason
+        record.suspended_at = (
+            datetime.fromisoformat(tenant.suspended_at) if tenant.suspended_at else None
+        )
+        record.archived_at = (
+            datetime.fromisoformat(tenant.archived_at) if tenant.archived_at else None
+        )
+        record.updated_at = datetime.fromisoformat(tenant.updated_at)
+        await self._session.flush()
+        return _tenant_from_record(record)
 
 
 def _looks_like_uuid(value: str) -> bool:

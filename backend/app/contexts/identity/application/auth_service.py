@@ -13,6 +13,7 @@ import logging
 from fastapi import HTTPException, status
 
 from app.contexts.identity.domain.session import Session, utcnow
+from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.domain.value_objects import CountryCode, Email, highest_rank
 from app.contexts.identity.ports import (
@@ -21,6 +22,7 @@ from app.contexts.identity.ports import (
     IdentityProviderTokens,
     InvitationRepository,
     SessionRepository,
+    TenantRepository,
     UserRepository,
 )
 from app.kernel.audit import audit
@@ -52,11 +54,13 @@ class AuthService:
         sessions: SessionRepository,
         identity_provider: IdentityProvider,
         invitations: InvitationRepository,
+        tenants: TenantRepository,
     ) -> None:
         self.users = users
         self.sessions = sessions
         self.identity_provider = identity_provider
         self.invitations = invitations
+        self.tenants = tenants
 
     # ---- Shared validation / IdP provisioning ------------------------------
     def _validate_credentials(
@@ -105,6 +109,18 @@ class AuthService:
             email=normalized_email, password=password, full_name=full_name_clean
         )
 
+        # Self-registration creates its own tenant (B2 slice 3) — a fresh
+        # Organization boundary with this user as its founder/owner.
+        # tenants.owner_user_id -> identity_users.id and identity_users.
+        # tenant_id -> tenants.id are a genuine mutual FK pair, so neither
+        # row can carry a *valid* forward reference to the other at insert
+        # time: the tenant is inserted first with no owner (nullable),
+        # then the user (referencing the now-real tenant), then the tenant
+        # is updated with its owner — three round-trips, not a deferred-
+        # constraint trick, so the ordering stays obvious from reading it.
+        tenant = Tenant.new(name=f"{full_name_clean}'s Organization")
+        await self.tenants.add(tenant)
+
         # Self-registration ALWAYS gets the default role — there is no role
         # field on the register request for a caller to send (ADR-004 pt. 4).
         user = User.new(
@@ -112,8 +128,13 @@ class AuthService:
             email=normalized_email,
             full_name=full_name_clean,
             country=country_code,
+            tenant_id=tenant.tenant_id,
         )
         await self.users.add(user)
+
+        tenant.owner_user_id = user.user_id
+        await self.tenants.update(tenant)
+
         await audit(
             "identity.user.registered",
             resource_type="user",
@@ -135,16 +156,11 @@ class AuthService:
         user_agent: str | None,
         ip: str | None,
     ) -> dict:
-        """Redemption-time validation deliberately re-checks the inviter's
-        account and rank (below), not just the invitation's own status/
-        expiry — see the "authority re-check" block. There is one check
-        this does NOT perform: whether the *tenant itself* is still active.
-        That's not an oversight — there is no Tenant/Organization aggregate
-        anywhere in this codebase (tenant_id is only a string field on
-        User), so "tenant active" has no concept to check against yet. A
-        real tenant lifecycle (suspend/reactivate an entire organization)
-        is future work, tracked as an open item, not approximated here with
-        an invented flag."""
+        """Redemption-time validation re-checks the inviter's account and
+        rank (below) AND the target tenant's own status (B2 slice 3) — not
+        just the invitation's own status/expiry. Both are re-checked
+        against their CURRENT state, not the state captured when the
+        invitation was created."""
         if not token:
             raise _unauthenticated("Invalid or expired invitation")
         invitation = await self.invitations.get_by_token_hash(hash_token(token))
@@ -170,6 +186,7 @@ class AuthService:
         # Re-run the identical highest_rank() check against the inviter's
         # CURRENT roles, not the ones captured at creation time.
         inviter = await self.users.get(invitation.invited_by)
+        target_tenant = await self.tenants.get(invitation.tenant_id)
         authority_lost_reason: str | None = None
         if not inviter or not inviter.can_authenticate():
             authority_lost_reason = "inviter_inactive"
@@ -182,6 +199,10 @@ class AuthService:
             # forward-compatible guard against a future tenant-transfer
             # feature, not dead weight.
             authority_lost_reason = "tenant_mismatch"
+        elif not target_tenant or not target_tenant.is_active():
+            # B2 slice 3: the tenant itself may have been suspended or
+            # archived after the invitation was issued.
+            authority_lost_reason = "tenant_not_active"
 
         if authority_lost_reason:
             invitation.revoke()
@@ -269,6 +290,21 @@ class AuthService:
                 resource_type="user",
                 decision="DENY",
                 payload={"email": normalized, "reason": "account_not_found_or_inactive"},
+            )
+            raise _unauthenticated("Invalid email or password")
+
+        # B2 slice 3: a suspended/archived tenant locks out every one of its
+        # members at login too, not only on subsequent requests (the PEP's
+        # context hydrator — app.contexts.identity.context_hydration — is
+        # the layer that locks out an *already-issued* access token; this
+        # check additionally stops a new token from being issued at all).
+        tenant = await self.tenants.get(user.tenant_id)
+        if not tenant or not tenant.is_active():
+            await audit(
+                "identity.login.failed",
+                resource_type="user",
+                decision="DENY",
+                payload={"email": normalized, "reason": "tenant_not_active"},
             )
             raise _unauthenticated("Invalid email or password")
 

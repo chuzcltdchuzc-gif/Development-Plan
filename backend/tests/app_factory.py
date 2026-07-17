@@ -19,6 +19,7 @@ from app.contexts.identity.dependencies import (
     get_identity_provider,
     get_invitation_repository,
     get_session_repository,
+    get_tenant_repository,
     get_user_repository,
 )
 from app.kernel.audit import configure_audit_store
@@ -32,6 +33,7 @@ from tests.fakes.identity import (
     FakeIdentityProvider,
     InMemoryInvitationRepository,
     InMemorySessionRepository,
+    InMemoryTenantRepository,
     InMemoryUserRepository,
 )
 from tests.fakes.jwks import FakeKeycloak
@@ -44,6 +46,7 @@ class AppHarness:
     users: InMemoryUserRepository
     sessions: InMemorySessionRepository
     invitations: InMemoryInvitationRepository
+    tenants: InMemoryTenantRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
 
@@ -53,13 +56,14 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     users = InMemoryUserRepository()
     sessions = InMemorySessionRepository()
     invitations = InMemoryInvitationRepository()
+    tenants = InMemoryTenantRepository()
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
 
     configure_audit_store(audit_store)
 
     verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
-    configure_pep(verifier, build_context_hydrator(users))
+    configure_pep(verifier, build_context_hydrator(users, tenants))
 
     app = FastAPI(title="landvault-api-test")
     register_error_handlers(app)
@@ -74,6 +78,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_session_repository] = lambda: sessions
     app.dependency_overrides[get_identity_provider] = lambda: identity_provider
     app.dependency_overrides[get_invitation_repository] = lambda: invitations
+    app.dependency_overrides[get_tenant_repository] = lambda: tenants
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -97,6 +102,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         users=users,
         sessions=sessions,
         invitations=invitations,
+        tenants=tenants,
         identity_provider=identity_provider,
         audit_store=audit_store,
     )

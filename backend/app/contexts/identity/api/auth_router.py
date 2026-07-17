@@ -16,8 +16,9 @@ from app.contexts.identity.api.dtos import (
     RegisterRequest,
     TokenResponse,
 )
+from app.contexts.identity.application.admin_service import AdminService
 from app.contexts.identity.application.auth_service import AuthService
-from app.contexts.identity.dependencies import get_auth_service
+from app.contexts.identity.dependencies import get_admin_service, get_auth_service
 from app.kernel.authorization.pep import require_auth
 from app.kernel.config import get_settings
 from app.kernel.context import ExecutionContext
@@ -149,3 +150,11 @@ async def me(ctx: ExecutionContext = Depends(require_auth)) -> dict:
         "organization_id": ctx.organization_id,
         "roles": list(ctx.roles),
     }
+
+
+@router.get("/me/tenant")
+async def my_tenant(
+    ctx: ExecutionContext = Depends(require_auth),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> dict:
+    return await admin_service.get_my_tenant(ctx=ctx)

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.contexts.identity.adapters.postgres_repositories import (
     PostgresInvitationRepository,
     PostgresSessionRepository,
+    PostgresTenantRepository,
     PostgresUserRepository,
 )
 from app.contexts.identity.application.admin_service import AdminService
@@ -27,6 +28,7 @@ from app.contexts.identity.ports import (
     IdentityProvider,
     InvitationRepository,
     SessionRepository,
+    TenantRepository,
     UserRepository,
 )
 from app.kernel.uow import get_db_session
@@ -64,20 +66,26 @@ def get_invitation_repository(
     return PostgresInvitationRepository(session)
 
 
+def get_tenant_repository(session: AsyncSession = Depends(get_db_session)) -> TenantRepository:
+    return PostgresTenantRepository(session)
+
+
 def get_auth_service(
     users: UserRepository = Depends(get_user_repository),
     sessions: SessionRepository = Depends(get_session_repository),
     identity_provider: IdentityProvider = Depends(get_identity_provider),
     invitations: InvitationRepository = Depends(get_invitation_repository),
+    tenants: TenantRepository = Depends(get_tenant_repository),
 ) -> AuthService:
     return AuthService(
         users=users, sessions=sessions, identity_provider=identity_provider,
-        invitations=invitations,
+        invitations=invitations, tenants=tenants,
     )
 
 
 def get_admin_service(
     users: UserRepository = Depends(get_user_repository),
     invitations: InvitationRepository = Depends(get_invitation_repository),
+    tenants: TenantRepository = Depends(get_tenant_repository),
 ) -> AdminService:
-    return AdminService(users=users, invitations=invitations)
+    return AdminService(users=users, invitations=invitations, tenants=tenants)

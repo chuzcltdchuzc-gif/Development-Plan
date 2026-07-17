@@ -16,8 +16,9 @@ from datetime import UTC, datetime, timedelta
 from fastapi import HTTPException, status
 
 from app.contexts.identity.domain.invitation import Invitation
+from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.value_objects import ALL_ROLES, Email, highest_rank
-from app.contexts.identity.ports import InvitationRepository, UserRepository
+from app.contexts.identity.ports import InvitationRepository, TenantRepository, UserRepository
 from app.kernel.audit import audit
 from app.kernel.context import ExecutionContext
 from app.kernel.security.tokens import new_opaque_token
@@ -47,10 +48,29 @@ def _invitation_summary(invitation: Invitation) -> dict:
     }
 
 
+def _tenant_summary(tenant: Tenant) -> dict:
+    return {
+        "tenant_id": tenant.tenant_id,
+        "name": tenant.name,
+        "status": tenant.status,
+        "owner_user_id": tenant.owner_user_id,
+        "suspension_reason": tenant.suspension_reason,
+        "created_at": tenant.created_at,
+        "updated_at": tenant.updated_at,
+    }
+
+
 class AdminService:
-    def __init__(self, *, users: UserRepository, invitations: InvitationRepository) -> None:
+    def __init__(
+        self,
+        *,
+        users: UserRepository,
+        invitations: InvitationRepository,
+        tenants: TenantRepository,
+    ) -> None:
         self.users = users
         self.invitations = invitations
+        self.tenants = tenants
 
     async def assign_role(self, *, ctx: ExecutionContext, target_user_id: str, role: str) -> dict:
         if role not in ALL_ROLES:
@@ -212,3 +232,80 @@ class AdminService:
             payload={"revoked_by": ctx.principal_id},
         )
         return _invitation_summary(invitation)
+
+    # ---- Tenant lifecycle (B2 slice 3, docs/adr/ADR-010) -------------------
+    # Suspend/reactivate/archive are gated `require_role("super_admin")`
+    # only at the router (app.contexts.identity.api.admin_router) — not the
+    # broader GOVERNANCE_ROLES used elsewhere in this file. Suspending an
+    # entire organization is a platform-operations action, not tenant-
+    # internal governance a compliance_officer/surveyor_general should be
+    # able to do to their own tenant.
+
+    async def get_my_tenant(self, *, ctx: ExecutionContext) -> dict:
+        if not ctx.tenant_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no tenant")
+        tenant = await self.tenants.get(ctx.tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no tenant")
+        return _tenant_summary(tenant)
+
+    async def list_tenants(self) -> list[dict]:
+        tenants = await self.tenants.list_all()
+        return [_tenant_summary(t) for t in tenants]
+
+    async def get_tenant(self, *, tenant_id: str) -> dict:
+        tenant = await self.tenants.get(tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+        return _tenant_summary(tenant)
+
+    async def suspend_tenant(self, *, ctx: ExecutionContext, tenant_id: str, reason: str) -> dict:
+        tenant = await self.tenants.get(tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+        try:
+            tenant.suspend(reason=reason)
+        except ValueError as exc:
+            raise _conflict(str(exc)) from exc
+        tenant = await self.tenants.update(tenant)
+        await audit(
+            "identity.tenant.suspended",
+            resource_type="tenant",
+            resource_id=tenant.tenant_id,
+            decision="PERMIT",
+            payload={"reason": reason, "suspended_by": ctx.principal_id},
+        )
+        return _tenant_summary(tenant)
+
+    async def reactivate_tenant(self, *, ctx: ExecutionContext, tenant_id: str) -> dict:
+        tenant = await self.tenants.get(tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+        try:
+            tenant.reactivate()
+        except ValueError as exc:
+            raise _conflict(str(exc)) from exc
+        tenant = await self.tenants.update(tenant)
+        await audit(
+            "identity.tenant.reactivated",
+            resource_type="tenant",
+            resource_id=tenant.tenant_id,
+            decision="PERMIT",
+            payload={"reactivated_by": ctx.principal_id},
+        )
+        return _tenant_summary(tenant)
+
+    async def archive_tenant(self, *, ctx: ExecutionContext, tenant_id: str) -> dict:
+        tenant = await self.tenants.get(tenant_id)
+        if not tenant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="tenant not found")
+        tenant.archive()
+        tenant = await self.tenants.update(tenant)
+        await audit(
+            "identity.tenant.archived",
+            resource_type="tenant",
+            resource_id=tenant.tenant_id,
+            decision="PERMIT",
+            payload={"archived_by": ctx.principal_id},
+        )
+        return _tenant_summary(tenant)

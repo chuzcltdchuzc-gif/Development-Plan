@@ -11,6 +11,7 @@ from copy import deepcopy
 
 from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.session import Session
+from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import (
     IdentityProviderError,
@@ -115,6 +116,28 @@ class InMemoryInvitationRepository:
     async def update(self, invitation: Invitation) -> Invitation:
         self._by_id[invitation.invitation_id] = deepcopy(invitation)
         return deepcopy(invitation)
+
+
+class InMemoryTenantRepository:
+    def __init__(self) -> None:
+        self._by_id: dict[str, Tenant] = {}
+
+    async def add(self, tenant: Tenant) -> Tenant:
+        self._by_id[tenant.tenant_id] = deepcopy(tenant)
+        return deepcopy(tenant)
+
+    async def get(self, tenant_id: str) -> Tenant | None:
+        tenant = self._by_id.get(tenant_id)
+        return deepcopy(tenant) if tenant else None
+
+    async def list_all(self) -> list[Tenant]:
+        return sorted(
+            (deepcopy(t) for t in self._by_id.values()), key=lambda t: t.created_at, reverse=True
+        )
+
+    async def update(self, tenant: Tenant) -> Tenant:
+        self._by_id[tenant.tenant_id] = deepcopy(tenant)
+        return deepcopy(tenant)
 
 
 class FakeIdentityProvider:

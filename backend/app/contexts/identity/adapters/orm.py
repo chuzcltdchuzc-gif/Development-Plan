@@ -106,3 +106,29 @@ class InvitationRecord(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
 
     __table_args__ = (Index("ix_identity_invitations_tenant", "tenant_id"),)
+
+
+class TenantRecord(Base):
+    """Tenant/Organization aggregate (B2 slice 3 — migrations/versions/
+    0005_tenants.py, docs/adr/ADR-010). `id` is a String, not a UUID — it
+    keeps the exact same value `identity_users.tenant_id` already used
+    before this table existed, so the migration is a backward-compatible
+    FK addition, not an id remapping."""
+
+    __tablename__ = "tenants"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="ACTIVE")
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("identity_users.id"), nullable=True
+    )
+    suspension_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )

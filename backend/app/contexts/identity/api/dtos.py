@@ -47,6 +47,12 @@ class AcceptInvitationRequest(BaseModel):
     country: str | None = None
 
 
+class SuspendTenantRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str
+
+
 class UserView(BaseModel):
     model_config = ConfigDict(extra="allow")
 
