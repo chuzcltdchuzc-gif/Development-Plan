@@ -85,6 +85,17 @@ class InMemoryInvitationRepository:
         self._by_id[invitation.invitation_id] = deepcopy(invitation)
         return deepcopy(invitation)
 
+    async def get(self, invitation_id: str) -> Invitation | None:
+        invitation = self._by_id.get(invitation_id)
+        return deepcopy(invitation) if invitation else None
+
+    async def list_for_tenant(self, tenant_id: str) -> list[Invitation]:
+        return sorted(
+            (deepcopy(inv) for inv in self._by_id.values() if inv.tenant_id == tenant_id),
+            key=lambda inv: inv.created_at,
+            reverse=True,
+        )
+
     async def get_by_token_hash(self, token_hash: str) -> Invitation | None:
         for invitation in self._by_id.values():
             if invitation.token_hash == token_hash:

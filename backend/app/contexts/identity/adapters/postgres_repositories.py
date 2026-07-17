@@ -208,12 +208,26 @@ class PostgresInvitationRepository:
         await self._session.flush()
         return _invitation_from_record(record)
 
+    async def get(self, invitation_id: str) -> Invitation | None:
+        if not _looks_like_uuid(invitation_id):
+            return None
+        record = await self._session.get(InvitationRecord, uuid.UUID(invitation_id))
+        return _invitation_from_record(record) if record else None
+
     async def get_by_token_hash(self, token_hash: str) -> Invitation | None:
         result = await self._session.execute(
             select(InvitationRecord).where(InvitationRecord.token_hash == token_hash)
         )
         record = result.scalar_one_or_none()
         return _invitation_from_record(record) if record else None
+
+    async def list_for_tenant(self, tenant_id: str) -> list[Invitation]:
+        result = await self._session.execute(
+            select(InvitationRecord)
+            .where(InvitationRecord.tenant_id == tenant_id)
+            .order_by(InvitationRecord.created_at.desc())
+        )
+        return [_invitation_from_record(record) for record in result.scalars()]
 
     async def get_pending_by_email(self, tenant_id: str, email: str) -> Invitation | None:
         result = await self._session.execute(

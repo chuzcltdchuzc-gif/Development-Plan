@@ -37,3 +37,20 @@ async def create_invitation(
     admin_service: AdminService = Depends(get_admin_service),
 ) -> dict:
     return await admin_service.create_invitation(ctx=ctx, email=body.email, role=body.role)
+
+
+@router.get("/invitations")
+async def list_invitations(
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> list[dict]:
+    return await admin_service.list_invitations(ctx=ctx)
+
+
+@router.post("/invitations/{invitation_id}/revoke")
+async def revoke_invitation(
+    invitation_id: str,
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> dict:
+    return await admin_service.revoke_invitation(ctx=ctx, invitation_id=invitation_id)

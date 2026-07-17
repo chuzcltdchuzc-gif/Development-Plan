@@ -14,7 +14,7 @@ from fastapi import HTTPException, status
 
 from app.contexts.identity.domain.session import Session, utcnow
 from app.contexts.identity.domain.user import User
-from app.contexts.identity.domain.value_objects import CountryCode, Email
+from app.contexts.identity.domain.value_objects import CountryCode, Email, highest_rank
 from app.contexts.identity.ports import (
     IdentityProvider,
     IdentityProviderError,
@@ -135,13 +135,64 @@ class AuthService:
         user_agent: str | None,
         ip: str | None,
     ) -> dict:
+        """Redemption-time validation deliberately re-checks the inviter's
+        account and rank (below), not just the invitation's own status/
+        expiry — see the "authority re-check" block. There is one check
+        this does NOT perform: whether the *tenant itself* is still active.
+        That's not an oversight — there is no Tenant/Organization aggregate
+        anywhere in this codebase (tenant_id is only a string field on
+        User), so "tenant active" has no concept to check against yet. A
+        real tenant lifecycle (suspend/reactivate an entire organization)
+        is future work, tracked as an open item, not approximated here with
+        an invented flag."""
         if not token:
             raise _unauthenticated("Invalid or expired invitation")
         invitation = await self.invitations.get_by_token_hash(hash_token(token))
         if not invitation or not invitation.is_redeemable_at(utcnow()):
+            await audit(
+                "identity.invitation.redemption_denied",
+                resource_type="invitation",
+                resource_id=invitation.invitation_id if invitation else None,
+                decision="DENY",
+                payload={"reason": "invalid_or_expired"},
+            )
             # Generic message on purpose — unknown, expired, already-
             # accepted, and revoked all look identical to the caller, same
             # rationale as login's generic "Invalid email or password".
+            raise _unauthenticated("Invalid or expired invitation")
+
+        # Redemption-time authority re-check (B2 slice 2): the hierarchy
+        # check at invite-creation time (AdminService.create_invitation)
+        # only proves the inviter had authority *then*. An invitation can
+        # sit PENDING for days; if the inviter is deactivated or demoted
+        # below the invited role's rank in the meantime, redeeming it must
+        # not silently grant a role its issuer could no longer grant today.
+        # Re-run the identical highest_rank() check against the inviter's
+        # CURRENT roles, not the ones captured at creation time.
+        inviter = await self.users.get(invitation.invited_by)
+        authority_lost_reason: str | None = None
+        if not inviter or not inviter.can_authenticate():
+            authority_lost_reason = "inviter_inactive"
+        elif highest_rank([invitation.role]) > highest_rank(inviter.roles):
+            authority_lost_reason = "inviter_authority_lost"
+        elif inviter.tenant_id != invitation.tenant_id:
+            # Currently unreachable: nothing in this codebase ever mutates
+            # User.tenant_id after creation, so an inviter's tenant can't
+            # drift away from the invitation's tenant today. Kept as a
+            # forward-compatible guard against a future tenant-transfer
+            # feature, not dead weight.
+            authority_lost_reason = "tenant_mismatch"
+
+        if authority_lost_reason:
+            invitation.revoke()
+            await self.invitations.update(invitation)
+            await audit(
+                "identity.invitation.redemption_denied",
+                resource_type="invitation",
+                resource_id=invitation.invitation_id,
+                decision="DENY",
+                payload={"reason": authority_lost_reason},
+            )
             raise _unauthenticated("Invalid or expired invitation")
 
         full_name_clean, country_code = self._validate_credentials(

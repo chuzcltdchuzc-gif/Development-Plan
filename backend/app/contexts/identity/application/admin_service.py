@@ -33,6 +33,20 @@ def _conflict(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 
+def _invitation_summary(invitation: Invitation) -> dict:
+    """Shared by list/revoke — never includes the token (only its hash is
+    ever persisted; the plaintext is returned once, at creation, in
+    create_invitation's own response)."""
+    return {
+        "invitation_id": invitation.invitation_id,
+        "email": invitation.invited_email,
+        "role": invitation.role,
+        "status": invitation.status,
+        "expires_at": invitation.expires_at,
+        "created_at": invitation.created_at,
+    }
+
+
 class AdminService:
     def __init__(self, *, users: UserRepository, invitations: InvitationRepository) -> None:
         self.users = users
@@ -161,3 +175,40 @@ class AdminService:
             # responsible for relaying this to the invitee out-of-band.
             "token": plaintext_token,
         }
+
+    async def list_invitations(self, *, ctx: ExecutionContext) -> list[dict]:
+        if not ctx.tenant_id:
+            return []
+        # Explicit tenant filter in the query itself, not just reliance on
+        # RLS — the same "two independent layers" pattern as the PDP's
+        # tenant-isolation policy alongside Postgres RLS (docs/adr/ADR-009).
+        invitations = await self.invitations.list_for_tenant(ctx.tenant_id)
+        return [_invitation_summary(inv) for inv in invitations]
+
+    async def revoke_invitation(self, *, ctx: ExecutionContext, invitation_id: str) -> dict:
+        invitation = await self.invitations.get(invitation_id)
+        # RLS already makes a cross-tenant row invisible at the database
+        # layer (identity_invitations_tenant_isolation) — this explicit
+        # check is the second, independent layer, not a substitute for it.
+        if not invitation or invitation.tenant_id != ctx.tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="invitation not found"
+            )
+        if invitation.status != "PENDING":
+            raise _conflict("invitation is not pending")
+
+        # No hierarchy check here, unlike create_invitation: revoking is
+        # strictly de-escalating (destroying a not-yet-exercised grant, not
+        # issuing a new one), so any governance-role member of the same
+        # tenant may cancel any pending invitation in it, not only ones
+        # they personally created.
+        invitation.revoke()
+        invitation = await self.invitations.update(invitation)
+        await audit(
+            "identity.invitation.revoked",
+            resource_type="invitation",
+            resource_id=invitation.invitation_id,
+            decision="PERMIT",
+            payload={"revoked_by": ctx.principal_id},
+        )
+        return _invitation_summary(invitation)
