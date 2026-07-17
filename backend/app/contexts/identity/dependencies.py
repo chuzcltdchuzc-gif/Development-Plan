@@ -17,12 +17,18 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.identity.adapters.postgres_repositories import (
+    PostgresInvitationRepository,
     PostgresSessionRepository,
     PostgresUserRepository,
 )
 from app.contexts.identity.application.admin_service import AdminService
 from app.contexts.identity.application.auth_service import AuthService
-from app.contexts.identity.ports import IdentityProvider, SessionRepository, UserRepository
+from app.contexts.identity.ports import (
+    IdentityProvider,
+    InvitationRepository,
+    SessionRepository,
+    UserRepository,
+)
 from app.kernel.uow import get_db_session
 
 _identity_provider: IdentityProvider | None = None
@@ -52,13 +58,26 @@ def get_session_repository(session: AsyncSession = Depends(get_db_session)) -> S
     return PostgresSessionRepository(session)
 
 
+def get_invitation_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> InvitationRepository:
+    return PostgresInvitationRepository(session)
+
+
 def get_auth_service(
     users: UserRepository = Depends(get_user_repository),
     sessions: SessionRepository = Depends(get_session_repository),
     identity_provider: IdentityProvider = Depends(get_identity_provider),
+    invitations: InvitationRepository = Depends(get_invitation_repository),
 ) -> AuthService:
-    return AuthService(users=users, sessions=sessions, identity_provider=identity_provider)
+    return AuthService(
+        users=users, sessions=sessions, identity_provider=identity_provider,
+        invitations=invitations,
+    )
 
 
-def get_admin_service(users: UserRepository = Depends(get_user_repository)) -> AdminService:
-    return AdminService(users=users)
+def get_admin_service(
+    users: UserRepository = Depends(get_user_repository),
+    invitations: InvitationRepository = Depends(get_invitation_repository),
+) -> AdminService:
+    return AdminService(users=users, invitations=invitations)

@@ -10,7 +10,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Cookie, Depends, Header, Request, Response, status
 
-from app.contexts.identity.api.dtos import LoginRequest, RegisterRequest, TokenResponse
+from app.contexts.identity.api.dtos import (
+    AcceptInvitationRequest,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+)
 from app.contexts.identity.application.auth_service import AuthService
 from app.contexts.identity.dependencies import get_auth_service
 from app.kernel.authorization.pep import require_auth
@@ -81,6 +86,26 @@ async def login(
     ua, ip = _client_meta(request)
     tokens = await auth_service.login_local(
         email=body.email, password=body.password, user_agent=ua, ip=ip
+    )
+    _set_refresh_cookie(response, tokens["refresh_token"], secure=get_settings().cookie_secure)
+    return _token_response(tokens)
+
+
+@router.post("/invitations/accept", response_model=TokenResponse, status_code=201)
+async def accept_invitation(
+    body: AcceptInvitationRequest,
+    request: Request,
+    response: Response,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict:
+    ua, ip = _client_meta(request)
+    tokens = await auth_service.accept_invitation(
+        token=body.token,
+        password=body.password,
+        full_name=body.full_name,
+        country=body.country,
+        user_agent=ua,
+        ip=ip,
     )
     _set_refresh_cookie(response, tokens["refresh_token"], secure=get_settings().cookie_secure)
     return _token_response(tokens)

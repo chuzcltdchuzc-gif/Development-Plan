@@ -17,6 +17,7 @@ from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_context_hydrator
 from app.contexts.identity.dependencies import (
     get_identity_provider,
+    get_invitation_repository,
     get_session_repository,
     get_user_repository,
 )
@@ -29,6 +30,7 @@ from app.kernel.security.jwt import JwtVerifier
 from tests.fakes.audit_store import InMemoryAuditStore
 from tests.fakes.identity import (
     FakeIdentityProvider,
+    InMemoryInvitationRepository,
     InMemorySessionRepository,
     InMemoryUserRepository,
 )
@@ -41,6 +43,7 @@ class AppHarness:
     keycloak: FakeKeycloak
     users: InMemoryUserRepository
     sessions: InMemorySessionRepository
+    invitations: InMemoryInvitationRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
 
@@ -49,6 +52,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     keycloak = FakeKeycloak()
     users = InMemoryUserRepository()
     sessions = InMemorySessionRepository()
+    invitations = InMemoryInvitationRepository()
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
 
@@ -69,6 +73,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_user_repository] = lambda: users
     app.dependency_overrides[get_session_repository] = lambda: sessions
     app.dependency_overrides[get_identity_provider] = lambda: identity_provider
+    app.dependency_overrides[get_invitation_repository] = lambda: invitations
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -91,6 +96,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         keycloak=keycloak,
         users=users,
         sessions=sessions,
+        invitations=invitations,
         identity_provider=identity_provider,
         audit_store=audit_store,
     )

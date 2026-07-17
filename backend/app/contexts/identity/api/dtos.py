@@ -31,6 +31,22 @@ class AssignRoleRequest(BaseModel):
     role: str
 
 
+class CreateInvitationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str
+    role: str
+
+
+class AcceptInvitationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    password: str
+    full_name: str
+    country: str | None = None
+
+
 class UserView(BaseModel):
     model_config = ConfigDict(extra="allow")
 

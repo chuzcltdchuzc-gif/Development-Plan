@@ -9,6 +9,7 @@ import secrets
 import uuid
 from copy import deepcopy
 
+from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.session import Session
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import (
@@ -74,6 +75,35 @@ class InMemorySessionRepository:
         for session in self._by_id.values():
             if session.user_id == user_id and session.status == "ACTIVE":
                 session.revoke(reason)
+
+
+class InMemoryInvitationRepository:
+    def __init__(self) -> None:
+        self._by_id: dict[str, Invitation] = {}
+
+    async def add(self, invitation: Invitation) -> Invitation:
+        self._by_id[invitation.invitation_id] = deepcopy(invitation)
+        return deepcopy(invitation)
+
+    async def get_by_token_hash(self, token_hash: str) -> Invitation | None:
+        for invitation in self._by_id.values():
+            if invitation.token_hash == token_hash:
+                return deepcopy(invitation)
+        return None
+
+    async def get_pending_by_email(self, tenant_id: str, email: str) -> Invitation | None:
+        for invitation in self._by_id.values():
+            if (
+                invitation.tenant_id == tenant_id
+                and invitation.invited_email == email.strip().lower()
+                and invitation.status == "PENDING"
+            ):
+                return deepcopy(invitation)
+        return None
+
+    async def update(self, invitation: Invitation) -> Invitation:
+        self._by_id[invitation.invitation_id] = deepcopy(invitation)
+        return deepcopy(invitation)
 
 
 class FakeIdentityProvider:

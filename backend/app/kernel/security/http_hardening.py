@@ -79,6 +79,8 @@ RATE_LIMITS: dict[str, tuple[int, int]] = {
     "/v1/auth/login": (10, 60),
     "/v1/auth/register": (5, 60),
     "/v1/auth/refresh": (30, 60),
+    # Anonymous, token-guessing-exposed — same bucket size as register.
+    "/v1/auth/invitations/accept": (5, 60),
 }
 
 

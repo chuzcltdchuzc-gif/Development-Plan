@@ -1,27 +1,18 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B0.0 (dev environment scaffold) done; B1 (Identity & Authorization) application/domain logic done and fully tested — see "B1 status" below for exactly what that does and doesn't cover.**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1 (Identity & Authorization) is complete, verified against real infrastructure, and frozen — see `docs/adr/ADR-009-b1-platform-freeze.md` and `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md`. B2 (tenant provisioning / role assignment / delegation) is in progress — see "B2 status" below.**
 
-Docker Compose has never been booted end-to-end in any session this was built in — no Docker daemon has been available in the environment. The backend/frontend were instead verified directly (real `uvicorn`/`npm` processes, not just TestClient), and the compose YAML was schema-checked, but neither substitutes for an observed `docker compose up`. Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
+Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
 
-## B1 status (Identity & Authorization)
+## B1 status (Identity & Authorization) — frozen
 
-**Done and verified (27/27 tests pass, including all 11 acceptance criteria the Operator specified — anonymous-blocked, expired-JWT-rejected, refresh-rotates, logout-invalidates, stolen-refresh-rejected, role-escalation-impossible, self-registration-cannot-assign-roles, policy-engine-default-deny, CORS-rejects-unknown-origins, rate-limiting-enabled, all-events-audited; ruff + mypy clean):**
-- Kernel PDP/PEP/PIP authorization engine, ported closely from `landverify-nigeria-101-NEW`'s audited-sound design (real reference code read, not just the audit's prose)
-- JWT verification against a JWKS provider (Keycloak-shaped, real RS256/kid flow)
-- Hash-chained append-only audit log with a real `verify_chain()`
-- Security headers + sliding-window rate-limit middleware
-- Identity domain (User/Session aggregates), role hierarchy with a real assignment-time check (fixes the exact `assign_role` self-escalation defect the Emergent audit found — no hierarchy check existed there at all)
-- AuthService/AdminService, `/v1/auth/*` + `/v1/admin/*` routes
+Complete and verified against live infrastructure (real Docker/Postgres/Keycloak, not in-memory fakes) — see `docs/adr/ADR-009-b1-platform-freeze.md` for the full frozen architecture description (auth flow, JWT/refresh lifecycle, RLS model, audit-chain architecture, Unit-of-Work, rate limiting, etc.) and `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the evidence. **Any change to what ADR-009 describes requires a new ADR referencing it — do not silently modify frozen B1 behavior while building B2+.**
 
-**Scope of that verification:** Keycloak and Postgres are swapped for in-memory fakes at the port boundary (`tests/fakes/`, `tests/app_factory.py`) — this is real business logic under test, not mocked-out logic, but the *adapters* to the actual external systems are separately real code (below) that hasn't been run against live infra.
+## B2 status (tenant provisioning / role assignment / delegation) — in progress
 
-**Written but NOT yet run against live infrastructure** (no Docker/Postgres/Keycloak available in this environment):
-- `app/contexts/identity/adapters/postgres_repositories.py` + `orm.py` — Postgres repositories/ORM models
-- `migrations/versions/0001_identity_and_audit.py` — Alembic migration, RLS policies for tenant isolation + an append-only guarantee on `audit_log` (UPDATE/DELETE revoked at the grant level)
-- `app/contexts/identity/adapters/keycloak.py` — Direct Access Grant + JWKS + admin user-creation calls
+**Slice 1 — tenant membership invitations (done, verified against live infrastructure):** a governance-role principal (`super_admin`/`surveyor_general`/`compliance_officer`) invites an email into their own tenant at a role no higher than their own rank (reuses `assign_role`'s hierarchy check exactly), via `POST /v1/admin/invitations`. The invitee redeems an opaque, hashed, expiring (7-day) token via `POST /v1/auth/invitations/accept` to complete registration directly into the inviter's tenant with the invited role. New table `identity_invitations` (migration `0004`), same RLS/grant shape as `identity_users`. No email-delivery integration exists yet — the plaintext token is returned once to the inviter to relay out-of-band; this is a known, documented limitation, not a bug.
 
-**Not wired into `app/main.py` yet, and deliberately so:** the Identity routes aren't mounted on the production app. Doing that correctly requires a per-request database session (fresh `AsyncSession` per request, with `SET LOCAL app.tenant_id` set from the `ExecutionContext` for the RLS policies above to do anything) — a Unit-of-Work pattern that doesn't exist yet and is a cross-cutting kernel concern every future bounded context will also need, not something to bolt on as a one-off for B1. Wiring it in without that pattern would mean sharing one `AsyncSession` across concurrent requests, which is a correctness bug, not just an untested path. This is the concrete next step before B1 is deployable.
+**Not yet built:** invitation revocation/listing endpoints (natural next slice), delegation wired into the PDP (no existing spec — will need its own design pass before implementation).
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
@@ -48,7 +39,7 @@ This file is the always-loaded operational summary. It is a pointer, not the sou
 
 ```
 /frontend   — Next.js + TypeScript (F0 shell landed; bounded-context UI stages land per docs/REBUILD_PLAN.md §3)
-/backend    — Python + FastAPI (B0 kernel landed in app/kernel/; one folder per bounded context as B1+ land)
+/backend    — Python + FastAPI (B0 kernel in app/kernel/; app/contexts/identity/ has B1 + B2 slice 1)
 /infra      — Terraform (version-pinned baseline, no provider yet), Docker (infra/docker/docker-compose.yml)
 /docs       — this planning package
 ```
@@ -82,6 +73,11 @@ npm run build && npm run start       # or `npm run dev` for local development
 **Full stack** (from repo root, requires Docker):
 ```
 cp .env.example .env   # then fill in real values
-docker compose -f infra/docker/docker-compose.yml up --build
+docker compose --env-file .env -f infra/docker/docker-compose.yml up --build
+# --env-file is required: plain env_file: in the compose YAML only injects
+# vars into containers, it does not feed ${VAR} substitution in the YAML itself.
 ```
-Not yet verified in any session — see the status note above.
+Migrations against the live database (owning role, not the app's least-privilege role):
+```
+docker compose --env-file .env -f infra/docker/docker-compose.yml exec backend alembic upgrade head
+```

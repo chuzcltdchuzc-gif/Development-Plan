@@ -17,7 +17,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.contexts.identity.adapters.orm import SessionRecord, UserRecord
+from app.contexts.identity.adapters.orm import InvitationRecord, SessionRecord, UserRecord
+from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.session import Session
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import OptimisticLockError
@@ -168,6 +169,76 @@ class PostgresSessionRepository:
             record.revoked_at = now
             record.revoked_reason = reason
         await self._session.flush()
+
+
+def _invitation_from_record(record: InvitationRecord) -> Invitation:
+    return Invitation(
+        invitation_id=str(record.id),
+        tenant_id=record.tenant_id,
+        invited_email=record.invited_email,
+        role=record.role,
+        invited_by=str(record.invited_by),
+        token_hash=record.token_hash,
+        expires_at=record.expires_at.isoformat(),
+        status=record.status,
+        created_at=record.created_at.isoformat(),
+        accepted_at=record.accepted_at.isoformat() if record.accepted_at else None,
+        revoked_at=record.revoked_at.isoformat() if record.revoked_at else None,
+    )
+
+
+class PostgresInvitationRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, invitation: Invitation) -> Invitation:
+        record = InvitationRecord(
+            id=uuid.UUID(invitation.invitation_id)
+            if _looks_like_uuid(invitation.invitation_id)
+            else uuid.uuid4(),
+            tenant_id=invitation.tenant_id,
+            invited_email=invitation.invited_email,
+            role=invitation.role,
+            invited_by=uuid.UUID(invitation.invited_by),
+            token_hash=invitation.token_hash,
+            status=invitation.status,
+            expires_at=datetime.fromisoformat(invitation.expires_at),
+        )
+        self._session.add(record)
+        await self._session.flush()
+        return _invitation_from_record(record)
+
+    async def get_by_token_hash(self, token_hash: str) -> Invitation | None:
+        result = await self._session.execute(
+            select(InvitationRecord).where(InvitationRecord.token_hash == token_hash)
+        )
+        record = result.scalar_one_or_none()
+        return _invitation_from_record(record) if record else None
+
+    async def get_pending_by_email(self, tenant_id: str, email: str) -> Invitation | None:
+        result = await self._session.execute(
+            select(InvitationRecord).where(
+                InvitationRecord.tenant_id == tenant_id,
+                InvitationRecord.invited_email == email.strip().lower(),
+                InvitationRecord.status == "PENDING",
+            )
+        )
+        record = result.scalar_one_or_none()
+        return _invitation_from_record(record) if record else None
+
+    async def update(self, invitation: Invitation) -> Invitation:
+        record = await self._session.get(InvitationRecord, uuid.UUID(invitation.invitation_id))
+        if record is None:
+            raise ValueError(f"invitation {invitation.invitation_id} not found")
+        record.status = invitation.status
+        record.accepted_at = (
+            datetime.fromisoformat(invitation.accepted_at) if invitation.accepted_at else None
+        )
+        record.revoked_at = (
+            datetime.fromisoformat(invitation.revoked_at) if invitation.revoked_at else None
+        )
+        await self._session.flush()
+        return _invitation_from_record(record)
 
 
 def _looks_like_uuid(value: str) -> bool:

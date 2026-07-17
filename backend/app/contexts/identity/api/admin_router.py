@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.contexts.identity.api.dtos import AssignRoleRequest
+from app.contexts.identity.api.dtos import AssignRoleRequest, CreateInvitationRequest
 from app.contexts.identity.application.admin_service import AdminService
 from app.contexts.identity.dependencies import get_admin_service
 from app.contexts.identity.domain.value_objects import GOVERNANCE_ROLES
@@ -28,3 +28,12 @@ async def assign_role(
     admin_service: AdminService = Depends(get_admin_service),
 ) -> dict:
     return await admin_service.assign_role(ctx=ctx, target_user_id=user_id, role=body.role)
+
+
+@router.post("/invitations", status_code=201)
+async def create_invitation(
+    body: CreateInvitationRequest,
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> dict:
+    return await admin_service.create_invitation(ctx=ctx, email=body.email, role=body.role)

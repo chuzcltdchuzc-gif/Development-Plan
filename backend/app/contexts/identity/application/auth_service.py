@@ -19,6 +19,7 @@ from app.contexts.identity.ports import (
     IdentityProvider,
     IdentityProviderError,
     IdentityProviderTokens,
+    InvitationRepository,
     SessionRepository,
     UserRepository,
 )
@@ -50,19 +51,20 @@ class AuthService:
         users: UserRepository,
         sessions: SessionRepository,
         identity_provider: IdentityProvider,
+        invitations: InvitationRepository,
     ) -> None:
         self.users = users
         self.sessions = sessions
         self.identity_provider = identity_provider
+        self.invitations = invitations
 
-    # ---- Registration -----------------------------------------------------
-    async def register_local(
-        self, *, email: str, password: str, full_name: str, country: str | None = None
-    ) -> dict:
-        try:
-            normalized_email = Email.parse(email).value
-        except ValueError as exc:
-            raise _bad_request(str(exc)) from exc
+    # ---- Shared validation / IdP provisioning ------------------------------
+    def _validate_credentials(
+        self, *, password: str, full_name: str, country: str | None
+    ) -> tuple[str, str]:
+        """Shared by register_local and accept_invitation — both create a
+        brand-new local account and IdP credential, differing only in where
+        the email and role come from."""
         if not password or len(password) < 8:
             raise _bad_request("password must be at least 8 characters")
         if not full_name or not full_name.strip():
@@ -72,25 +74,43 @@ class AuthService:
             country_code = CountryCode(country_code).value
         except ValueError as exc:
             raise _bad_request(str(exc)) from exc
+        return full_name.strip(), country_code
 
-        if await self.users.get_by_email(normalized_email):
-            raise _conflict("Email already registered")
-
+    async def _create_idp_user(self, *, email: str, password: str, full_name: str) -> str:
         try:
-            subject = await self.identity_provider.create_user(
-                email=normalized_email, password=password, full_name=full_name.strip()
+            return await self.identity_provider.create_user(
+                email=email, password=password, full_name=full_name
             )
         except IdentityProviderError as exc:
             if exc.code == "identity.email_taken":
                 raise _conflict("Email already registered") from exc
             raise _bad_request(str(exc)) from exc
 
+    # ---- Registration -----------------------------------------------------
+    async def register_local(
+        self, *, email: str, password: str, full_name: str, country: str | None = None
+    ) -> dict:
+        try:
+            normalized_email = Email.parse(email).value
+        except ValueError as exc:
+            raise _bad_request(str(exc)) from exc
+        full_name_clean, country_code = self._validate_credentials(
+            password=password, full_name=full_name, country=country
+        )
+
+        if await self.users.get_by_email(normalized_email):
+            raise _conflict("Email already registered")
+
+        subject = await self._create_idp_user(
+            email=normalized_email, password=password, full_name=full_name_clean
+        )
+
         # Self-registration ALWAYS gets the default role — there is no role
         # field on the register request for a caller to send (ADR-004 pt. 4).
         user = User.new(
             keycloak_subject=subject,
             email=normalized_email,
-            full_name=full_name.strip(),
+            full_name=full_name_clean,
             country=country_code,
         )
         await self.users.add(user)
@@ -102,6 +122,75 @@ class AuthService:
         )
         return await self.login_local(
             email=normalized_email, password=password, user_agent=None, ip=None
+        )
+
+    # ---- Invitation acceptance (B2 — tenant membership provisioning) ------
+    async def accept_invitation(
+        self,
+        *,
+        token: str,
+        password: str,
+        full_name: str,
+        country: str | None,
+        user_agent: str | None,
+        ip: str | None,
+    ) -> dict:
+        if not token:
+            raise _unauthenticated("Invalid or expired invitation")
+        invitation = await self.invitations.get_by_token_hash(hash_token(token))
+        if not invitation or not invitation.is_redeemable_at(utcnow()):
+            # Generic message on purpose — unknown, expired, already-
+            # accepted, and revoked all look identical to the caller, same
+            # rationale as login's generic "Invalid email or password".
+            raise _unauthenticated("Invalid or expired invitation")
+
+        full_name_clean, country_code = self._validate_credentials(
+            password=password, full_name=full_name, country=country
+        )
+
+        # Re-check even though create_invitation already checked at invite
+        # time — someone could have registered with this email in the
+        # window between invitation creation and acceptance.
+        if await self.users.get_by_email(invitation.invited_email):
+            raise _conflict("Email already registered")
+
+        subject = await self._create_idp_user(
+            email=invitation.invited_email, password=password, full_name=full_name_clean
+        )
+
+        # Tenant and role come from the invitation, not from the caller —
+        # the hierarchy check already happened once, at creation time
+        # (AdminService.create_invitation), against the inviter's rank.
+        # There is no acting principal here to re-check against: the
+        # invitee has no account yet.
+        user = User.new(
+            keycloak_subject=subject,
+            email=invitation.invited_email,
+            full_name=full_name_clean,
+            country=country_code,
+            tenant_id=invitation.tenant_id,
+        )
+        user.roles = [invitation.role]
+        await self.users.add(user)
+
+        invitation.accept()
+        await self.invitations.update(invitation)
+
+        await audit(
+            "identity.user.registered",
+            resource_type="user",
+            resource_id=user.user_id,
+            payload={"country": country_code, "via_invitation": invitation.invitation_id},
+        )
+        await audit(
+            "identity.invitation.accepted",
+            resource_type="invitation",
+            resource_id=invitation.invitation_id,
+            decision="PERMIT",
+            payload={"user_id": user.user_id},
+        )
+        return await self.login_local(
+            email=invitation.invited_email, password=password, user_agent=user_agent, ip=ip
         )
 
     # ---- Login --------------------------------------------------------

@@ -81,3 +81,28 @@ class SessionRecord(Base):
     )
 
     __table_args__ = (Index("ix_identity_sessions_user", "user_id"),)
+
+
+class InvitationRecord(Base):
+    """Tenant-membership invitation (B2 — migrations/versions/
+    0004_identity_invitations.py). `token_hash` only — see
+    app.contexts.identity.domain.invitation's docstring on why the
+    plaintext token is never persisted."""
+
+    __tablename__ = "identity_invitations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String, nullable=False)
+    invited_email: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    invited_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("identity_users.id"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="PENDING")
+    expires_at: Mapped[datetime] = mapped_column(TZDateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )
+    accepted_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
+
+    __table_args__ = (Index("ix_identity_invitations_tenant", "tenant_id"),)
