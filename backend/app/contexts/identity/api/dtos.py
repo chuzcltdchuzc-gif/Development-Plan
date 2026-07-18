@@ -53,6 +53,21 @@ class SuspendTenantRequest(BaseModel):
     reason: str
 
 
+class CreateDelegationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    delegate_user_id: str
+    delegated_roles: list[str]
+    scope: str = "tenant_governance"
+    expires_at: str | None = None
+
+
+class ExtendDelegationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expires_at: str | None = None
+
+
 class UserView(BaseModel):
     model_config = ConfigDict(extra="allow")
 

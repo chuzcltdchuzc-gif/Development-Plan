@@ -16,6 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_context_hydrator
 from app.contexts.identity.dependencies import (
+    get_delegation_repository,
     get_identity_provider,
     get_invitation_repository,
     get_session_repository,
@@ -31,6 +32,7 @@ from app.kernel.security.jwt import JwtVerifier
 from tests.fakes.audit_store import InMemoryAuditStore
 from tests.fakes.identity import (
     FakeIdentityProvider,
+    InMemoryDelegationRepository,
     InMemoryInvitationRepository,
     InMemorySessionRepository,
     InMemoryTenantRepository,
@@ -47,6 +49,7 @@ class AppHarness:
     sessions: InMemorySessionRepository
     invitations: InMemoryInvitationRepository
     tenants: InMemoryTenantRepository
+    delegations: InMemoryDelegationRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
 
@@ -57,13 +60,14 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     sessions = InMemorySessionRepository()
     invitations = InMemoryInvitationRepository()
     tenants = InMemoryTenantRepository()
+    delegations = InMemoryDelegationRepository()
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
 
     configure_audit_store(audit_store)
 
     verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
-    configure_pep(verifier, build_context_hydrator(users, tenants))
+    configure_pep(verifier, build_context_hydrator(users, tenants, delegations))
 
     app = FastAPI(title="landvault-api-test")
     register_error_handlers(app)
@@ -79,6 +83,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_identity_provider] = lambda: identity_provider
     app.dependency_overrides[get_invitation_repository] = lambda: invitations
     app.dependency_overrides[get_tenant_repository] = lambda: tenants
+    app.dependency_overrides[get_delegation_repository] = lambda: delegations
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -103,6 +108,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         sessions=sessions,
         invitations=invitations,
         tenants=tenants,
+        delegations=delegations,
         identity_provider=identity_provider,
         audit_store=audit_store,
     )

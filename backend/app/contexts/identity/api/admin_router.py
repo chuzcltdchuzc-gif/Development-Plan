@@ -12,7 +12,9 @@ from fastapi import APIRouter, Depends
 
 from app.contexts.identity.api.dtos import (
     AssignRoleRequest,
+    CreateDelegationRequest,
     CreateInvitationRequest,
+    ExtendDelegationRequest,
     SuspendTenantRequest,
 )
 from app.contexts.identity.application.admin_service import AdminService
@@ -109,3 +111,62 @@ async def archive_tenant(
     admin_service: AdminService = Depends(get_admin_service),
 ) -> dict:
     return await admin_service.archive_tenant(ctx=ctx, tenant_id=tenant_id)
+
+
+# ---- Delegated administration (B2 slice 4, docs/adr/ADR-011) ---------------
+# GOVERNANCE_ROLES-gated, same tier as invitations — delegation is
+# tenant-internal governance, unlike the super_admin-only tenant lifecycle
+# actions above. Every delegated role is independently ceiling-checked
+# against the caller's own current rank inside AdminService.
+
+@router.post("/delegations", status_code=201)
+async def create_delegation(
+    body: CreateDelegationRequest,
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> dict:
+    return await admin_service.create_delegation(
+        ctx=ctx,
+        delegate_user_id=body.delegate_user_id,
+        delegated_roles=body.delegated_roles,
+        scope=body.scope,
+        expires_at=body.expires_at,
+    )
+
+
+@router.get("/delegations")
+async def list_delegations(
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> list[dict]:
+    return await admin_service.list_delegations(ctx=ctx)
+
+
+@router.get("/delegations/{delegation_id}")
+async def get_delegation(
+    delegation_id: str,
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> dict:
+    return await admin_service.get_delegation(ctx=ctx, delegation_id=delegation_id)
+
+
+@router.post("/delegations/{delegation_id}/revoke")
+async def revoke_delegation(
+    delegation_id: str,
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> dict:
+    return await admin_service.revoke_delegation(ctx=ctx, delegation_id=delegation_id)
+
+
+@router.post("/delegations/{delegation_id}/extend")
+async def extend_delegation(
+    delegation_id: str,
+    body: ExtendDelegationRequest,
+    ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
+    admin_service: AdminService = Depends(get_admin_service),
+) -> dict:
+    return await admin_service.extend_delegation(
+        ctx=ctx, delegation_id=delegation_id, new_expires_at=body.expires_at
+    )

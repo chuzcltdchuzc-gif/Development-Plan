@@ -18,11 +18,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.identity.adapters.orm import (
+    DelegationRecord,
     InvitationRecord,
     SessionRecord,
     TenantRecord,
     UserRecord,
 )
+from app.contexts.identity.domain.delegation import Delegation
 from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.session import Session
 from app.contexts.identity.domain.tenant import Tenant
@@ -317,6 +319,91 @@ class PostgresTenantRepository:
         record.updated_at = datetime.fromisoformat(tenant.updated_at)
         await self._session.flush()
         return _tenant_from_record(record)
+
+
+def _delegation_from_record(record: DelegationRecord) -> Delegation:
+    return Delegation(
+        delegation_id=str(record.id),
+        tenant_id=record.tenant_id,
+        delegator_user_id=str(record.delegator_user_id),
+        delegate_user_id=str(record.delegate_user_id),
+        delegated_roles=list(record.delegated_roles),
+        scope=record.scope,
+        status=record.status,
+        created_at=record.created_at.isoformat(),
+        updated_at=record.updated_at.isoformat(),
+        expires_at=record.expires_at.isoformat() if record.expires_at else None,
+        revoked_at=record.revoked_at.isoformat() if record.revoked_at else None,
+        revoked_by=str(record.revoked_by) if record.revoked_by else None,
+    )
+
+
+class PostgresDelegationRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def add(self, delegation: Delegation) -> Delegation:
+        record = DelegationRecord(
+            id=uuid.UUID(delegation.delegation_id)
+            if _looks_like_uuid(delegation.delegation_id)
+            else uuid.uuid4(),
+            tenant_id=delegation.tenant_id,
+            delegator_user_id=uuid.UUID(delegation.delegator_user_id),
+            delegate_user_id=uuid.UUID(delegation.delegate_user_id),
+            delegated_roles=list(delegation.delegated_roles),
+            scope=delegation.scope,
+            status=delegation.status,
+            expires_at=datetime.fromisoformat(delegation.expires_at)
+            if delegation.expires_at
+            else None,
+        )
+        self._session.add(record)
+        await self._session.flush()
+        return _delegation_from_record(record)
+
+    async def get(self, delegation_id: str) -> Delegation | None:
+        if not _looks_like_uuid(delegation_id):
+            return None
+        record = await self._session.get(DelegationRecord, uuid.UUID(delegation_id))
+        return _delegation_from_record(record) if record else None
+
+    async def list_for_tenant(self, tenant_id: str) -> list[Delegation]:
+        result = await self._session.execute(
+            select(DelegationRecord)
+            .where(DelegationRecord.tenant_id == tenant_id)
+            .order_by(DelegationRecord.created_at.desc())
+        )
+        return [_delegation_from_record(record) for record in result.scalars()]
+
+    async def list_active_for_delegate(
+        self, tenant_id: str, delegate_user_id: str
+    ) -> list[Delegation]:
+        if not _looks_like_uuid(delegate_user_id):
+            return []
+        result = await self._session.execute(
+            select(DelegationRecord).where(
+                DelegationRecord.tenant_id == tenant_id,
+                DelegationRecord.delegate_user_id == uuid.UUID(delegate_user_id),
+                DelegationRecord.status == "ACTIVE",
+            )
+        )
+        return [_delegation_from_record(record) for record in result.scalars()]
+
+    async def update(self, delegation: Delegation) -> Delegation:
+        record = await self._session.get(DelegationRecord, uuid.UUID(delegation.delegation_id))
+        if record is None:
+            raise ValueError(f"delegation {delegation.delegation_id} not found")
+        record.status = delegation.status
+        record.expires_at = (
+            datetime.fromisoformat(delegation.expires_at) if delegation.expires_at else None
+        )
+        record.revoked_at = (
+            datetime.fromisoformat(delegation.revoked_at) if delegation.revoked_at else None
+        )
+        record.revoked_by = uuid.UUID(delegation.revoked_by) if delegation.revoked_by else None
+        record.updated_at = datetime.fromisoformat(delegation.updated_at)
+        await self._session.flush()
+        return _delegation_from_record(record)
 
 
 def _looks_like_uuid(value: str) -> bool:

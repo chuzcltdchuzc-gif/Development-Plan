@@ -2,7 +2,7 @@
 
 A land-registry and verification platform for Nigeria — parcel registration, GIS-backed spatial validation, evidence chain-of-custody, community/traditional-authority attestation, survey network management, inheritance & customary-law resolution, and an economic/billing layer, built around an explainable, continuously-recalculated per-parcel trust score.
 
-**Status:** B1 (Identity & Authorization) is complete, verified against live infrastructure, and frozen (`docs/adr/ADR-009-b1-platform-freeze.md`). B2 (tenant provisioning / role assignment / delegation) is in progress — see `CLAUDE.md`'s "B2 status" for exactly what's landed.
+**Status:** B1 (Identity & Authorization) is complete, verified against live infrastructure, and frozen (`docs/adr/ADR-009-b1-platform-freeze.md`). B2 (tenant provisioning, role assignment, tenant lifecycle, delegated administration) is functionally complete, verified against live infrastructure — see `CLAUDE.md`'s "B2 status" and `docs/adr/ADR-010`/`ADR-011` for exactly what's landed. A B2 closeout review is the recommended next step before B3.
 
 ---
 
@@ -26,7 +26,7 @@ Every rule in `docs/ENGINEERING_RULES.md` and every non-negotiable in `docs/DOD.
 | [`docs/PHASE_GATES.md`](./docs/PHASE_GATES.md) | The process/quality-gate model (Phase 0–12), the Claude Code Loop, and the 10 standing review questions |
 | [`docs/DOD.md`](./docs/DOD.md) | Definition of Done — Feature / Sprint / Product (MVP) tiers |
 | [`docs/ENGINEERING_RULES.md`](./docs/ENGINEERING_RULES.md) | When Claude may act autonomously vs. must stop and ask; the non-negotiable engineering rules |
-| [`docs/adr/`](./docs/adr/) | Architecture Decision Records — ADR-001 through ADR-008 |
+| [`docs/adr/`](./docs/adr/) | Architecture Decision Records — ADR-001 through ADR-011 |
 | [`docs/audits/`](./docs/audits/) | The full audit reports behind every decision above |
 | [`docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf`](./docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf) | Single-file PDF export of this whole planning package, plus the superseded v3 snapshot preserved for provenance — see the PDF's own preface for which parts are current |
 

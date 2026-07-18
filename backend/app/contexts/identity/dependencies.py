@@ -17,6 +17,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.identity.adapters.postgres_repositories import (
+    PostgresDelegationRepository,
     PostgresInvitationRepository,
     PostgresSessionRepository,
     PostgresTenantRepository,
@@ -25,6 +26,7 @@ from app.contexts.identity.adapters.postgres_repositories import (
 from app.contexts.identity.application.admin_service import AdminService
 from app.contexts.identity.application.auth_service import AuthService
 from app.contexts.identity.ports import (
+    DelegationRepository,
     IdentityProvider,
     InvitationRepository,
     SessionRepository,
@@ -70,6 +72,12 @@ def get_tenant_repository(session: AsyncSession = Depends(get_db_session)) -> Te
     return PostgresTenantRepository(session)
 
 
+def get_delegation_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> DelegationRepository:
+    return PostgresDelegationRepository(session)
+
+
 def get_auth_service(
     users: UserRepository = Depends(get_user_repository),
     sessions: SessionRepository = Depends(get_session_repository),
@@ -87,5 +95,8 @@ def get_admin_service(
     users: UserRepository = Depends(get_user_repository),
     invitations: InvitationRepository = Depends(get_invitation_repository),
     tenants: TenantRepository = Depends(get_tenant_repository),
+    delegations: DelegationRepository = Depends(get_delegation_repository),
 ) -> AdminService:
-    return AdminService(users=users, invitations=invitations, tenants=tenants)
+    return AdminService(
+        users=users, invitations=invitations, tenants=tenants, delegations=delegations
+    )

@@ -132,3 +132,43 @@ class TenantRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(
         TZDateTime, server_default=func.now(), nullable=False
     )
+
+
+class DelegationRecord(Base):
+    """Delegated administration (B2 slice 4 — migrations/versions/
+    0006_identity_delegations.py, docs/adr/ADR-011). See
+    app.contexts.identity.domain.delegation.delegation_is_effective for the
+    resolution rules — this record alone never determines whether a
+    delegation is currently granting anything; it must be re-evaluated
+    against the delegator's and tenant's *current* state every time."""
+
+    __tablename__ = "identity_delegations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    delegator_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("identity_users.id"), nullable=False
+    )
+    delegate_user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("identity_users.id"), nullable=False
+    )
+    delegated_roles: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    scope: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="ACTIVE")
+    expires_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
+    revoked_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("identity_users.id"), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_identity_delegations_tenant", "tenant_id"),
+        Index("ix_identity_delegations_delegate", "tenant_id", "delegate_user_id"),
+        Index("ix_identity_delegations_delegator", "delegator_user_id"),
+    )

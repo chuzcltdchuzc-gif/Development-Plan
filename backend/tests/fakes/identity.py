@@ -9,6 +9,7 @@ import secrets
 import uuid
 from copy import deepcopy
 
+from app.contexts.identity.domain.delegation import Delegation
 from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.session import Session
 from app.contexts.identity.domain.tenant import Tenant
@@ -138,6 +139,41 @@ class InMemoryTenantRepository:
     async def update(self, tenant: Tenant) -> Tenant:
         self._by_id[tenant.tenant_id] = deepcopy(tenant)
         return deepcopy(tenant)
+
+
+class InMemoryDelegationRepository:
+    def __init__(self) -> None:
+        self._by_id: dict[str, Delegation] = {}
+
+    async def add(self, delegation: Delegation) -> Delegation:
+        self._by_id[delegation.delegation_id] = deepcopy(delegation)
+        return deepcopy(delegation)
+
+    async def get(self, delegation_id: str) -> Delegation | None:
+        delegation = self._by_id.get(delegation_id)
+        return deepcopy(delegation) if delegation else None
+
+    async def list_for_tenant(self, tenant_id: str) -> list[Delegation]:
+        return sorted(
+            (deepcopy(d) for d in self._by_id.values() if d.tenant_id == tenant_id),
+            key=lambda d: d.created_at,
+            reverse=True,
+        )
+
+    async def list_active_for_delegate(
+        self, tenant_id: str, delegate_user_id: str
+    ) -> list[Delegation]:
+        return [
+            deepcopy(d)
+            for d in self._by_id.values()
+            if d.tenant_id == tenant_id
+            and d.delegate_user_id == delegate_user_id
+            and d.status == "ACTIVE"
+        ]
+
+    async def update(self, delegation: Delegation) -> Delegation:
+        self._by_id[delegation.delegation_id] = deepcopy(delegation)
+        return deepcopy(delegation)
 
 
 class FakeIdentityProvider:
