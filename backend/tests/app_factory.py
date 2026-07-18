@@ -23,6 +23,8 @@ from app.contexts.identity.dependencies import (
     get_tenant_repository,
     get_user_repository,
 )
+from app.contexts.registry.api import parcel_router
+from app.contexts.registry.dependencies import get_parcel_repository
 from app.kernel.audit import configure_audit_store
 from app.kernel.authorization.pep import configure_pep, current_context_dep, require_role
 from app.kernel.context import ExecutionContext
@@ -39,6 +41,7 @@ from tests.fakes.identity import (
     InMemoryUserRepository,
 )
 from tests.fakes.jwks import FakeKeycloak
+from tests.fakes.registry import InMemoryParcelRepository
 
 
 @dataclass
@@ -50,6 +53,7 @@ class AppHarness:
     invitations: InMemoryInvitationRepository
     tenants: InMemoryTenantRepository
     delegations: InMemoryDelegationRepository
+    parcels: InMemoryParcelRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
 
@@ -61,6 +65,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     invitations = InMemoryInvitationRepository()
     tenants = InMemoryTenantRepository()
     delegations = InMemoryDelegationRepository()
+    parcels = InMemoryParcelRepository()
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
 
@@ -74,6 +79,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     configure_security(app, rate_limit_enabled=rate_limit_enabled)
     app.include_router(auth_router.router)
     app.include_router(admin_router.router)
+    app.include_router(parcel_router.router)
 
     # Same DI seam production uses (app.contexts.identity.dependencies) —
     # tests never touch get_db_session at all, since these overrides short-
@@ -84,6 +90,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_invitation_repository] = lambda: invitations
     app.dependency_overrides[get_tenant_repository] = lambda: tenants
     app.dependency_overrides[get_delegation_repository] = lambda: delegations
+    app.dependency_overrides[get_parcel_repository] = lambda: parcels
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -109,6 +116,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         invitations=invitations,
         tenants=tenants,
         delegations=delegations,
+        parcels=parcels,
         identity_provider=identity_provider,
         audit_store=audit_store,
     )

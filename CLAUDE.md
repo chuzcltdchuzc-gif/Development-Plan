@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1 (Identity & Authorization) and B2 (tenant provisioning, tenant lifecycle, delegated administration) are both complete, verified against real infrastructure, and frozen — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, and `docs/audits/B2_RELEASE_NOTES.md`. Tagged `b2-freeze`. B3 has not started — see "B2 status" below.**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1 and B2 are complete, verified, and frozen (tagged `b2-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`. B3 (Registry) is in progress: Slice 1 (Parcel Aggregate) is done, verified against live infrastructure — see `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md` and "B3 status" below. Slices 2–4 (atomic numbering, mutation commands, geometry port) are not yet authorized.**
 
 Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
 
@@ -33,7 +33,49 @@ No email-delivery integration exists yet — the plaintext token is returned onc
 
 **A correctness bug found via this slice's test coverage, affecting existing code too:** the explicit `resource.tenant_id != ctx.tenant_id` checks added in B2 slices 2–3 didn't account for `super_admin`'s legitimate cross-tenant reach (the same bypass RLS itself grants that role) — a `super_admin` acting cross-tenant was incorrectly 404'd. Fixed with a shared `_in_scope()` helper mirroring the RLS policy shape, applied retroactively to `revoke_invitation` too, not just the new delegation code.
 
-**Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`). B3 planning has not started.
+**Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`).
+
+## B3 status (Registry) — Slice 1 done, Slices 2–4 not authorized
+
+`docs/B3_DISCOVERY_AND_PLANNING.md` is the accepted Phase 0 plan. **Slice 1 — Parcel
+Aggregate (done, verified against live infrastructure, `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`):**
+a new bounded context, `app/contexts/registry/`, introduces `Parcel` — the single canonical
+representation of a land parcel. `parcel_id` (UUID) is immutable identity; `tenant_id` is a
+real FK to `tenants.id` *from its first migration* (`0007`), unlike Identity's own `tenant_id`,
+which only got FK'd retroactively in B2 slice 3. `parcel_number` exists as a nullable column
+with a database-level partial unique index already enforcing uniqueness, reserved for Slice
+2's atomic allocator — no allocation logic exists yet, deliberately. Ownership is a *current
+reference* only (`current_owner_name`/`current_owner_contact`) — no history table, no PII
+beyond free-text name/contact.
+
+`POST /v1/parcels` is gated `require_role(*PARCEL_REGISTRANT_ROLES)`
+(`field_agent`/`licensed_surveyor`/`surveyor_partner`/`surveyor_general`/
+`compliance_officer`/`super_admin` — referencing Identity's existing `Role` enum, no new
+role). `GET /v1/parcels[/{id}]` use bare `require_auth` — tenant isolation is RLS plus an
+explicit repository-level filter, not a role gate. **No new authorization mechanism**: a
+delegate holding a delegated registrant role (ADR-011) can register a parcel exactly as if
+they held it directly — `require_role` doesn't distinguish a direct grant from a currently-
+effective delegation, live-verified working with zero Registry-specific integration code.
+
+Domain invariants are enforced on the aggregate itself, not just at the endpoint:
+`allocate_parcel_number()` exists now (unused by any Slice 1 API path) and raises if called
+twice or against an archived parcel — "reserve the field" means a guarded mutation point, not
+a bare mutable column. No mutation commands, ownership transfer, geometry, evidence, or survey
+upload are implemented — explicitly out of scope per the Slice 1 authorization.
+
+86/86 tests pass (72 existing + 14 new). Live-verified: real parcel creation via Keycloak-
+authenticated `field_agent`, cross-tenant `GET` denied (404), tenant-scoped listing, `general_user`
+denied creation (403), the database-level `parcel_number` uniqueness constraint rejecting a
+duplicate insert directly, RLS fail-closed via `psql` (bogus tenant → 0 rows, `DELETE` denied
+at the grant level), audit chain intact, containerized backend rebuilt and confirmed healthy.
+PostGIS confirmed active (`3.4.3`) — zero infrastructure lift needed for B3 Slice 4's future
+geometry column.
+
+**Not yet built (explicitly deferred, per the Slice 1 authorization):** atomic parcel
+numbering (Slice 2, needs its own ADR — the Postgres-native mechanism cannot be a literal port
+of Emergent's MongoDB-native `$inc`/upsert allocator), mutation commands and real actor-
+identity authorization (Slice 3, fixes a confirmed ADR-005 defect), the geometry port (Slice
+4). **Slices 2–4 are not authorized** — this execution authorized Slice 1 only.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
@@ -60,7 +102,7 @@ This file is the always-loaded operational summary. It is a pointer, not the sou
 
 ```
 /frontend   — Next.js + TypeScript (F0 shell landed; bounded-context UI stages land per docs/REBUILD_PLAN.md §3)
-/backend    — Python + FastAPI (B0 kernel in app/kernel/; app/contexts/identity/ has B1 + B2 slice 1)
+/backend    — Python + FastAPI (B0 kernel in app/kernel/; app/contexts/identity/ has B1+B2; app/contexts/registry/ has B3 slice 1)
 /infra      — Terraform (version-pinned baseline, no provider yet), Docker (infra/docker/docker-compose.yml)
 /docs       — this planning package
 ```
