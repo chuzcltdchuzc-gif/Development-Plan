@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1 (Identity & Authorization) is complete, verified against real infrastructure, and frozen — see `docs/adr/ADR-009-b1-platform-freeze.md` and `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md`. B2 (tenant provisioning / role assignment / delegation) is functionally complete pending closeout review — see "B2 status" below.**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1 (Identity & Authorization) and B2 (tenant provisioning, tenant lifecycle, delegated administration) are both complete, verified against real infrastructure, and frozen — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, and `docs/audits/B2_RELEASE_NOTES.md`. Tagged `b2-freeze`. B3 has not started — see "B2 status" below.**
 
 Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
 
@@ -8,7 +8,14 @@ Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to
 
 Complete and verified against live infrastructure (real Docker/Postgres/Keycloak, not in-memory fakes) — see `docs/adr/ADR-009-b1-platform-freeze.md` for the full frozen architecture description (auth flow, JWT/refresh lifecycle, RLS model, audit-chain architecture, Unit-of-Work, rate limiting, etc.) and `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the evidence. **Any change to what ADR-009 describes requires a new ADR referencing it — do not silently modify frozen B1 behavior while building B2+.**
 
-## B2 status (tenant provisioning / role assignment / delegation) — in progress
+## B2 status (tenant provisioning / role assignment / delegation) — frozen
+
+Complete across four slices, each verified against live infrastructure — see
+`docs/adr/ADR-012-b2-platform-freeze.md` for the freeze declaration and
+`docs/audits/B2_RELEASE_NOTES.md` for the full evidence summary (migrations, 72/72 test
+totals, per-slice live verification). **Any change to B2's invitation, tenant, or delegation
+domains requires a new ADR referencing ADR-009/010/011/012 — do not silently modify frozen B2
+behavior while building B3+.**
 
 **Slices 1–2 — tenant membership invitations, full lifecycle (done, verified against live infrastructure):** a governance-role principal (`super_admin`/`surveyor_general`/`compliance_officer`) invites an email into their own tenant at a role no higher than their own rank (reuses `assign_role`'s hierarchy check exactly), via `POST /v1/admin/invitations`. The invitee redeems an opaque, hashed, expiring (7-day) token via `POST /v1/auth/invitations/accept` to complete registration directly into the inviter's tenant with the invited role. `GET /v1/admin/invitations` lists the caller's own tenant's invitations; `POST /v1/admin/invitations/{id}/revoke` cancels a pending one (any governance-role member of the tenant, not only the original inviter — revoking is strictly de-escalating, so no hierarchy check applies there). New table `identity_invitations` (migration `0004`), same RLS/grant shape as `identity_users`.
 
@@ -26,7 +33,7 @@ No email-delivery integration exists yet — the plaintext token is returned onc
 
 **A correctness bug found via this slice's test coverage, affecting existing code too:** the explicit `resource.tenant_id != ctx.tenant_id` checks added in B2 slices 2–3 didn't account for `super_admin`'s legitimate cross-tenant reach (the same bypass RLS itself grants that role) — a `super_admin` acting cross-tenant was incorrectly 404'd. Fixed with a shared `_in_scope()` helper mirroring the RLS policy shape, applied retroactively to `revoke_invitation` too, not just the new delegation code.
 
-**Not yet built:** nothing further planned for B2 — a formal B2 closeout review (reconciling ADR-009/010/011 against the implementation) is the recommended next step before B3.
+**Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`). B3 planning has not started.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

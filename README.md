@@ -2,7 +2,7 @@
 
 A land-registry and verification platform for Nigeria — parcel registration, GIS-backed spatial validation, evidence chain-of-custody, community/traditional-authority attestation, survey network management, inheritance & customary-law resolution, and an economic/billing layer, built around an explainable, continuously-recalculated per-parcel trust score.
 
-**Status:** B1 (Identity & Authorization) is complete, verified against live infrastructure, and frozen (`docs/adr/ADR-009-b1-platform-freeze.md`). B2 (tenant provisioning, role assignment, tenant lifecycle, delegated administration) is functionally complete, verified against live infrastructure — see `CLAUDE.md`'s "B2 status" and `docs/adr/ADR-010`/`ADR-011` for exactly what's landed. A B2 closeout review is the recommended next step before B3.
+**Status:** B1 (Identity & Authorization) and B2 (tenant provisioning, role assignment, tenant lifecycle, delegated administration) are both complete, verified against live infrastructure, and frozen (`docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`), tagged `b2-freeze`. See `CLAUDE.md`'s "B2 status" and `docs/audits/B2_RELEASE_NOTES.md` for exactly what's landed. B3 has not started.
 
 ---
 
