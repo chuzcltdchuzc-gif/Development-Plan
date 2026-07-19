@@ -35,7 +35,7 @@ No email-delivery integration exists yet — the plaintext token is returned onc
 
 **Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`).
 
-## B3 status (Registry) — Slice 1 done, Slices 2–4 not authorized
+## B3 status (Registry) — Slices 1–2 done, Slices 3–4 not authorized
 
 `docs/B3_DISCOVERY_AND_PLANNING.md` is the accepted Phase 0 plan. **Slice 1 — Parcel
 Aggregate (done, verified against live infrastructure, `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`):**
@@ -43,10 +43,10 @@ a new bounded context, `app/contexts/registry/`, introduces `Parcel` — the sin
 representation of a land parcel. `parcel_id` (UUID) is immutable identity; `tenant_id` is a
 real FK to `tenants.id` *from its first migration* (`0007`), unlike Identity's own `tenant_id`,
 which only got FK'd retroactively in B2 slice 3. `parcel_number` exists as a nullable column
-with a database-level partial unique index already enforcing uniqueness, reserved for Slice
-2's atomic allocator — no allocation logic exists yet, deliberately. Ownership is a *current
-reference* only (`current_owner_name`/`current_owner_contact`) — no history table, no PII
-beyond free-text name/contact.
+with a database-level partial unique index (global, not tenant-scoped — a land registry number
+identifies one parcel unambiguously across the whole jurisdiction) enforcing uniqueness.
+Ownership is a *current reference* only (`current_owner_name`/`current_owner_contact`) — no
+history table, no PII beyond free-text name/contact.
 
 `POST /v1/parcels` is gated `require_role(*PARCEL_REGISTRANT_ROLES)`
 (`field_agent`/`licensed_surveyor`/`surveyor_partner`/`surveyor_general`/
@@ -58,24 +58,42 @@ they held it directly — `require_role` doesn't distinguish a direct grant from
 effective delegation, live-verified working with zero Registry-specific integration code.
 
 Domain invariants are enforced on the aggregate itself, not just at the endpoint:
-`allocate_parcel_number()` exists now (unused by any Slice 1 API path) and raises if called
-twice or against an archived parcel — "reserve the field" means a guarded mutation point, not
-a bare mutable column. No mutation commands, ownership transfer, geometry, evidence, or survey
-upload are implemented — explicitly out of scope per the Slice 1 authorization.
+`allocate_parcel_number()` raises if called twice or against an archived parcel — "reserve the
+field" means a guarded mutation point, not a bare mutable column. No mutation commands,
+ownership transfer, geometry, evidence, or survey upload are implemented — explicitly out of
+scope per the Slice 1 authorization.
 
-86/86 tests pass (72 existing + 14 new). Live-verified: real parcel creation via Keycloak-
-authenticated `field_agent`, cross-tenant `GET` denied (404), tenant-scoped listing, `general_user`
-denied creation (403), the database-level `parcel_number` uniqueness constraint rejecting a
-duplicate insert directly, RLS fail-closed via `psql` (bogus tenant → 0 rows, `DELETE` denied
-at the grant level), audit chain intact, containerized backend rebuilt and confirmed healthy.
-PostGIS confirmed active (`3.4.3`) — zero infrastructure lift needed for B3 Slice 4's future
-geometry column.
+**Slice 2 — Atomic Parcel Number Allocation (done, verified against live infrastructure,
+`docs/adr/ADR-014-postgresql-atomic-parcel-number-allocation.md`):** every parcel now receives
+a real, unique `parcel_number` at creation time via one atomic
+`INSERT ... ON CONFLICT DO UPDATE ... RETURNING` against a `registry_parcel_counters` table
+(migration `0008`), in the same request transaction as the parcel insert — a rollback undoes
+the counter increment along with everything else, so no gaps are ever created by a failed
+request. The counter is scoped by **`country_code`, not `tenant_id`**: the first draft of
+ADR-014 chose per-tenant, and live concurrency testing across two tenants sharing a country
+caught that it collides with `parcel_number`'s existing database-wide unique constraint the
+moment more than one tenant operates in the same country — fixed before this slice's review,
+see ADR-014's revision note for the full account. `registry_parcel_counters` holds no
+tenant-owned data, so its RLS policy (still `FORCE`d, still no `DELETE` grant) admits any
+authenticated request rather than matching a `tenant_id`.
 
-**Not yet built (explicitly deferred, per the Slice 1 authorization):** atomic parcel
-numbering (Slice 2, needs its own ADR — the Postgres-native mechanism cannot be a literal port
-of Emergent's MongoDB-native `$inc`/upsert allocator), mutation commands and real actor-
-identity authorization (Slice 3, fixes a confirmed ADR-005 defect), the geometry port (Slice
-4). **Slices 2–4 are not authorized** — this execution authorized Slice 1 only.
+90/90 tests pass. Live-verified: 12 real concurrent HTTP requests split across two different
+tenants sharing `NG` land in one contiguous, duplicate-free, gap-free sequence (proving the
+fix); a different `country_code` drawing its own independent sequence; rollback-gaplessness
+(allocate → roll back → allocate again yields the identical number) proven directly against
+`PostgresParcelNumberAllocator`; the live audit log carrying `parcel_number` in every
+`registry.parcel.created` entry with `verify_chain()` returning `True`; RLS fail-closed via
+`psql` (no session context → 0 rows, `DELETE` denied at the grant level); containerized backend
+rebuilt and confirmed healthy (boots clean, correct routes) — full authenticated flow
+verification goes through the host dev server, same as every other slice, since the
+containerized backend's `KEYCLOAK_REALM_URL` is host-relative (`localhost:8080`), a pre-existing,
+out-of-scope infra gap unrelated to this slice. A same-tenant `N=20` run separately surfaced
+SQLAlchemy's default connection-pool ceiling (`pool_size=5` + `max_overflow=10` = 15) under
+heavy concurrent load — a genuine, documented operational limit, not a correctness defect.
+
+**Not yet built (explicitly deferred, per the Slice 2 authorization):** mutation commands and
+real actor-identity authorization (Slice 3, fixes a confirmed ADR-005 defect), the geometry port
+(Slice 4). **Slices 3–4 are not authorized** — this execution authorized Slice 2 only.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

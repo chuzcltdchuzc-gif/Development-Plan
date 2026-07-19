@@ -35,7 +35,10 @@ class ParcelRecord(Base):
         ForeignKey("identity_users.id"), nullable=True
     )
     status: Mapped[str] = mapped_column(String, nullable=False, default="ACTIVE")
-    # Reserved for B3 Slice 2's atomic allocator — never populated here.
+    # Populated at creation time by the B3 slice 2 atomic allocator
+    # (ParcelNumberAllocator, docs/adr/ADR-014) — nullable because parcels
+    # created before that allocator existed (none in production, but the
+    # column itself predates it, ADR-013) never got one retroactively.
     parcel_number: Mapped[str | None] = mapped_column(String, nullable=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     address: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -57,3 +60,26 @@ class ParcelRecord(Base):
     archived_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
 
     __table_args__ = (Index("ix_parcels_tenant", "tenant_id"),)
+
+
+class RegistryParcelCounterRecord(Base):
+    """Per-country_code atomic allocation counter (B3 slice 2,
+    docs/adr/ADR-014 — migrations/versions/0008_registry_parcel_counters.py).
+    Scoped by country_code, not tenant_id: `parcel_number` is a
+    database-wide unique registry identifier (0007_parcels.py's
+    `ix_parcels_number_unique`), so every tenant registering parcels in
+    the same country shares one sequence. Never read or written via the
+    ORM's normal add()/get() flow — always through the single atomic
+    `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` statement in
+    app.contexts.registry.adapters.postgres_repositories.
+    PostgresParcelNumberAllocator. Declared here purely so Alembic
+    autogenerate and the rest of the ORM tooling see this table, matching
+    every other table in this codebase."""
+
+    __tablename__ = "registry_parcel_counters"
+
+    country_code: Mapped[str] = mapped_column(String(2), primary_key=True)
+    last_allocated: Mapped[int] = mapped_column(nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )

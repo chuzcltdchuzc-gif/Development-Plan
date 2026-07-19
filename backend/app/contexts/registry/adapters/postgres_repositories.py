@@ -9,9 +9,10 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.contexts.registry.adapters.orm import ParcelRecord
+from app.contexts.registry.adapters.orm import ParcelRecord, RegistryParcelCounterRecord
 from app.contexts.registry.domain.parcel import Parcel
 
 
@@ -117,3 +118,38 @@ class PostgresParcelRepository:
         )
         await self._session.flush()
         return _parcel_from_record(record)
+
+
+class PostgresParcelNumberAllocator:
+    """One atomic `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`
+    statement — see docs/adr/ADR-014 for why this is the chosen mechanism
+    (not a bare SEQUENCE, not a literal port of Emergent's MongoDB
+    $inc/upsert allocator) and its concurrency/rollback guarantees.
+    Scoped per country_code, not per tenant: `parcel_number` carries a
+    database-wide unique constraint (0007_parcels.py's
+    `ix_parcels_number_unique`), so every tenant registering parcels in
+    the same country must draw from the same sequence — a per-tenant
+    counter would hand out numbers that collide across tenants the moment
+    more than one tenant operates in a country (found via live concurrency
+    verification, see ADR-014's revision note). Must be constructed from
+    the SAME AsyncSession (and therefore the same transaction) as the
+    ParcelRepository call it precedes — app.contexts.registry.dependencies
+    wires both from the same per-request session via FastAPI's dependency
+    caching, the identical pattern
+    app.contexts.identity.dependencies.get_auth_service already relies
+    on."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def allocate(self, *, country_code: str) -> str:
+        upsert = pg_insert(RegistryParcelCounterRecord).values(
+            country_code=country_code, last_allocated=1
+        )
+        stmt = upsert.on_conflict_do_update(
+            index_elements=[RegistryParcelCounterRecord.country_code],
+            set_={"last_allocated": RegistryParcelCounterRecord.last_allocated + 1},
+        ).returning(RegistryParcelCounterRecord.last_allocated)
+        result = await self._session.execute(stmt)
+        sequence_value = result.scalar_one()
+        return f"LV-{country_code}-{sequence_value:06d}"

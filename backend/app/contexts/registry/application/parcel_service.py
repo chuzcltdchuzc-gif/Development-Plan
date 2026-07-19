@@ -1,11 +1,12 @@
-"""ParcelService — Registry context's parcel use-cases (B3 slice 1,
-docs/adr/ADR-013).
+"""ParcelService — Registry context's parcel use-cases (B3 slices 1-2,
+docs/adr/ADR-013, docs/adr/ADR-014).
 
-Only create/get/list in this slice. No mutation commands, no ownership
-transfer, no geometry, no atomic numbering — those are later slices. Every
-check here reuses an existing mechanism (CountryCode validation from
-Identity, the kernel audit() function, the same tenant-scope pattern
-AdminService already established) — never a new, divergent one.
+Only create/get/list, plus atomic parcel-number allocation as an integral
+part of creation. No mutation commands, no ownership transfer, no
+geometry — those are later slices. Every check here reuses an existing
+mechanism (CountryCode validation from Identity, the kernel audit()
+function, the same tenant-scope pattern AdminService already established)
+— never a new, divergent one.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from fastapi import HTTPException, status
 
 from app.contexts.identity.domain.value_objects import CountryCode
 from app.contexts.registry.domain.parcel import Parcel
-from app.contexts.registry.ports import ParcelRepository
+from app.contexts.registry.ports import ParcelNumberAllocator, ParcelRepository
 from app.kernel.audit import audit
 from app.kernel.context import ExecutionContext
 
@@ -60,8 +61,9 @@ def _parcel_view(parcel: Parcel) -> dict:
 
 
 class ParcelService:
-    def __init__(self, *, parcels: ParcelRepository) -> None:
+    def __init__(self, *, parcels: ParcelRepository, allocator: ParcelNumberAllocator) -> None:
         self.parcels = parcels
+        self.allocator = allocator
 
     async def create_parcel(
         self,
@@ -113,13 +115,29 @@ class ParcelService:
             current_owner_name=current_owner_name,
             current_owner_contact=current_owner_contact,
         )
+
+        # Allocation happens in the SAME Unit-of-Work transaction as the
+        # insert below (both self.allocator and self.parcels are built
+        # from the same per-request AsyncSession — see
+        # app.contexts.registry.dependencies) — so a failure anywhere in
+        # this method rolls back the counter increment along with
+        # everything else (docs/adr/ADR-014's transaction model). Goes
+        # through Parcel's own guard method (ADR-013), not a raw field
+        # assignment, so "never reassigned" is still enforced here too.
+        parcel_number = await self.allocator.allocate(country_code=resolved_country)
+        parcel.allocate_parcel_number(parcel_number)
+
         parcel = await self.parcels.add(parcel)
         await audit(
             "registry.parcel.created",
             resource_type="parcel",
             resource_id=parcel.parcel_id,
             decision="PERMIT",
-            payload={"tenant_id": parcel.tenant_id, "origin": parcel.origin},
+            payload={
+                "tenant_id": parcel.tenant_id,
+                "origin": parcel.origin,
+                "parcel_number": parcel.parcel_number,
+            },
         )
         return _parcel_view(parcel)
 

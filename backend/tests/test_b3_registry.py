@@ -75,7 +75,10 @@ def test_field_agent_can_create_parcel(harness: AppHarness, client: TestClient) 
     assert response.status_code == 201, response.text
     body = response.json()
     assert body["status"] == "ACTIVE"
-    assert body["parcel_number"] is None  # reserved for Slice 2
+    # B3 slice 2: every parcel now receives a real, allocated number at
+    # creation time — a deliberate, documented behavior change from slice
+    # 1 (docs/adr/ADR-014), not a regression.
+    assert body["parcel_number"] == "LV-NG-000001"
     assert body["created_by"] == user.user_id
     assert body["tenant_id"] == user.tenant_id
     assert body["origin"] == "platform_registration"
@@ -291,3 +294,90 @@ def test_existing_identity_endpoints_unaffected(client: TestClient) -> None:
     )
     assert response.status_code == 201
     assert set(response.json().keys()) == {"access_token", "token_type", "expires_in", "user"}
+
+
+# ---- B3 slice 2: atomic parcel-number allocation (docs/adr/ADR-014) -----------
+# Real concurrency (multiple genuinely simultaneous Postgres connections) is
+# NOT testable against in-memory fakes — asyncio's cooperative scheduling
+# means a fake allocator can never exercise real row-locking behavior. That
+# is verified live, separately (see the completion report). These tests
+# cover sequential allocation, tenant-scoped independence, and format —
+# real business logic against the fake, same as everything else in this
+# suite.
+
+# 14. Sequential allocation within one tenant is 1, 2, 3, ... ------------------
+
+def test_sequential_allocation_within_country(harness: AppHarness, client: TestClient) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent14@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    first = _create_parcel(client, tokens.access_token, title="First").json()
+    second = _create_parcel(client, tokens.access_token, title="Second").json()
+    third = _create_parcel(client, tokens.access_token, title="Third").json()
+    assert [first["parcel_number"], second["parcel_number"], third["parcel_number"]] == [
+        "LV-NG-000001", "LV-NG-000002", "LV-NG-000003",
+    ]
+
+
+# 15. Allocation is nationally scoped, not tenant-scoped: two tenants registering
+# in the SAME country share one sequence (parcel_number is a database-wide unique
+# registry identifier — migrations/versions/0007_parcels.py's
+# ix_parcels_number_unique — so a per-tenant counter would hand out colliding
+# numbers the moment two tenants operate in the same country; ADR-014). A
+# different country_code gets its own, independent sequence.
+
+def test_allocation_is_nationally_scoped_not_tenant_scoped(
+    harness: AppHarness, client: TestClient
+) -> None:
+    tokens_a, _a = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agentA15@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    tokens_b, _b = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agentB15@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    parcel_a1 = _create_parcel(client, tokens_a.access_token, title="A1").json()
+    parcel_b1 = _create_parcel(client, tokens_b.access_token, title="B1").json()
+    parcel_a2 = _create_parcel(client, tokens_a.access_token, title="A2").json()
+
+    # Same country (NG, both tenants' default) — one shared sequence, no collision.
+    assert parcel_a1["parcel_number"] == "LV-NG-000001"
+    assert parcel_b1["parcel_number"] == "LV-NG-000002"
+    assert parcel_a2["parcel_number"] == "LV-NG-000003"
+
+    # A different country_code draws from its own, independent sequence.
+    parcel_a_gh = _create_parcel(
+        client, tokens_a.access_token, title="A-GH", country_code="GH"
+    ).json()
+    assert parcel_a_gh["parcel_number"] == "LV-GH-000001"
+
+
+# 16. Allocated parcel numbers satisfy the domain's own "never reassigned" guard
+
+def test_allocated_number_cannot_be_reassigned_by_domain_guard() -> None:
+    parcel = Parcel.new(
+        tenant_id="t1", country_code="NG", origin="platform_registration", created_by="u1",
+    )
+    parcel.allocate_parcel_number("LV-NG-000001")
+    with pytest.raises(ValueError):
+        parcel.allocate_parcel_number("LV-NG-000002")
+
+
+# 17. Audit payload for creation includes the allocated parcel_number ----------
+
+def test_audit_payload_includes_parcel_number(harness: AppHarness, client: TestClient) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent17@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens.access_token, title="Audited number").json()
+
+    entries = asyncio.run(harness.audit_store.all_entries())
+    creation_entries = [e for e in entries if e.action == "registry.parcel.created"]
+    assert any(e.payload.get("parcel_number") == created["parcel_number"] for e in creation_entries)
