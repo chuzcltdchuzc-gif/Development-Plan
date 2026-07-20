@@ -1,6 +1,7 @@
 """Parcel aggregate — the canonical, single authoritative representation of
 a land parcel (B3 slice 1, docs/adr/ADR-013; mutation commands added B3
-slice 3, docs/adr/ADR-015).
+slice 3, docs/adr/ADR-015; geometry association added B3 slice 4,
+docs/adr/ADR-016).
 
 `parcel_id` is immutable identity, set once at construction. `parcel_number`
 is a separate concept, populated by Slice 2's atomic allocator
@@ -16,11 +17,19 @@ never be conflated with "who owns it now" (ADR-013 invariant #12).
 concepts, and must stay that way for a future ownership-transfer command
 to be additive rather than a refactor).
 
-Authorization (who may call `update_details`/`archive` on a given parcel)
-is entirely the caller's responsibility (ParcelService, ADR-015) — this
-aggregate enforces only domain-level invariants: archived parcels are
-immutable (`_ensure_mutable`), and only the fields in `UPDATABLE_FIELDS`
-may ever change outside of creation/allocation.
+Authorization (who may call `update_details`/`archive`/`set_geometry_reference`
+on a given parcel) is entirely the caller's responsibility (ParcelService,
+ADR-015) — this aggregate enforces only domain-level invariants: archived
+parcels are immutable (`_ensure_mutable`), and only the fields in
+`UPDATABLE_FIELDS` may ever change outside of creation/allocation/geometry
+association.
+
+`geometry_reference` (ADR-016) is an opaque pointer to a future Spatial
+Intelligence context's own geometry data — never a polygon, coordinate
+pair, or PostGIS type, and never interpreted here. It is an *association*,
+not part of this aggregate's core business invariants (ADR-016's aggregate
+boundary), the same "reserved pointer" pattern ADR-013 used for
+`parcel_number` before ADR-014 populated it.
 """
 from __future__ import annotations
 
@@ -90,6 +99,7 @@ class Parcel:
     updated_at: str = field(default_factory=_now_iso)
     updated_by: str | None = None
     archived_at: str | None = None
+    geometry_reference: str | None = None
 
     @classmethod
     def new(
@@ -178,3 +188,17 @@ class Parcel:
         self.archived_at = _now_iso()
         self.updated_by = archived_by
         self.updated_at = self.archived_at
+
+    def set_geometry_reference(self, *, geometry_reference: str | None, updated_by: str) -> None:
+        """B3 slice 4 (docs/adr/ADR-016) — associates (or clears, when
+        `geometry_reference` is None) this parcel with an opaque geometry
+        reference owned entirely by a future Spatial Intelligence
+        capability. Registry never validates or interprets what the
+        reference contains beyond what the injected GeometryPort decides
+        (ParcelService's responsibility, not this aggregate's) — this
+        method only enforces that archived parcels remain immutable, the
+        same guard every other mutator uses."""
+        self._ensure_mutable()
+        self.geometry_reference = geometry_reference
+        self.updated_by = updated_by
+        self.updated_at = _now_iso()

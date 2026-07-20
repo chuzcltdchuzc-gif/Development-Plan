@@ -1,12 +1,15 @@
-"""ParcelService — Registry context's parcel use-cases (B3 slices 1-3,
-docs/adr/ADR-013, docs/adr/ADR-014, docs/adr/ADR-015).
+"""ParcelService — Registry context's parcel use-cases (B3 slices 1-4,
+docs/adr/ADR-013, docs/adr/ADR-014, docs/adr/ADR-015, docs/adr/ADR-016).
 
-create/get/list/update/archive, plus atomic parcel-number allocation as an
-integral part of creation. No ownership transfer, no geometry — those are
-later slices. Every check here reuses an existing mechanism (CountryCode
-validation from Identity, the kernel audit() function, the same
-tenant-scope pattern AdminService already established, GOVERNANCE_ROLES
-from Identity's role hierarchy) — never a new, divergent one.
+create/get/list/update/archive/set_geometry_reference, plus atomic
+parcel-number allocation as an integral part of creation. No ownership
+transfer — a later slice. Every check here reuses an existing mechanism
+(CountryCode validation from Identity, the kernel audit() function, the
+same tenant-scope pattern AdminService already established,
+GOVERNANCE_ROLES from Identity's role hierarchy) — never a new, divergent
+one; set_geometry_reference reuses the identical
+_load_in_scope/_authorize_mutation pair update_parcel/archive_parcel
+already use, not a parallel geometry-specific authorization rule.
 """
 from __future__ import annotations
 
@@ -14,7 +17,7 @@ from fastapi import HTTPException, status
 
 from app.contexts.identity.domain.value_objects import GOVERNANCE_ROLES, CountryCode
 from app.contexts.registry.domain.parcel import Parcel, ParcelArchivedError
-from app.contexts.registry.ports import ParcelNumberAllocator, ParcelRepository
+from app.contexts.registry.ports import GeometryPort, ParcelNumberAllocator, ParcelRepository
 from app.kernel.audit import audit
 from app.kernel.context import ExecutionContext
 
@@ -97,13 +100,21 @@ def _parcel_view(parcel: Parcel) -> dict:
         "created_at": parcel.created_at,
         "updated_at": parcel.updated_at,
         "archived_at": parcel.archived_at,
+        "geometry_reference": parcel.geometry_reference,
     }
 
 
 class ParcelService:
-    def __init__(self, *, parcels: ParcelRepository, allocator: ParcelNumberAllocator) -> None:
+    def __init__(
+        self,
+        *,
+        parcels: ParcelRepository,
+        allocator: ParcelNumberAllocator,
+        geometry: GeometryPort,
+    ) -> None:
         self.parcels = parcels
         self.allocator = allocator
+        self.geometry = geometry
 
     async def create_parcel(
         self,
@@ -272,6 +283,50 @@ class ParcelService:
         parcel = await self.parcels.update(parcel)
         await audit(
             "registry.parcel.archived",
+            resource_type="parcel",
+            resource_id=parcel.parcel_id,
+            decision="PERMIT",
+            payload={
+                "tenant_id": parcel.tenant_id,
+                "effective_authority": _effective_authority(ctx, parcel),
+                "delegated_roles": _delegated_roles(ctx),
+            },
+        )
+        return _parcel_view(parcel)
+
+    async def set_geometry_reference(
+        self, *, ctx: ExecutionContext, parcel_id: str, geometry_reference: str | None
+    ) -> dict:
+        """B3 slice 4 (docs/adr/ADR-016). Authorization is the identical
+        creator-or-governance check update_parcel/archive_parcel already
+        use — geometry mutation is not a new authorization concept, just
+        a new field the same rule applies to. Registry never learns what
+        `geometry_reference` means; it only asks the injected GeometryPort
+        whether the string is one worth storing, never PostGIS or any
+        concrete GIS technology directly."""
+        parcel = await self._load_in_scope(ctx=ctx, parcel_id=parcel_id)
+        await self._authorize_mutation(ctx=ctx, parcel=parcel)
+
+        if geometry_reference is not None:
+            valid = await self.geometry.reference_is_valid(geometry_reference=geometry_reference)
+            if not valid:
+                raise _bad_request("geometry_reference failed validation")
+
+        try:
+            parcel.set_geometry_reference(
+                geometry_reference=geometry_reference, updated_by=ctx.principal_id
+            )
+        except ParcelArchivedError as exc:
+            raise _conflict(str(exc)) from exc
+
+        parcel = await self.parcels.update(parcel)
+        action = (
+            "registry.parcel.geometry_attached"
+            if geometry_reference is not None
+            else "registry.parcel.geometry_detached"
+        )
+        await audit(
+            action,
             resource_type="parcel",
             resource_id=parcel.parcel_id,
             decision="PERMIT",

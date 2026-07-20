@@ -1,14 +1,17 @@
 """B3 slice 1 — Parcel Aggregate / Registry domain (docs/adr/ADR-013).
 B3 slice 3 — mutation commands & authorization hardening (docs/adr/ADR-015).
+B3 slice 4 — geometry port boundary & spatial integration (docs/adr/ADR-016).
 
 Covers: creation, tenant isolation, authorization (including delegated
 roles, ADR-011 integration), validation, domain-level invariant
 enforcement (archived parcels immutable, parcel_number never
-reassignable), audit integration, and — slice 3 — the creator-or-
-governance mutation authorization model that closes the confirmed ADR-005
-defect (any create-tier role could mutate any parcel in their tenant).
-RLS and the database-level unique constraint are verified live against
-real Postgres separately (see the completion report), not here — in-memory
+reassignable), audit integration, the creator-or-governance mutation
+authorization model that closes the confirmed ADR-005 defect (any
+create-tier role could mutate any parcel in their tenant), and — slice 4
+— the geometry association endpoint, which reuses that identical
+authorization model rather than introducing a geometry-specific one. RLS
+and the database-level unique constraint are verified live against real
+Postgres separately (see the completion report), not here — in-memory
 fakes have no RLS/constraints to exercise. Real business logic throughout;
 Keycloak and Postgres are swapped for in-memory fakes at the port
 boundary, same as the rest of the B1/B2/B3 suite.
@@ -26,9 +29,11 @@ from app.contexts.identity.domain.delegation import Delegation
 from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import IdentityProviderTokens
+from app.contexts.registry.dependencies import get_geometry_port
 from app.contexts.registry.domain.parcel import Parcel, ParcelArchivedError
 from app.kernel.audit import verify_chain
 from tests.app_factory import AppHarness, build_test_app
+from tests.fakes.registry import FakeGeometryPort
 
 
 @pytest.fixture
@@ -76,6 +81,16 @@ def _update_parcel(
 def _archive_parcel(client: TestClient, access_token: str, parcel_id: str) -> Response:
     return client.post(
         f"/v1/parcels/{parcel_id}/archive", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+
+def _set_geometry(
+    client: TestClient, access_token: str, parcel_id: str, geometry_reference: str | None
+) -> Response:
+    return client.put(
+        f"/v1/parcels/{parcel_id}/geometry",
+        json={"geometry_reference": geometry_reference},
+        headers={"Authorization": f"Bearer {access_token}"},
     )
 
 
@@ -931,3 +946,213 @@ def test_create_get_list_still_work_after_slice_3(harness: AppHarness, client: T
     )
     assert listed.status_code == 200
     assert any(p["parcel_id"] == created["parcel_id"] for p in listed.json())
+
+
+# ---- B3 slice 4: geometry port boundary & spatial integration (docs/adr/ADR-016) -
+# set_geometry_reference reuses ADR-015's authorization helpers verbatim — these
+# tests exist to prove that reuse actually holds (not merely that it's claimed in
+# the docstring), plus the one genuinely new behavior: consulting the injected
+# GeometryPort before storing a non-null reference.
+
+# 36. The creator can attach a geometry reference to their own parcel -----------
+
+def test_creator_can_attach_geometry_reference(harness: AppHarness, client: TestClient) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent36@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens.access_token, title="Needs geometry").json()
+    assert created["geometry_reference"] is None
+
+    response = _set_geometry(client, tokens.access_token, created["parcel_id"], "geo-ref-001")
+    assert response.status_code == 200, response.text
+    assert response.json()["geometry_reference"] == "geo-ref-001"
+    assert harness.geometry.calls == ["geo-ref-001"]
+
+
+# 37. A geometry reference can be cleared (set to null) --------------------------
+
+def test_geometry_reference_can_be_cleared(harness: AppHarness, client: TestClient) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent37@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens.access_token, title="Plot").json()
+    _set_geometry(client, tokens.access_token, created["parcel_id"], "geo-ref-002")
+
+    cleared = _set_geometry(client, tokens.access_token, created["parcel_id"], None)
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["geometry_reference"] is None
+    # Clearing never consults the port — nothing to validate about "no reference".
+    assert harness.geometry.calls == ["geo-ref-002"]
+
+
+# 38. ADR-015 reuse: non-creator, non-governance denied geometry mutation (403) --
+
+def test_non_creator_denied_geometry_mutation(harness: AppHarness, client: TestClient) -> None:
+    tokens_a, a = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agentA38@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    tokens_b, _b = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agentB38@example.test", password="pw12345678",
+            role="field_agent", tenant_id=a.tenant_id,
+        )
+    )
+    created = _create_parcel(client, tokens_a.access_token, title="A's plot").json()
+
+    response = _set_geometry(client, tokens_b.access_token, created["parcel_id"], "geo-ref-003")
+    assert response.status_code == 403
+
+
+# 39. A governance role can attach geometry to a colleague's parcel (override) ---
+
+def test_governance_role_can_attach_geometry_on_colleagues_parcel(
+    harness: AppHarness, client: TestClient
+) -> None:
+    agent_tokens, agent = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent39@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    officer_tokens, _officer = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-officer39@example.test", password="pw12345678",
+            role="compliance_officer", tenant_id=agent.tenant_id,
+        )
+    )
+    created = _create_parcel(client, agent_tokens.access_token, title="Agent's plot").json()
+
+    response = _set_geometry(
+        client, officer_tokens.access_token, created["parcel_id"], "geo-ref-004"
+    )
+    assert response.status_code == 200, response.text
+
+
+# 40. Cross-tenant geometry mutation 404s (existence not revealed) --------------
+
+def test_cross_tenant_geometry_mutation_denied_as_not_found(
+    harness: AppHarness, client: TestClient
+) -> None:
+    tokens_a, _a = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agentA40@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    tokens_b, _b = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agentB40@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens_a.access_token, title="A's plot").json()
+
+    response = _set_geometry(client, tokens_b.access_token, created["parcel_id"], "geo-ref-005")
+    assert response.status_code == 404
+
+
+# 41. An archived parcel rejects geometry mutation too (409) ---------------------
+
+def test_archived_parcel_rejects_geometry_mutation(harness: AppHarness, client: TestClient) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent41@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens.access_token, title="Will be archived").json()
+    _archive_parcel(client, tokens.access_token, created["parcel_id"])
+
+    response = _set_geometry(client, tokens.access_token, created["parcel_id"], "geo-ref-006")
+    assert response.status_code == 409
+
+
+# 42. GeometryPort rejection denies the mutation (proves the seam is consulted,
+# not merely wired decoratively) --------------------------------------------------
+
+def test_geometry_port_rejection_denies_mutation(harness: AppHarness, client: TestClient) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent42@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens.access_token, title="Plot").json()
+
+    rejecting_port = FakeGeometryPort(always_valid=False)
+    harness.app.dependency_overrides[get_geometry_port] = lambda: rejecting_port
+    try:
+        response = _set_geometry(
+            client, tokens.access_token, created["parcel_id"], "geo-ref-invalid"
+        )
+    finally:
+        harness.app.dependency_overrides[get_geometry_port] = lambda: harness.geometry
+
+    assert response.status_code == 400
+    assert rejecting_port.calls == ["geo-ref-invalid"]
+
+    # And the parcel is provably untouched.
+    still = client.get(
+        f"/v1/parcels/{created['parcel_id']}",
+        headers={"Authorization": f"Bearer {tokens.access_token}"},
+    ).json()
+    assert still["geometry_reference"] is None
+
+
+# 43. Geometry mutation is audited (attach and detach are distinct actions) ------
+
+def test_geometry_mutation_audited(harness: AppHarness, client: TestClient) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent43@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens.access_token, title="Audited geometry").json()
+    _set_geometry(client, tokens.access_token, created["parcel_id"], "geo-ref-007")
+    _set_geometry(client, tokens.access_token, created["parcel_id"], None)
+
+    entries = asyncio.run(harness.audit_store.all_entries())
+    actions = [e.action for e in entries if e.resource_id == created["parcel_id"]]
+    assert "registry.parcel.geometry_attached" in actions
+    assert "registry.parcel.geometry_detached" in actions
+
+    attached = next(
+        e for e in entries
+        if e.resource_id == created["parcel_id"] and e.action == "registry.parcel.geometry_attached"
+    )
+    assert attached.payload["effective_authority"] == "creator"
+    assert asyncio.run(verify_chain()) is True
+
+
+# 44. Domain guard: set_geometry_reference respects the archived-immutable rule --
+
+def test_domain_set_geometry_reference_rejected_when_archived() -> None:
+    parcel = Parcel.new(
+        tenant_id="t1", country_code="NG", origin="platform_registration", created_by="u1",
+    )
+    parcel.archive(archived_by="u1")
+    with pytest.raises(ParcelArchivedError):
+        parcel.set_geometry_reference(geometry_reference="geo-ref", updated_by="u1")
+
+
+# 45. Backward compatibility: slice 1-3 endpoints still work unchanged after slice 4
+
+def test_create_update_archive_still_work_after_slice_4(
+    harness: AppHarness, client: TestClient
+) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="r-agent45@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    created = _create_parcel(client, tokens.access_token, title="Still works").json()
+    assert created["status"] == "ACTIVE"
+    assert created["geometry_reference"] is None
+
+    updated = _update_parcel(client, tokens.access_token, created["parcel_id"], title="Edited")
+    assert updated.status_code == 200
+
+    archived = _archive_parcel(client, tokens.access_token, created["parcel_id"])
+    assert archived.status_code == 200
+    assert archived.json()["status"] == "ARCHIVED"

@@ -1,4 +1,4 @@
-"""Registry API request/response shapes (B3 slices 1 and 3)."""
+"""Registry API request/response shapes (B3 slices 1, 3, and 4)."""
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
@@ -19,6 +19,17 @@ class CreateParcelRequest(BaseModel):
     ownership_type: str | None = None
     current_owner_name: str | None = None
     current_owner_contact: str | None = None
+
+
+class SetGeometryReferenceRequest(BaseModel):
+    """B3 slice 4 (docs/adr/ADR-016). `geometry_reference: null` clears
+    the association; a non-null value is validated (structurally only —
+    Registry never interprets its content) via the injected GeometryPort
+    before being stored."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    geometry_reference: str | None = None
 
 
 class UpdateParcelRequest(BaseModel):

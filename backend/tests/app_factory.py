@@ -24,7 +24,11 @@ from app.contexts.identity.dependencies import (
     get_user_repository,
 )
 from app.contexts.registry.api import parcel_router
-from app.contexts.registry.dependencies import get_parcel_number_allocator, get_parcel_repository
+from app.contexts.registry.dependencies import (
+    get_geometry_port,
+    get_parcel_number_allocator,
+    get_parcel_repository,
+)
 from app.kernel.audit import configure_audit_store
 from app.kernel.authorization.pep import configure_pep, current_context_dep, require_role
 from app.kernel.context import ExecutionContext
@@ -41,7 +45,11 @@ from tests.fakes.identity import (
     InMemoryUserRepository,
 )
 from tests.fakes.jwks import FakeKeycloak
-from tests.fakes.registry import InMemoryParcelNumberAllocator, InMemoryParcelRepository
+from tests.fakes.registry import (
+    FakeGeometryPort,
+    InMemoryParcelNumberAllocator,
+    InMemoryParcelRepository,
+)
 
 
 @dataclass
@@ -55,6 +63,7 @@ class AppHarness:
     delegations: InMemoryDelegationRepository
     parcels: InMemoryParcelRepository
     parcel_numbers: InMemoryParcelNumberAllocator
+    geometry: FakeGeometryPort
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
 
@@ -68,6 +77,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     delegations = InMemoryDelegationRepository()
     parcels = InMemoryParcelRepository()
     parcel_numbers = InMemoryParcelNumberAllocator()
+    geometry = FakeGeometryPort()
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
 
@@ -94,6 +104,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_delegation_repository] = lambda: delegations
     app.dependency_overrides[get_parcel_repository] = lambda: parcels
     app.dependency_overrides[get_parcel_number_allocator] = lambda: parcel_numbers
+    app.dependency_overrides[get_geometry_port] = lambda: geometry
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -121,6 +132,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         delegations=delegations,
         parcels=parcels,
         parcel_numbers=parcel_numbers,
+        geometry=geometry,
         identity_provider=identity_provider,
         audit_store=audit_store,
     )

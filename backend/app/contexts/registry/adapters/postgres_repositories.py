@@ -48,6 +48,7 @@ def _parcel_from_record(record: ParcelRecord) -> Parcel:
         updated_at=record.updated_at.isoformat(),
         updated_by=str(record.updated_by) if record.updated_by else None,
         archived_at=record.archived_at.isoformat() if record.archived_at else None,
+        geometry_reference=record.geometry_reference,
     )
 
 
@@ -75,6 +76,7 @@ class PostgresParcelRepository:
             ownership_type=parcel.ownership_type,
             current_owner_name=parcel.current_owner_name,
             current_owner_contact=parcel.current_owner_contact,
+            geometry_reference=parcel.geometry_reference,
         )
         self._session.add(record)
         await self._session.flush()
@@ -116,6 +118,7 @@ class PostgresParcelRepository:
         record.archived_at = (
             datetime.fromisoformat(parcel.archived_at) if parcel.archived_at else None
         )
+        record.geometry_reference = parcel.geometry_reference
         await self._session.flush()
         return _parcel_from_record(record)
 

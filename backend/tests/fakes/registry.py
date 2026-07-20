@@ -51,3 +51,21 @@ class InMemoryParcelNumberAllocator:
         next_value = self._counters.get(country_code, 0) + 1
         self._counters[country_code] = next_value
         return f"LV-{country_code}-{next_value:06d}"
+
+
+class FakeGeometryPort:
+    """Configurable in-memory GeometryPort (B3 slice 4, docs/adr/ADR-016).
+    Defaults to always-valid, matching production's
+    PlaceholderGeometryAdapter; tests can construct with
+    `always_valid=False` to prove ParcelService actually consults the
+    port's answer rather than merely wiring it decoratively. `calls`
+    records every reference the port was asked about, so a test can also
+    assert the port was (or wasn't) invoked."""
+
+    def __init__(self, *, always_valid: bool = True) -> None:
+        self.always_valid = always_valid
+        self.calls: list[str] = []
+
+    async def reference_is_valid(self, *, geometry_reference: str) -> bool:
+        self.calls.append(geometry_reference)
+        return self.always_valid

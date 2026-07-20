@@ -86,3 +86,65 @@ single-row operations with no shared-lock contention analogous to Slice 2's coun
 
 **Infrastructure observations:** none new — see "Known limitations" above (carried over from
 Slice 2, not introduced by Slice 3).
+
+## Slice 4 — Geometry Port Boundary & Spatial Integration Foundation (docs/adr/ADR-016)
+
+**Already done (targeted, not deferred):** `ruff`/`mypy` on every changed file (clean); the full
+`tests/test_b3_registry.py` file, including all 10 new Slice 4 tests (47/47 passed); migration
+`0009` applied to the live dev Postgres with no failure (an immediate-error check, per policy —
+not the full live verification below, which remains deferred).
+
+**Deferred to the End-of-B3 Quality Gate:**
+
+- [ ] Full `pytest` suite (all of B1 + B2 + B3 slices 1–4 together) — still not run since Slice 3's
+      `pep.py`/`context_hydration.py` changes (carried forward from Slice 3's own deferred item;
+      Slice 4 adds no further changes to those two files, but the full run still hasn't happened).
+- [ ] Full `ruff`/`mypy` across the whole repo (only the changed-file subset has been checked so far).
+- [ ] Live Postgres: confirm `PUT /v1/parcels/{id}/geometry` actually persists
+      `geometry_reference` (set and cleared) against the real `parcels` table — migration `0009`
+      was applied and confirmed not to fail, but the write path through
+      `PostgresParcelRepository.update()`/`add()` has not yet been exercised against a live
+      request.
+- [ ] Live RLS: confirm the new column is subject to the same existing `parcels_tenant_isolation`
+      policy as every other column (expected — RLS is row-level, not column-level, so no policy
+      change was made — but "expected" is not "observed," per this engagement's own standing
+      rule).
+- [ ] Live Keycloak, real authenticated flow: creator attach/detach, non-creator same-tenant
+      denial (proving ADR-015's reuse holds end-to-end, not only against the in-memory fake),
+      governance-role override, cross-tenant 404, archived-parcel 409.
+- [ ] Live audit chain: confirm `registry.parcel.geometry_attached`/`.geometry_detached` entries
+      exist in the real `audit_log` table with the documented payload shape, and `verify_chain()`
+      still returns `True` afterward.
+- [ ] Containerized backend: rebuild, confirm it boots healthy and exposes
+      `PUT /v1/parcels/{id}/geometry` in `/openapi.json`. Full authenticated-flow verification
+      through the container itself is expected to hit the same pre-existing `KEYCLOAK_REALM_URL`
+      networking gap documented in Slices 2–3 (unrelated to this slice).
+- [ ] Security validation: confirm a crafted request cannot set `geometry_reference` through
+      `PATCH /v1/parcels/{id}` (the ADR-015 update endpoint) — `Parcel.UPDATABLE_FIELDS` does not
+      include `geometry_reference`, so `update_details` should reject it, but this has only been
+      proven for the *existing* `UPDATABLE_FIELDS` set (`test_domain_update_details_rejects_unknown_fields`),
+      not specifically re-run against the new field.
+
+**Known limitations (documented, not defects):**
+
+- `GeometryPort.reference_is_valid` has exactly one production implementation,
+  `PlaceholderGeometryAdapter`, which validates nothing about the reference's content (always
+  `True`) — deliberate, not an oversight (ADR-016). Any real validation is B4's responsibility.
+- No geometry data model, persistence, or computation of any kind exists anywhere in this
+  codebase yet — `geometry_reference` is an opaque string with no format enforced beyond "is a
+  string." B4's own ADR will define what a real reference looks like.
+- The containerized backend's `KEYCLOAK_REALM_URL` host-relative networking gap (Slices 2–3)
+  still applies and is still out of Registry's scope.
+- SQLAlchemy's default connection-pool ceiling (Slice 2) is unaffected by this slice — geometry
+  mutation is a single-row update, not a shared-counter contention point.
+
+**Performance observations:** none — identical shape to Slice 3's single-row mutation pattern.
+
+**Infrastructure observations:** none new.
+
+## B3 Final Quality Gate — status
+
+**Not yet run.** All items above (Slice 3 and Slice 4 sections) remain open. Per the B3 Slice 4
+execution authorization: upon completion of Slice 4, the next step is the B3 Final Quality Gate
+in full — not B4 — followed by a complete B3 Freeze package presented for review. No B4 work may
+begin until that gate passes and the freeze is explicitly approved.

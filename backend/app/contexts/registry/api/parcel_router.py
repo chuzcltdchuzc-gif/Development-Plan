@@ -1,5 +1,6 @@
 """Registry API router — /v1/parcels/* (B3 slice 1, docs/adr/ADR-013;
-mutation routes added B3 slice 3, docs/adr/ADR-015).
+mutation routes added B3 slice 3, docs/adr/ADR-015; geometry association
+added B3 slice 4, docs/adr/ADR-016).
 
 Routers are composition only: parse + validate via DTOs, call
 ParcelService, shape the response. No business logic lives here — in
@@ -20,7 +21,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.contexts.registry.api.dtos import CreateParcelRequest, UpdateParcelRequest
+from app.contexts.registry.api.dtos import (
+    CreateParcelRequest,
+    SetGeometryReferenceRequest,
+    UpdateParcelRequest,
+)
 from app.contexts.registry.application.parcel_service import ParcelService
 from app.contexts.registry.dependencies import get_parcel_service
 from app.contexts.registry.domain.value_objects import PARCEL_REGISTRANT_ROLES
@@ -58,6 +63,18 @@ async def archive_parcel(
     parcel_service: ParcelService = Depends(get_parcel_service),
 ) -> dict:
     return await parcel_service.archive_parcel(ctx=ctx, parcel_id=parcel_id)
+
+
+@router.put("/{parcel_id}/geometry")
+async def set_geometry_reference(
+    parcel_id: str,
+    body: SetGeometryReferenceRequest,
+    ctx: ExecutionContext = Depends(require_role(*PARCEL_REGISTRANT_ROLES)),
+    parcel_service: ParcelService = Depends(get_parcel_service),
+) -> dict:
+    return await parcel_service.set_geometry_reference(
+        ctx=ctx, parcel_id=parcel_id, geometry_reference=body.geometry_reference
+    )
 
 
 @router.get("")

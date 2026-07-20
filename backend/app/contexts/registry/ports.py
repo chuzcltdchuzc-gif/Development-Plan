@@ -28,3 +28,17 @@ class ParcelNumberAllocator(Protocol):
     ParcelService.create_parcel."""
 
     async def allocate(self, *, country_code: str) -> str: ...
+
+
+class GeometryPort(Protocol):
+    """The entire seam Registry depends on for spatial capability (B3
+    slice 4, docs/adr/ADR-016) — never PostGIS or any concrete GIS
+    technology directly. Deliberately minimal: Registry needs to know only
+    whether a reference makes sense to attach, never geometry content
+    itself. `app.contexts.registry.adapters.geometry.
+    PlaceholderGeometryAdapter` satisfies this with zero business logic;
+    a future Spatial Intelligence context (B4) supplies the first real
+    implementation without any change to ParcelService, Parcel, or this
+    protocol."""
+
+    async def reference_is_valid(self, *, geometry_reference: str) -> bool: ...

@@ -35,7 +35,7 @@ No email-delivery integration exists yet — the plaintext token is returned onc
 
 **Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`).
 
-## B3 status (Registry) — Slices 1–3 done, Slice 4 not authorized
+## B3 status (Registry) — Slices 1–4 implemented, B3 Final Quality Gate not yet run
 
 **Deferred-verification policy (effective mid-Slice-3):** Slice 3 onward runs comprehensive
 `ruff`/`mypy`/`pytest`/live verification once, at the End-of-B3 Quality Gate, instead of per
@@ -123,10 +123,29 @@ live verification are the largest deferred items — see
 Postgres/RLS/Keycloak/delegation/audit-chain/container checks, plus a full B1+B2+B3 regression
 run, since this slice also touched the shared `context_hydration.py`/`pep.py` hydration path).
 
-**Not yet built (explicitly deferred, per the Slice 3 authorization):** the geometry port
-(Slice 4), restore/ownership-transfer (open questions recorded in ADR-015, not decided).
-**Slice 4 is not authorized** — this execution authorized Slice 3 only, and Slice 3 itself is not
-yet proposed for freeze pending the End-of-B3 Quality Gate.
+**Slice 4 — Geometry Port Boundary & Spatial Integration Foundation (implemented, verification
+deferred per the policy above, `docs/adr/ADR-016-geometry-port-boundary-spatial-integration.md`):**
+an architectural boundary, not a GIS feature — no polygon drawing, coordinate systems, topology,
+spatial search, or survey workflows (all B4). `Parcel` gains one nullable field,
+`geometry_reference: str | None` — an opaque pointer to a future Spatial Intelligence context's
+own geometry data, never a polygon or PostGIS type, never interpreted by Registry (migration
+`0009`, purely additive). Registry depends on exactly one new contract,
+`GeometryPort.reference_is_valid(geometry_reference: str) -> bool`
+(`app/contexts/registry/ports.py`) — never PostGIS or any concrete GIS technology directly. This
+slice's `PlaceholderGeometryAdapter` (`app/contexts/registry/adapters/geometry.py`) satisfies it
+with zero business logic (always returns `True`); a future B4 adapter swaps in without changing
+`ParcelService`, `Parcel`, or any Registry test. `PUT /v1/parcels/{id}/geometry` reuses ADR-015's
+`_load_in_scope`/`_authorize_mutation` verbatim — no geometry-specific authorization rule, no new
+role, no parallel pipeline. Two new audit actions,
+`registry.parcel.geometry_attached`/`.geometry_detached`, through the existing `audit()` function.
+
+47/47 registry tests pass (10 new); `ruff`/`mypy` clean on every changed file; migration `0009`
+applied cleanly (immediate-error check only, per the deferred-verification policy — not full live
+verification). **Registry (B3) is now feature-complete per its Phase-0 scope** — what remains
+before freeze is the deferred B3 Final Quality Gate
+(`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`), not further Registry design. **B4 (Spatial
+Intelligence) is not authorized** — this execution authorized Slice 4 only, and B3 is not yet
+proposed for freeze pending the Quality Gate.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

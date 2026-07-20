@@ -58,6 +58,12 @@ class ParcelRecord(Base):
         TZDateTime, server_default=func.now(), nullable=False
     )
     archived_at: Mapped[datetime | None] = mapped_column(TZDateTime, nullable=True)
+    # B3 slice 4 (docs/adr/ADR-016) — an opaque pointer to a future
+    # Spatial Intelligence context's own geometry data. Never a PostGIS
+    # geometry type: Registry depends only on the GeometryPort contract,
+    # never on PostGIS directly, so this column carries no spatial
+    # semantics at all (migrations/versions/0009).
+    geometry_reference: Mapped[str | None] = mapped_column(String, nullable=True)
 
     __table_args__ = (Index("ix_parcels_tenant", "tenant_id"),)
 
