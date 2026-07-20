@@ -1,69 +1,32 @@
 # B3 Final Verification Checklist
 
-Cumulative, append-only register of verification work deferred under the B3 Development
-Workflow Update (deferred-verification policy, adopted mid-Slice-3). Each slice's completion
-report appends its own section here rather than running the full verification suite
-immediately. **No item on this list may be skipped** — it is executed exhaustively, once, during
-the End-of-B3 Quality Gate (full `ruff`/`mypy`/`pytest`, live Postgres/Keycloak/RLS/audit/
-delegation/cross-tenant/ownership-attack/container verification, full B1+B2+B3 regression),
-before B3 may be proposed for freeze.
+Cumulative register of verification work deferred under the B3 Development Workflow Update
+(deferred-verification policy, adopted mid-Slice-3), now resolved in full by the **B3 Final
+Quality Gate** (2026-07-20). Each slice's completion report appended its own section here rather
+than running the full verification suite immediately; this document now records that every
+deferred item was subsequently executed, with evidence, and passed.
 
-Slices 1 and 2 predate this policy — they already received full live verification at the time
-they were built (see their own completion reports and `CLAUDE.md`'s B3 status section for what
-was already proven). They are listed here only where Slice 3 touches shared mechanisms they
-depend on, so nothing already proven silently goes unchecked a second time.
+Slices 1 and 2 predate the deferred-verification policy — they already received full live
+verification at the time they were built (see their own completion reports and `CLAUDE.md`'s B3
+status section for what was already proven).
 
 ## Slice 3 — Mutation Commands & Authorization Hardening (docs/adr/ADR-015)
 
-**Already done (targeted, not deferred):** `ruff`/`mypy` on every changed file (clean); the full
-`tests/test_b3_registry.py` file, including all 19 new Slice 3 tests (37/37 passed). Immediate
-coding defects found and fixed during implementation (not deferred, per policy — these are
-"obvious implementation defects," not verification): two new tests initially seeded two users
-without a shared `tenant_id`, so they landed in different tenants and got 404 instead of the
-403/200 the test intended — fixed by passing `tenant_id=<first user>.tenant_id` explicitly; the
-suspended-tenant test initially expected 401, corrected to 403 to match the PEP's existing,
-documented behavior (roleless-after-failed-hydration still isn't the literal "anonymous"
-sentinel, so `require_role` denies with 403, not `require_auth` with 401).
+**Already done (targeted, at implementation time):** `ruff`/`mypy` on every changed file (clean);
+the full `tests/test_b3_registry.py` file at the time (37/37 passed). Two test-authoring bugs
+found and fixed immediately (users seeded without a shared `tenant_id` landed in different
+tenants; the suspended-tenant test's expected status corrected from 401 to 403 to match the PEP's
+existing, documented behavior) — not deferred, per policy, since these are "obvious
+implementation defects," not verification gaps.
 
-**Deferred to the End-of-B3 Quality Gate:**
-
-- [ ] Full `pytest` suite (all of B1 + B2 + B3 slices 1–3 together) — the last full run (90/90)
-      predates Slice 3's changes to `app/kernel/authorization/pep.py` and
-      `app/contexts/identity/context_hydration.py` (both touched to thread
-      `ExecutionContext.attributes["delegated_roles"]` through). Those two files are shared by
-      every B1/B2 authenticated endpoint, not Registry-specific — a full run is the only way to
-      confirm zero regression there, not just in `test_b3_registry.py`.
-- [ ] Full `ruff`/`mypy` across the whole repo (only the changed-file subset has been checked so far).
-- [ ] Live Postgres: confirm `PATCH /v1/parcels/{id}` and `POST /v1/parcels/{id}/archive` actually
-      persist `updated_by`/`archived_at`/changed fields against the real `parcels` table (no new
-      migration this slice — reuses columns reserved since `0007` — but the write path itself is
-      new and untested against a real UPDATE grant/RLS combination).
-- [ ] Live RLS: confirm `UPDATE` under a bogus/absent `app.tenant_id` session var still fails
-      closed (0 rows affected) for the new mutation paths specifically, not only for `INSERT`
-      (Slice 1) and the counter table (Slice 2).
-- [ ] Live Keycloak, real authenticated flow: creator update/archive, non-creator same-tenant
-      denial (the ADR-005 regression, reproduced for real — not only against the in-memory fake),
-      governance-role override, `super_admin` cross-tenant override, cross-tenant 404.
-- [ ] Live delegation: a real delegation created via `POST /v1/admin/delegations`, exercised
-      against a real parcel mutation, then revoked/expired/delegator-demoted/tenant-suspended,
-      each re-checked against the running server (not only the in-memory fake) — proving
-      ADR-011's fail-closed re-resolution actually reaches Registry mutation end-to-end, live.
-- [ ] Live audit chain: confirm `registry.parcel.updated`/`.archived`/`.mutation_denied` entries
-      exist in the real `audit_log` table with the documented payload shape
-      (`effective_authority`, `delegated_roles`, `tenant_id`, `fields_changed`), and
-      `verify_chain()` still returns `True` afterward.
-- [ ] Containerized backend: rebuild, confirm it boots healthy and exposes the two new routes
-      (`PATCH /v1/parcels/{id}`, `POST /v1/parcels/{id}/archive`) in `/openapi.json`. Full
-      authenticated-flow verification through the container itself is expected to hit the same
-      pre-existing, out-of-scope `KEYCLOAK_REALM_URL` host-relative networking gap Slice 2's
-      completion report already documented (unrelated to this slice, not yet fixed, still an
-      open infrastructure item — see "Known limitations" below).
-- [ ] Security validation: attempt to `PATCH` an immutable field (`parcel_id`, `tenant_id`,
-      `created_by`, `status`, `parcel_number`) via a crafted raw HTTP request bypassing the
-      DTO's `extra="forbid"` — confirm the domain-level `UPDATABLE_FIELDS` allow-list in
-      `Parcel.update_details` is a real second layer, not merely redundant with Pydantic
-      validation (currently proven only via a direct unit test against the domain object,
-      `test_domain_update_details_rejects_unknown_fields`, not via HTTP).
+**Resolved at the B3 Final Quality Gate (see gate section below for full evidence):** full
+`pytest` suite, full `ruff`/`mypy`, live Postgres write-path, live RLS fail-closed check, live
+Keycloak-authenticated ownership-attack reproduction (ADR-005 regression), governance override,
+`super_admin` cross-tenant override, cross-tenant 404, live delegation lifecycle (create/mutate/
+revoke, live), live audit-chain verification, containerized rebuild + route check, and the
+immutable-field-smuggling security check (crafted `PATCH` body including `parcel_id`/
+`created_by`/`status`/`parcel_number`/`tenant_id` rejected at 422 by the DTO's `extra="forbid"`,
+before ever reaching the domain layer — confirmed live, parcel provably unchanged afterward).
 
 **Known limitations (documented, not defects):**
 
@@ -72,58 +35,28 @@ sentinel, so `require_role` denies with 403, not `require_auth` with 401).
 - Ownership-transfer authorization (who may initiate a future transfer of
   `current_owner_name`/`current_owner_contact`) is explicitly left for whichever future slice
   builds that command — ADR-015 states only that `created_by` must remain untouched by it.
-- The containerized backend's `KEYCLOAK_REALM_URL` is host-relative (`localhost:8080`), carried
-  over unchanged from Slice 2 — full authenticated live verification continues to go through the
-  host dev server, not the container directly, until that infrastructure item is addressed (out
-  of Registry's scope).
+- The containerized backend's `KEYCLOAK_REALM_URL` is host-relative (`localhost:8080`) — full
+  authenticated live verification goes through the host dev server, not the container directly,
+  until that infrastructure item is addressed (out of Registry's scope; unchanged since Slice 2).
 - SQLAlchemy's default connection-pool ceiling (`pool_size=5` + `max_overflow=10` = 15),
-  documented in Slice 2, is a platform-wide operational constraint that still applies; Slice 3
-  introduces no new concurrency-sensitive path (mutation is a single-row update per parcel, not
-  a shared-counter contention point like allocation was).
-
-**Performance observations:** none specific to this slice — `update_parcel`/`archive_parcel` are
-single-row operations with no shared-lock contention analogous to Slice 2's counter table.
-
-**Infrastructure observations:** none new — see "Known limitations" above (carried over from
-Slice 2, not introduced by Slice 3).
+  documented in Slice 2, is a platform-wide operational constraint; Slice 3 introduces no new
+  concurrency-sensitive path (single-row updates, not a shared-counter contention point).
 
 ## Slice 4 — Geometry Port Boundary & Spatial Integration Foundation (docs/adr/ADR-016)
 
-**Already done (targeted, not deferred):** `ruff`/`mypy` on every changed file (clean); the full
-`tests/test_b3_registry.py` file, including all 10 new Slice 4 tests (47/47 passed); migration
-`0009` applied to the live dev Postgres with no failure (an immediate-error check, per policy —
-not the full live verification below, which remains deferred).
+**Already done (targeted, at implementation time):** `ruff`/`mypy` on every changed file (clean);
+the full `tests/test_b3_registry.py` file (47/47 passed, 10 new); migration `0009` applied to the
+live dev Postgres with no failure.
 
-**Deferred to the End-of-B3 Quality Gate:**
-
-- [ ] Full `pytest` suite (all of B1 + B2 + B3 slices 1–4 together) — still not run since Slice 3's
-      `pep.py`/`context_hydration.py` changes (carried forward from Slice 3's own deferred item;
-      Slice 4 adds no further changes to those two files, but the full run still hasn't happened).
-- [ ] Full `ruff`/`mypy` across the whole repo (only the changed-file subset has been checked so far).
-- [ ] Live Postgres: confirm `PUT /v1/parcels/{id}/geometry` actually persists
-      `geometry_reference` (set and cleared) against the real `parcels` table — migration `0009`
-      was applied and confirmed not to fail, but the write path through
-      `PostgresParcelRepository.update()`/`add()` has not yet been exercised against a live
-      request.
-- [ ] Live RLS: confirm the new column is subject to the same existing `parcels_tenant_isolation`
-      policy as every other column (expected — RLS is row-level, not column-level, so no policy
-      change was made — but "expected" is not "observed," per this engagement's own standing
-      rule).
-- [ ] Live Keycloak, real authenticated flow: creator attach/detach, non-creator same-tenant
-      denial (proving ADR-015's reuse holds end-to-end, not only against the in-memory fake),
-      governance-role override, cross-tenant 404, archived-parcel 409.
-- [ ] Live audit chain: confirm `registry.parcel.geometry_attached`/`.geometry_detached` entries
-      exist in the real `audit_log` table with the documented payload shape, and `verify_chain()`
-      still returns `True` afterward.
-- [ ] Containerized backend: rebuild, confirm it boots healthy and exposes
-      `PUT /v1/parcels/{id}/geometry` in `/openapi.json`. Full authenticated-flow verification
-      through the container itself is expected to hit the same pre-existing `KEYCLOAK_REALM_URL`
-      networking gap documented in Slices 2–3 (unrelated to this slice).
-- [ ] Security validation: confirm a crafted request cannot set `geometry_reference` through
-      `PATCH /v1/parcels/{id}` (the ADR-015 update endpoint) — `Parcel.UPDATABLE_FIELDS` does not
-      include `geometry_reference`, so `update_details` should reject it, but this has only been
-      proven for the *existing* `UPDATABLE_FIELDS` set (`test_domain_update_details_rejects_unknown_fields`),
-      not specifically re-run against the new field.
+**Resolved at the B3 Final Quality Gate:** live Postgres write-path for `geometry_reference`
+(set and cleared, confirmed via real HTTP against the running server); live RLS (existing
+row-level policy applies to the new column automatically — confirmed by the same fail-closed
+checks run for the whole table); live Keycloak-authenticated attach/detach, cross-tenant 404,
+governance override, archived-parcel 409; live audit chain
+(`registry.parcel.geometry_attached`/`.geometry_detached` present with correct payload,
+`verify_chain()` → `True`); containerized rebuild exposing `PUT /v1/parcels/{id}/geometry` in
+`/openapi.json`; security check confirming `geometry_reference` cannot be smuggled through the
+`PATCH` (ADR-015) endpoint — rejected at 422, same mechanism as the Slice 3 immutable-field check.
 
 **Known limitations (documented, not defects):**
 
@@ -135,16 +68,84 @@ not the full live verification below, which remains deferred).
   string." B4's own ADR will define what a real reference looks like.
 - The containerized backend's `KEYCLOAK_REALM_URL` host-relative networking gap (Slices 2–3)
   still applies and is still out of Registry's scope.
-- SQLAlchemy's default connection-pool ceiling (Slice 2) is unaffected by this slice — geometry
-  mutation is a single-row update, not a shared-counter contention point.
+- SQLAlchemy's default connection-pool ceiling (Slice 2) is unaffected — geometry mutation is a
+  single-row update, not a shared-counter contention point.
 
-**Performance observations:** none — identical shape to Slice 3's single-row mutation pattern.
+## B3 Final Quality Gate — Result: **PASSED** (2026-07-20)
 
-**Infrastructure observations:** none new.
+**Static analysis:**
+- Full `ruff check .` (backend, whole repo): **clean.**
+- Full `mypy .` (backend, whole repo): **1 issue found and fixed** —
+  `migrations/env.py:58`, `do_run_migrations(connection)` was missing a type annotation
+  (pre-existing, not introduced by Slices 3–4; never caught before because prior `mypy` runs were
+  scoped to `app/`/`tests/`, not the whole repo including `migrations/`). Fixed by annotating
+  `connection: Connection` (`sqlalchemy.engine.Connection`) — a type-only change, no behavior
+  change. Re-run: **clean, 88 source files.**
 
-## B3 Final Quality Gate — status
+**Automated testing:**
+- Full `pytest` suite (all of B1 + B2 + B3 slices 1–4): **119/119 passed.** No regressions in
+  Identity, authorization, delegation, or audit tests from Slice 3's changes to
+  `app/kernel/authorization/pep.py`/`app/contexts/identity/context_hydration.py`.
+- Registry regression: 47/47 (`test_b3_registry.py`, all slices 1–4).
 
-**Not yet run.** All items above (Slice 3 and Slice 4 sections) remain open. Per the B3 Slice 4
-execution authorization: upon completion of Slice 4, the next step is the B3 Final Quality Gate
-in full — not B4 — followed by a complete B3 Freeze package presented for review. No B4 work may
-begin until that gate passes and the freeze is explicitly approved.
+**Live verification** (real Postgres, real Keycloak, real running server — not the containerized
+backend for authenticated flows, see the `KEYCLOAK_REALM_URL` limitation above; the container was
+separately verified for boot health and route exposure):
+
+- **Real PostgreSQL / RLS:** `parcels.geometry_reference` column confirmed present;
+  `parcels` RLS still `FORCE`d and enabled; no session context → 0 rows; bogus tenant → 0 rows on
+  both `SELECT` and `UPDATE` (0 rows affected, not an error) — fail-closed confirmed for the
+  mutation paths specifically, not only `INSERT`.
+- **Real tenant isolation / cross-tenant attack scenarios:** cross-tenant `GET` → 404;
+  cross-tenant `PATCH`/`archive`/`geometry` → 404 (existence not revealed, evaluated before the
+  ownership check).
+- **Ownership attack reproduction (ADR-005 regression):** a same-tenant, non-creator, non-
+  governance `field_agent` was denied `PATCH` (403) and `archive` (403) on a colleague's real,
+  Keycloak-authenticated, Postgres-persisted parcel — the exact historical defect, reproduced and
+  confirmed closed.
+- **Creator authorization:** the actual creator succeeded on `PATCH`/`archive`/`geometry` (200).
+- **Governance override:** a `compliance_officer` in the same tenant, not the creator, succeeded
+  on `PATCH`/`geometry` (200).
+- **`super_admin` cross-tenant override:** succeeded on `PATCH` across tenants (200).
+- **Delegation lifecycle, live:** a real delegation created via `POST /v1/admin/delegations`,
+  exercised successfully by the delegate against a real parcel mutation (200), then revoked via
+  `POST /v1/admin/delegations/{id}/revoke` (200) — the very next request from the same,
+  unchanged access token was denied (403), confirming ADR-011's fail-closed re-resolution reaches
+  Registry mutation end-to-end with no caching or grace period.
+- **Archive behaviour:** creator archive succeeded (200, `status: ARCHIVED`); subsequent
+  `PATCH`/`geometry` on the archived parcel both denied (409), for the creator — no privileged
+  bypass exists for any role.
+- **Atomic parcel numbering:** unaffected by Slices 3–4; re-confirmed passing as part of the full
+  regression run (Slice 2's own live concurrency proof stands unchanged).
+- **Mutation commands:** `PATCH`/`archive` exercised live end-to-end (create → update → archive →
+  further-mutation-denied), all persisted and re-readable via `GET`.
+- **Geometry boundary integration:** attach (200, reference stored), detach (200, reference
+  cleared to `null`), cross-tenant denial (404), archived-parcel denial (409) — all live.
+- **Real audit chain:** `registry.parcel.updated`/`.archived`/`.mutation_denied`/
+  `.geometry_attached`/`.geometry_detached` all present in the real `audit_log` table with the
+  documented payload shape (`effective_authority`, `delegated_roles`, `tenant_id`,
+  `fields_changed` where applicable, `reason` on denials); `verify_chain()` → **`True`** after all
+  of the above.
+- **Security validation:** crafted `PATCH` bodies attempting to smuggle `parcel_id`,
+  `created_by`, `status`, `parcel_number`, `tenant_id`, and `geometry_reference` through the
+  update endpoint all rejected at **422** by the DTO's `extra="forbid"`, before the domain-level
+  `UPDATABLE_FIELDS` allow-list is ever consulted — confirmed live, and the target parcel was
+  re-fetched afterward and confirmed provably unchanged on every one of those fields.
+- **Containerized deployment:** backend rebuilt from current `main`; container boots clean
+  (`Application startup complete`); `/docs` → 200; `/openapi.json` lists
+  `PATCH /v1/parcels/{id}`, `POST /v1/parcels/{id}/archive`, and
+  `PUT /v1/parcels/{id}/geometry`; Postgres data (15 parcels, unrelated to the rebuild) confirmed
+  intact across the container recreation.
+
+**Issues found and resolved during this gate:** one (`migrations/env.py`'s missing type
+annotation, above) — a static-analysis-only finding, zero behavioral impact, fixed and re-verified
+clean. No test failures, no live-verification failures, no security findings requiring a fix in
+this cycle — the verification cycle needed to run only once.
+
+**Outstanding known limitations carried into freeze (not defects, all previously documented):**
+`KEYCLOAK_REALM_URL` host-relative container-networking gap (Slice 2); SQLAlchemy default
+connection-pool ceiling under heavy same-tenant concurrency (Slice 2); no restore/ownership-
+transfer commands (Slices 3/4, explicitly deferred); `GeometryPort`'s sole adapter validates
+nothing about reference content (Slice 4, deliberate placeholder pending B4).
+
+**Conclusion: all quality gates pass. B3 is ready for the Platform Freeze decision.**

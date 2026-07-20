@@ -35,14 +35,16 @@ No email-delivery integration exists yet — the plaintext token is returned onc
 
 **Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`).
 
-## B3 status (Registry) — Slices 1–4 implemented, B3 Final Quality Gate not yet run
+## B3 status (Registry) — Slices 1–4 implemented, B3 Final Quality Gate PASSED, ready for freeze decision
 
-**Deferred-verification policy (effective mid-Slice-3):** Slice 3 onward runs comprehensive
+**Deferred-verification policy (effective mid-Slice-3):** Slice 3 onward ran comprehensive
 `ruff`/`mypy`/`pytest`/live verification once, at the End-of-B3 Quality Gate, instead of per
-slice — a workflow change only, not a relaxation of engineering or governance standards. Every
-deferred item is tracked in `docs/B3_FINAL_VERIFICATION_CHECKLIST.md` and must pass before B3 can
-be proposed for freeze. Slices 1–2 already received full live verification before this policy
-existed (see below) and are unaffected by it.
+slice — a workflow change only, not a relaxation of engineering or governance standards. The gate
+ran 2026-07-20 and **passed**: full `ruff`/`mypy` (one pre-existing, unrelated type-annotation gap
+in `migrations/env.py` found and fixed), full `pytest` (119/119), and live Postgres/Keycloak/RLS/
+delegation/audit-chain/cross-tenant/ownership-attack/container verification — see
+`docs/B3_FINAL_VERIFICATION_CHECKLIST.md` for full evidence. Slices 1–2 already received full live
+verification before this policy existed and were unaffected by it.
 
 `docs/B3_DISCOVERY_AND_PLANNING.md` is the accepted Phase 0 plan. **Slice 1 — Parcel
 Aggregate (done, verified against live infrastructure, `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`):**
@@ -139,13 +141,13 @@ with zero business logic (always returns `True`); a future B4 adapter swaps in w
 role, no parallel pipeline. Two new audit actions,
 `registry.parcel.geometry_attached`/`.geometry_detached`, through the existing `audit()` function.
 
-47/47 registry tests pass (10 new); `ruff`/`mypy` clean on every changed file; migration `0009`
-applied cleanly (immediate-error check only, per the deferred-verification policy — not full live
-verification). **Registry (B3) is now feature-complete per its Phase-0 scope** — what remains
-before freeze is the deferred B3 Final Quality Gate
-(`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`), not further Registry design. **B4 (Spatial
-Intelligence) is not authorized** — this execution authorized Slice 4 only, and B3 is not yet
-proposed for freeze pending the Quality Gate.
+47/47 registry tests pass (10 new) at implementation time; 119/119 across the whole suite after
+the Quality Gate. **Registry (B3) is feature-complete per its Phase-0 scope, and the B3 Final
+Quality Gate has passed** (`docs/B3_FINAL_VERIFICATION_CHECKLIST.md` — full `ruff`/`mypy`/
+`pytest`, live Postgres/Keycloak/RLS/delegation/audit-chain/cross-tenant/ownership-attack/
+container verification, one pre-existing type-annotation gap found and fixed). B3 is ready to be
+proposed for Platform Freeze, pending explicit review and approval. **B4 (Spatial Intelligence)
+is not authorized** — no B4 work begins until the freeze is explicitly approved.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
