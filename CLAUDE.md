@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1 and B2 are complete, verified, and frozen (tagged `b2-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`. B3 (Registry) is in progress: Slice 1 (Parcel Aggregate) is done, verified against live infrastructure — see `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md` and "B3 status" below. Slices 2–4 (atomic numbering, mutation commands, geometry port) are not yet authorized.**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) delivered the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), and a geometry port boundary for future spatial capability — see "B3 status" below. B4 (Spatial Intelligence) is treated as an entirely new programme: discovery, scope definition, and ADR planning come first, with explicit approval required before any implementation begins.**
 
 Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
 
@@ -35,16 +35,24 @@ No email-delivery integration exists yet — the plaintext token is returned onc
 
 **Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`).
 
-## B3 status (Registry) — Slices 1–4 implemented, B3 Final Quality Gate PASSED, ready for freeze decision
+## B3 status (Registry) — frozen
 
-**Deferred-verification policy (effective mid-Slice-3):** Slice 3 onward ran comprehensive
-`ruff`/`mypy`/`pytest`/live verification once, at the End-of-B3 Quality Gate, instead of per
-slice — a workflow change only, not a relaxation of engineering or governance standards. The gate
-ran 2026-07-20 and **passed**: full `ruff`/`mypy` (one pre-existing, unrelated type-annotation gap
-in `migrations/env.py` found and fixed), full `pytest` (119/119), and live Postgres/Keycloak/RLS/
-delegation/audit-chain/cross-tenant/ownership-attack/container verification — see
-`docs/B3_FINAL_VERIFICATION_CHECKLIST.md` for full evidence. Slices 1–2 already received full live
-verification before this policy existed and were unaffected by it.
+Complete across four slices, each verified against live infrastructure, culminating in a
+dedicated End-of-B3 Quality Gate — see `docs/adr/ADR-017-b3-platform-freeze.md` for the freeze
+declaration and `docs/audits/B3_RELEASE_NOTES.md` for the full evidence summary (migrations,
+119/119 platform-wide test totals, live Postgres/Keycloak/RLS/delegation/audit-chain/cross-tenant/
+ownership-attack/container verification). **Any change to B3's parcel, allocation, mutation-
+authorization, or geometry-boundary domains requires a new ADR referencing
+ADR-013/014/015/016/017 — do not silently modify frozen B3 behavior while building B4+.**
+
+**Deferred-verification policy (effective mid-Slice-3, retired at freeze):** Slice 3 onward ran
+comprehensive `ruff`/`mypy`/`pytest`/live verification once, at the End-of-B3 Quality Gate,
+instead of per slice — a workflow change only, not a relaxation of engineering or governance
+standards. The gate ran 2026-07-20 and **passed**: full `ruff`/`mypy` (one pre-existing,
+unrelated type-annotation gap in `migrations/env.py` found and fixed), full `pytest` (119/119),
+and live Postgres/Keycloak/RLS/delegation/audit-chain/cross-tenant/ownership-attack/container
+verification — see `docs/B3_FINAL_VERIFICATION_CHECKLIST.md` for full evidence. Slices 1–2
+already received full live verification before this policy existed and were unaffected by it.
 
 `docs/B3_DISCOVERY_AND_PLANNING.md` is the accepted Phase 0 plan. **Slice 1 — Parcel
 Aggregate (done, verified against live infrastructure, `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`):**
@@ -142,12 +150,12 @@ role, no parallel pipeline. Two new audit actions,
 `registry.parcel.geometry_attached`/`.geometry_detached`, through the existing `audit()` function.
 
 47/47 registry tests pass (10 new) at implementation time; 119/119 across the whole suite after
-the Quality Gate. **Registry (B3) is feature-complete per its Phase-0 scope, and the B3 Final
-Quality Gate has passed** (`docs/B3_FINAL_VERIFICATION_CHECKLIST.md` — full `ruff`/`mypy`/
-`pytest`, live Postgres/Keycloak/RLS/delegation/audit-chain/cross-tenant/ownership-attack/
-container verification, one pre-existing type-annotation gap found and fixed). B3 is ready to be
-proposed for Platform Freeze, pending explicit review and approval. **B4 (Spatial Intelligence)
-is not authorized** — no B4 work begins until the freeze is explicitly approved.
+the Quality Gate. **B3 is frozen** (`docs/adr/ADR-017-b3-platform-freeze.md`, tag `b3-freeze`) —
+full `ruff`/`mypy`/`pytest`, live Postgres/Keycloak/RLS/delegation/audit-chain/cross-tenant/
+ownership-attack/container verification all passed (`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`,
+one pre-existing type-annotation gap found and fixed). **B4 (Spatial Intelligence) is treated as
+an entirely new programme** — its own discovery, scope definition, and ADR planning come first;
+no implementation begins without explicit approval, the same discipline B3 itself started under.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

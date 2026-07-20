@@ -1,11 +1,12 @@
-# B3 Release Notes (draft — pending Platform Freeze approval)
+# B3 Release Notes
 
-**Proposed release tag:** `b3-freeze` (not yet created — pending explicit authorization)
+**Release tag:** `b3-freeze`
 **Date:** 2026-07-20
 **Governing ADRs:** `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`,
 `docs/adr/ADR-014-postgresql-atomic-parcel-number-allocation.md`,
 `docs/adr/ADR-015-registry-mutation-authorization-model.md`,
-`docs/adr/ADR-016-geometry-port-boundary-spatial-integration.md`
+`docs/adr/ADR-016-geometry-port-boundary-spatial-integration.md`,
+`docs/adr/ADR-017-b3-platform-freeze.md` (this release's freeze declaration)
 
 B3 builds the Registry bounded context from nothing to feature-complete per
 `docs/B3_DISCOVERY_AND_PLANNING.md`'s Phase-0 scope: a canonical Parcel aggregate, PostgreSQL-
@@ -73,6 +74,8 @@ gap in `migrations/env.py`, unrelated to B3, found by the whole-repo gate run an
 - **ADR-016** — Geometry Port Boundary & Spatial Integration Architecture. Accepted; documents
   the `GeometryPort` contract, the `geometry_reference` association-not-geometry aggregate
   boundary, and what B4 inherits without needing to renegotiate Registry's design.
+- **ADR-017** — B3 Platform Freeze (this release). Accepted; formally closes B3, gathers all
+  four slices' frozen shape in one place, and puts B4+ on notice.
 
 ## Known limitations (tracked, not hidden)
 
@@ -124,11 +127,11 @@ Every slice's live-infrastructure verification was performed against the actual 
 Full detail, including every individual check and its result, is in
 `docs/B3_FINAL_VERIFICATION_CHECKLIST.md`.
 
-## Recommended freeze declaration (pending approval — not yet in effect)
+## Freeze declaration
 
-B3 is feature-complete per its Phase-0 scope and has passed the B3 Final Quality Gate in full.
-**This document recommends but does not declare** B3 frozen — per this engagement's governance
-model, that requires the same explicit authorization B2's freeze received (a dedicated
-authorization step, an ADR of its own recording the freeze, an annotated tag, and a verified
-push), not an implicit consequence of the Quality Gate passing. Pending that authorization, this
-release remains local-only (no tag, no push) and B4 (Spatial Intelligence) remains unauthorized.
+Per `docs/adr/ADR-017-b3-platform-freeze.md`, B3 is frozen as of this release. No further changes
+to the Registry context's B3 scope (parcel identity, atomic numbering, mutation authorization, or
+the geometry port boundary) land without a new ADR referencing ADR-013, ADR-014, ADR-015,
+ADR-016, and/or ADR-017 as appropriate. B4 (Spatial Intelligence) is treated as an entirely new
+programme — its own discovery, scope definition, and ADR planning come first, with explicit
+approval required before any implementation begins.
