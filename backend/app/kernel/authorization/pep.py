@@ -96,6 +96,11 @@ async def _build_context_from_token(request: Request, token: str | None) -> Exec
         tenant_id=attrs.get("tenant_id"),
         organization_id=attrs.get("organization_id"),
         roles=tuple(attrs.get("roles") or ()),
+        # B3 slice 3 (docs/adr/ADR-015): threads the hydrator's optional
+        # {"delegated_roles": [...]} through to the already-existing
+        # ExecutionContext.attributes field — not a new mechanism, the
+        # first consumer of a field that has existed since B1.
+        attributes=attrs.get("attributes") or {},
         jti=claims.get("jti"),
         request_ip=_request_ip(request),
         user_agent=request.headers.get("user-agent"),

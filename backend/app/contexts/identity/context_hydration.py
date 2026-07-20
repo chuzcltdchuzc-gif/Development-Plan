@@ -27,6 +27,15 @@ almost everything anyway") — this module extends the SAME fallback to
 tenant suspension rather than introducing a new one, and delegation
 resolution folds into the SAME single hydration call rather than becoming
 a separate pipeline stage or a second authorization path.
+
+B3 slice 3 (docs/adr/ADR-015): when any currently-effective delegation
+contributed roles, `attrs["attributes"] = {"delegated_roles": [...]}` is
+also set, threaded by the PEP into `ExecutionContext.attributes` (a field
+that has existed since B1, unused until now). This is not a new
+mechanism — it lets a downstream consumer (Registry's mutation
+authorization/audit) see *which* of a principal's effective roles came
+from delegation, without recomputing delegation resolution a second time
+anywhere outside this module.
 """
 from __future__ import annotations
 
@@ -111,6 +120,7 @@ def build_context_hydrator(
             )
             if delegated:
                 attrs["roles"] = list(set(attrs["roles"]) | delegated)
+                attrs["attributes"] = {"delegated_roles": sorted(delegated)}
         return attrs
 
     return _hydrate
@@ -158,6 +168,7 @@ def build_production_context_hydrator(
         attrs = _attrs_for(user)
         if attrs is not None and delegated:
             attrs["roles"] = list(set(attrs["roles"]) | delegated)
+            attrs["attributes"] = {"delegated_roles": sorted(delegated)}
         return attrs
 
     return _hydrate

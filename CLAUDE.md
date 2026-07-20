@@ -35,7 +35,14 @@ No email-delivery integration exists yet — the plaintext token is returned onc
 
 **Not yet built:** nothing further planned for B2 — B2 is frozen (ADR-012, tag `b2-freeze`).
 
-## B3 status (Registry) — Slices 1–2 done, Slices 3–4 not authorized
+## B3 status (Registry) — Slices 1–3 done, Slice 4 not authorized
+
+**Deferred-verification policy (effective mid-Slice-3):** Slice 3 onward runs comprehensive
+`ruff`/`mypy`/`pytest`/live verification once, at the End-of-B3 Quality Gate, instead of per
+slice — a workflow change only, not a relaxation of engineering or governance standards. Every
+deferred item is tracked in `docs/B3_FINAL_VERIFICATION_CHECKLIST.md` and must pass before B3 can
+be proposed for freeze. Slices 1–2 already received full live verification before this policy
+existed (see below) and are unaffected by it.
 
 `docs/B3_DISCOVERY_AND_PLANNING.md` is the accepted Phase 0 plan. **Slice 1 — Parcel
 Aggregate (done, verified against live infrastructure, `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`):**
@@ -91,9 +98,35 @@ out-of-scope infra gap unrelated to this slice. A same-tenant `N=20` run separat
 SQLAlchemy's default connection-pool ceiling (`pool_size=5` + `max_overflow=10` = 15) under
 heavy concurrent load — a genuine, documented operational limit, not a correctness defect.
 
-**Not yet built (explicitly deferred, per the Slice 2 authorization):** mutation commands and
-real actor-identity authorization (Slice 3, fixes a confirmed ADR-005 defect), the geometry port
-(Slice 4). **Slices 3–4 are not authorized** — this execution authorized Slice 2 only.
+**Slice 3 — Mutation Commands & Authorization Hardening (implemented, verification deferred per
+the policy above, `docs/adr/ADR-015-registry-mutation-authorization-model.md`):** the Registry's
+first mutation commands, `PATCH /v1/parcels/{id}` (edit registry metadata / current-ownership
+reference) and `POST /v1/parcels/{id}/archive` (one-way `ACTIVE → ARCHIVED`, no restore — ADR-013
+already called `ARCHIVED` terminal). Authorization is a genuine domain-aware check, not just the
+existing coarse role gate: `parcel.created_by == ctx.principal_id` (creator authority) **or**
+`ctx.has_any_role(*GOVERNANCE_ROLES)` (`super_admin`/`surveyor_general`/`compliance_officer`,
+direct or delegated) is required to mutate a specific parcel — closing the confirmed ADR-005
+defect where any create-tier role could mutate any parcel in their tenant. A delegated governance
+role inherits exactly the delegator's own reach (ADR-011's `highest_rank()` ceiling, unchanged);
+a delegated non-governance role does not inherit override on a colleague's parcel. Cross-tenant
+attempts 404 (existence not revealed, evaluated before ownership); an archived parcel rejects
+every further mutation unconditionally, creator/governance/`super_admin` alike (409).
+`ExecutionContext.attributes` — a field that has existed since B1, never populated until now —
+carries `delegated_roles` from context hydration through to Registry's audit payloads, so every
+mutation's audit entry (`registry.parcel.updated`/`.archived`/`.mutation_denied`) records
+`effective_authority` (`creator` vs. `governance:<role>`) and delegation status. No new
+migration — `parcels.updated_by`/`archived_at` were reserved, unused, since `0007`.
+
+37/37 registry tests pass (19 new); `ruff`/`mypy` clean on every changed file. Full-suite and
+live verification are the largest deferred items — see
+`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`'s Slice 3 section for the complete list (real
+Postgres/RLS/Keycloak/delegation/audit-chain/container checks, plus a full B1+B2+B3 regression
+run, since this slice also touched the shared `context_hydration.py`/`pep.py` hydration path).
+
+**Not yet built (explicitly deferred, per the Slice 3 authorization):** the geometry port
+(Slice 4), restore/ownership-transfer (open questions recorded in ADR-015, not decided).
+**Slice 4 is not authorized** — this execution authorized Slice 3 only, and Slice 3 itself is not
+yet proposed for freeze pending the End-of-B3 Quality Gate.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

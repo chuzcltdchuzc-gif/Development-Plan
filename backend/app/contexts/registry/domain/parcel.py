@@ -1,17 +1,26 @@
 """Parcel aggregate — the canonical, single authoritative representation of
-a land parcel (B3 slice 1, docs/adr/ADR-013).
+a land parcel (B3 slice 1, docs/adr/ADR-013; mutation commands added B3
+slice 3, docs/adr/ADR-015).
 
 `parcel_id` is immutable identity, set once at construction. `parcel_number`
-is a separate concept: reserved here as a guarded field for Slice 2's real
-atomic allocator to populate — `allocate_parcel_number()` exists now,
-unused by any Slice 1 code path, so the invariant "once allocated, never
-reassigned" is a domain rule from day one, not a retrofit once the
-allocator lands.
+is a separate concept, populated by Slice 2's atomic allocator
+(docs/adr/ADR-014) — `allocate_parcel_number()` guards the invariant "once
+allocated, never reassigned."
 
 Ownership is modeled as a *current reference* only
 (`current_owner_name`/`current_owner_contact`) — deliberately distinct from
 an ownership *history*, which is a later slice's responsibility and must
 never be conflated with "who owns it now" (ADR-013 invariant #12).
+`update_details()` may change this reference; it never changes `created_by`
+(ADR-015: creator/registrant identity and current ownership are distinct
+concepts, and must stay that way for a future ownership-transfer command
+to be additive rather than a refactor).
+
+Authorization (who may call `update_details`/`archive` on a given parcel)
+is entirely the caller's responsibility (ParcelService, ADR-015) — this
+aggregate enforces only domain-level invariants: archived parcels are
+immutable (`_ensure_mutable`), and only the fields in `UPDATABLE_FIELDS`
+may ever change outside of creation/allocation.
 """
 from __future__ import annotations
 
@@ -21,6 +30,31 @@ from datetime import UTC, datetime
 
 STATUS_ACTIVE = "ACTIVE"
 STATUS_ARCHIVED = "ARCHIVED"
+
+# B3 slice 3 (docs/adr/ADR-015): the exhaustive set of fields a mutation
+# command may ever touch — registry metadata and the current-ownership
+# *reference* (not history, ADR-013 invariant #12). Deliberately excludes
+# parcel_id, tenant_id, country_code, origin, created_by, created_at
+# (permanently immutable) and status/parcel_number (guarded by their own
+# dedicated methods, never by update_details). Living on the aggregate,
+# not only in the API DTO, so "which fields can change" is a domain
+# invariant even if a second entry point into update_details is ever
+# added.
+UPDATABLE_FIELDS: frozenset[str] = frozenset(
+    {
+        "title",
+        "address",
+        "state",
+        "lga",
+        "ward",
+        "community",
+        "property_type",
+        "size_sqm",
+        "ownership_type",
+        "current_owner_name",
+        "current_owner_contact",
+    }
+)
 
 
 def _now_iso() -> str:
@@ -116,3 +150,31 @@ class Parcel:
             raise ValueError("parcel_number already allocated; cannot be reassigned")
         self.parcel_number = parcel_number
         self.updated_at = _now_iso()
+
+    def update_details(self, *, updated_by: str, fields: dict[str, object]) -> None:
+        """B3 slice 3 (docs/adr/ADR-015) — the first real mutation command.
+        `fields` must be a subset of UPDATABLE_FIELDS; the caller
+        (ParcelService) is responsible for authorization (creator or
+        governance role) before this is ever called — this method enforces
+        only the domain-level invariants: archived parcels are immutable,
+        and only registry-metadata/current-ownership-reference fields may
+        ever change here."""
+        self._ensure_mutable()
+        unknown = set(fields) - UPDATABLE_FIELDS
+        if unknown:
+            raise ValueError(f"cannot update fields: {sorted(unknown)}")
+        for key, value in fields.items():
+            setattr(self, key, value)
+        self.updated_by = updated_by
+        self.updated_at = _now_iso()
+
+    def archive(self, *, archived_by: str) -> None:
+        """One-way ACTIVE -> ARCHIVED (ADR-013: status is terminal; no
+        restore command exists — see ADR-015). Authorization (creator or
+        governance role) is the caller's responsibility, exactly like
+        update_details."""
+        self._ensure_mutable()
+        self.status = STATUS_ARCHIVED
+        self.archived_at = _now_iso()
+        self.updated_by = archived_by
+        self.updated_at = self.archived_at

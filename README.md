@@ -2,7 +2,7 @@
 
 A land-registry and verification platform for Nigeria — parcel registration, GIS-backed spatial validation, evidence chain-of-custody, community/traditional-authority attestation, survey network management, inheritance & customary-law resolution, and an economic/billing layer, built around an explainable, continuously-recalculated per-parcel trust score.
 
-**Status:** B1 and B2 are complete, verified against live infrastructure, and frozen (`docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`), tagged `b2-freeze`. B3 (Registry) is in progress — Slice 1 (Parcel Aggregate, `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`) and Slice 2 (Atomic Parcel Number Allocation, `docs/adr/ADR-014-postgresql-atomic-parcel-number-allocation.md`) are done and live-verified; Slices 3–4 are not yet authorized. See `CLAUDE.md`'s "B2 status"/"B3 status" and `docs/audits/B2_RELEASE_NOTES.md` for exactly what's landed.
+**Status:** B1 and B2 are complete, verified against live infrastructure, and frozen (`docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`), tagged `b2-freeze`. B3 (Registry) is in progress — Slice 1 (Parcel Aggregate, `docs/adr/ADR-013-parcel-aggregate-registry-domain-model.md`), Slice 2 (Atomic Parcel Number Allocation, `docs/adr/ADR-014-postgresql-atomic-parcel-number-allocation.md`), and Slice 3 (Mutation Commands & Authorization Hardening, `docs/adr/ADR-015-registry-mutation-authorization-model.md`) are implemented; Slice 4 is not yet authorized. Slice 3 onward defers comprehensive `ruff`/`mypy`/`pytest`/live verification to a single End-of-B3 Quality Gate rather than running it per slice — see `docs/B3_FINAL_VERIFICATION_CHECKLIST.md` for the cumulative, not-yet-executed list that gate must clear before B3 can be proposed for freeze. See `CLAUDE.md`'s "B2 status"/"B3 status" and `docs/audits/B2_RELEASE_NOTES.md` for exactly what's landed.
 
 ---
 
@@ -26,7 +26,8 @@ Every rule in `docs/ENGINEERING_RULES.md` and every non-negotiable in `docs/DOD.
 | [`docs/PHASE_GATES.md`](./docs/PHASE_GATES.md) | The process/quality-gate model (Phase 0–12), the Claude Code Loop, and the 10 standing review questions |
 | [`docs/DOD.md`](./docs/DOD.md) | Definition of Done — Feature / Sprint / Product (MVP) tiers |
 | [`docs/ENGINEERING_RULES.md`](./docs/ENGINEERING_RULES.md) | When Claude may act autonomously vs. must stop and ask; the non-negotiable engineering rules |
-| [`docs/adr/`](./docs/adr/) | Architecture Decision Records — ADR-001 through ADR-014 |
+| [`docs/adr/`](./docs/adr/) | Architecture Decision Records — ADR-001 through ADR-015 |
+| [`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`](./docs/B3_FINAL_VERIFICATION_CHECKLIST.md) | Cumulative deferred-verification register (Slice 3 onward) — what must pass before B3 freeze |
 | [`docs/audits/`](./docs/audits/) | The full audit reports behind every decision above |
 | [`docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf`](./docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf) | Single-file PDF export of this whole planning package, plus the superseded v3 snapshot preserved for provenance — see the PDF's own preface for which parts are current |
 
