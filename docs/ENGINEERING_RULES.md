@@ -82,3 +82,35 @@ Every rule below traces to a specific, confirmed defect found in the `landsecure
 - The DoD checklist (`docs/DOD.md`) is required in the PR description.
 - Git hooks are never skipped (`--no-verify` is not used without explicit human authorization for that specific instance).
 - Commit messages describe *why*, not just *what*.
+
+---
+
+## 9. Controlled Platform Authority
+
+**Rule:** Any code path that needs authority beyond a single tenant's own RLS-scoped view — a
+platform-wide or cross-tenant read or write — must be a **named, narrow, explicitly justified
+exception**, never an implicit or general-purpose bypass. Every such exception must satisfy all
+of:
+
+- **Fixed at the call site** — its scope is not parameterized by arbitrary caller input; it does
+  one specific, bounded thing, not an open-ended query shaped by whatever the request contains.
+- **Read-only wherever possible** — a write requiring platform-wide authority is a strictly
+  higher-risk case needing its own explicit justification beyond satisfying this rule.
+- **As narrow as the task allows** — never "cross-tenant access" as a blanket grant; the
+  narrowest operation that accomplishes the specific task, nothing broader.
+- **Audited**, unless auditing that specific path is itself infeasible for a stated, reviewed
+  reason. The one existing exception (below) is not a precedent for skipping audit elsewhere by
+  default — it required its own explicit reasoning, and any new exception needs the same.
+
+**Why:** This codebase already had two instances of this pattern before it was named as a
+doctrine: the `super_admin` RLS bypass (`tenant_id = current_setting('app.tenant_id') OR
+is_super_admin`, present in every tenant-scoped table's policy since migration `0001`) and the
+context-hydration service-account's one fixed, read-only, rolled-back lookup
+(`app.contexts.identity.context_hydration.build_production_context_hydrator` — not audited,
+because it runs on every single authenticated request, an explicit, reasoned exception, not a
+default). `docs/B4_THREAT_MODEL.md` §5 (trust boundary TB5) found that Spatial Intelligence's
+overlap-detection feature needs a *third*, genuinely new instance of cross-tenant read access —
+and in analyzing it, generalized what the first two already implied into this explicit,
+platform-wide rule, rather than each future context re-deriving its own justification for
+elevated reach from nothing. Any future bounded context that believes it needs platform-wide or
+cross-tenant authority must satisfy this rule and cite it, not invent a fresh argument.

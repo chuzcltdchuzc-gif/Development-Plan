@@ -176,19 +176,33 @@ that read must be fixed/input-bounded, read-only, and **audited** (ADR-020's job
 document only states the constraint). An ordinary registrant must never see another tenant's
 geometry or identity on conflict, only a minimal "conflict detected" signal.
 
-**No B4 code exists. ADR-018 has not been written** — it begins only after this threat model is
-reviewed and approved, per explicit instruction. **B4 is treated as an entirely new programme**
-— no implementation begins without explicit approval, the same discipline B3 itself started under.
+**`docs/B4_THREAT_MODEL.md` is approved as the official B4 security and trust-boundary baseline**
+— its six trust boundaries (TB1–TB6) are mandatory architectural constraints for all B4 work, and
+its STRIDE analysis is accepted as Spatial Intelligence's initial security model. **Controlled
+Platform Authority** (rule 6, above) is now a platform-wide doctrine, not a B4-specific one.
+**ADR-018 — Spatial Domain Model is drafted** (`docs/adr/ADR-018-spatial-domain-model.md`,
+Status: Proposed, not yet accepted) — the `ParcelGeometry` aggregate, its bounded-context folder
+(`app/contexts/spatial/`), validate-then-store persistence (satisfying the threat model's binding
+requirement that invalid geometry never reach storage), the `geometry(Polygon, 4326)` storage/CRS
+decision, and one flagged, narrow, additive extension to `GeometryPort`'s signature (adding
+`tenant_id`/`parcel_id` so a real adapter can verify a reference belongs to the caller, closing a
+cross-tenant-reference leak the placeholder adapter couldn't have caught). Domain model + bounded-
+context boundary only — overlap detection, real validation rules, and GIS services remain
+ADR-019/020's job. **No B4 code exists** — implementation, including that one `GeometryPort`
+signature change, waits for ADR-018 to be reviewed and accepted. **B4 is treated as an entirely
+new programme** — no implementation begins without explicit approval, the same discipline B3
+itself started under.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
-## The 5 non-negotiable rules (full detail: `docs/ENGINEERING_RULES.md`)
+## The 6 non-negotiable rules (full detail: `docs/ENGINEERING_RULES.md`)
 
 1. **No new entity/table without an RLS/authorization policy in the same commit.** (Base44 shipped wallet/invoice entities with unconditional public update access — this is the exact bug class that rule prevents.)
 2. **No permissive fallback default on any security-relevant env var.** Missing config must fail startup, never silently degrade to an insecure default. (Emergent's CORS wildcard-with-credentials and hardcoded signing-secret fallback.)
 3. **Exactly one authorization path: the PDP/PEP/PIP engine.** No parallel/legacy auth system, no unguarded dev-login, ever — not even temporarily. (Emergent's dual auth system + unauthenticated admin bypass.)
 4. **Every scoring/validation function fails safe:** zero/missing data → low or neutral result, never a passing score. (Base44's trust engine reported 100/A+ with zero real evidence.)
 5. **Never mark something complete without having actually observed it pass.** Static code inspection is not evidence — run the test, see it pass.
+6. **Controlled Platform Authority: any cross-tenant/platform-wide read or write must be a named, narrow exception** — fixed at the call site (never parameterized by caller input), read-only wherever possible, as narrow as the task allows, and audited unless a specific, reviewed reason says otherwise. (Generalizes the existing `super_admin` RLS bypass and the hydration service-account's one fixed lookup into an explicit doctrine — formalized when `docs/B4_THREAT_MODEL.md` found Spatial Intelligence's overlap detection needs a third such exception.)
 
 ## Where to look for more
 
