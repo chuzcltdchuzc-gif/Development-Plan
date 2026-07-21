@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) delivered the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), and a geometry port boundary for future spatial capability — see "B3 status" below. B4 (Spatial Intelligence) is treated as an entirely new programme: discovery, scope definition, and ADR planning come first, with explicit approval required before any implementation begins.**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) is the current production architectural baseline: the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), and a geometry port boundary for future spatial capability — see "B3 status" below. B4 (Spatial Intelligence) is an entirely new programme, currently in Phase 0 discovery only (`docs/B4_DISCOVERY_AND_PLANNING.md`) — no B4 code exists; implementation awaits explicit approval of that plan.**
 
 Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
 
@@ -153,9 +153,23 @@ role, no parallel pipeline. Two new audit actions,
 the Quality Gate. **B3 is frozen** (`docs/adr/ADR-017-b3-platform-freeze.md`, tag `b3-freeze`) —
 full `ruff`/`mypy`/`pytest`, live Postgres/Keycloak/RLS/delegation/audit-chain/cross-tenant/
 ownership-attack/container verification all passed (`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`,
-one pre-existing type-annotation gap found and fixed). **B4 (Spatial Intelligence) is treated as
-an entirely new programme** — its own discovery, scope definition, and ADR planning come first;
-no implementation begins without explicit approval, the same discipline B3 itself started under.
+one pre-existing type-annotation gap found and fixed). **B3 is the current production
+architectural baseline** — every later programme builds on it, and no B3-scope change lands
+without a new ADR referencing ADR-013/014/015/016/017.
+
+## B4 status (Spatial Intelligence) — Phase 0 discovery only, no code, not authorized
+
+`docs/B4_DISCOVERY_AND_PLANNING.md` is the Phase 0 deliverable (user needs/technical constraints,
+the Registry-vs-Spatial architectural boundary, a proposed ADR roadmap — ADR-018 through
+ADR-022 — and a phased implementation plan mirroring B2/B3's own slice-by-slice governance).
+**No B4 code exists.** The single highest-stakes open question flagged for the approval
+discussion: overlap/duplicate-geometry detection needs to compare geometry *across* tenants (two
+different survey firms registering the same physical land is the fraud pattern this feature
+exists to catch), which is in genuine tension with every RLS decision B1–B3 made assuming
+strict per-tenant isolation as the absolute default — this needs its own explicit ADR decision
+(proposed as ADR-020), not a default assumption. **B4 is treated as an entirely new programme**
+— its own discovery, scope definition, and ADR planning come first; no implementation begins
+without explicit approval, the same discipline B3 itself started under.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

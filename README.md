@@ -27,7 +27,8 @@ Every rule in `docs/ENGINEERING_RULES.md` and every non-negotiable in `docs/DOD.
 | [`docs/DOD.md`](./docs/DOD.md) | Definition of Done — Feature / Sprint / Product (MVP) tiers |
 | [`docs/ENGINEERING_RULES.md`](./docs/ENGINEERING_RULES.md) | When Claude may act autonomously vs. must stop and ask; the non-negotiable engineering rules |
 | [`docs/adr/`](./docs/adr/) | Architecture Decision Records — ADR-001 through ADR-017 |
-| [`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`](./docs/B3_FINAL_VERIFICATION_CHECKLIST.md) | Cumulative deferred-verification register (Slice 3 onward) — what must pass before B3 freeze |
+| [`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`](./docs/B3_FINAL_VERIFICATION_CHECKLIST.md) | B3's verification evidence register — all items resolved, gate passed |
+| [`docs/B4_DISCOVERY_AND_PLANNING.md`](./docs/B4_DISCOVERY_AND_PLANNING.md) | B4 (Spatial Intelligence) Phase 0 plan — discovery only, no code, awaiting approval |
 | [`docs/audits/`](./docs/audits/) | The full audit reports behind every decision above |
 | [`docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf`](./docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf) | Single-file PDF export of this whole planning package, plus the superseded v3 snapshot preserved for provenance — see the PDF's own preface for which parts are current |
 
