@@ -157,19 +157,28 @@ one pre-existing type-annotation gap found and fixed). **B3 is the current produ
 architectural baseline** — every later programme builds on it, and no B3-scope change lands
 without a new ADR referencing ADR-013/014/015/016/017.
 
-## B4 status (Spatial Intelligence) — Phase 0 discovery only, no code, not authorized
+## B4 status (Spatial Intelligence) — threat model complete, ADR-018 not yet begun, no code
 
-`docs/B4_DISCOVERY_AND_PLANNING.md` is the Phase 0 deliverable (user needs/technical constraints,
-the Registry-vs-Spatial architectural boundary, a proposed ADR roadmap — ADR-018 through
-ADR-022 — and a phased implementation plan mirroring B2/B3's own slice-by-slice governance).
-**No B4 code exists.** The single highest-stakes open question flagged for the approval
-discussion: overlap/duplicate-geometry detection needs to compare geometry *across* tenants (two
-different survey firms registering the same physical land is the fraud pattern this feature
-exists to catch), which is in genuine tension with every RLS decision B1–B3 made assuming
-strict per-tenant isolation as the absolute default — this needs its own explicit ADR decision
-(proposed as ADR-020), not a default assumption. **B4 is treated as an entirely new programme**
-— its own discovery, scope definition, and ADR planning come first; no implementation begins
-without explicit approval, the same discipline B3 itself started under.
+`docs/B4_DISCOVERY_AND_PLANNING.md` is **accepted as the official B4 planning baseline**
+(user needs/technical constraints, the Registry-vs-Spatial architectural boundary, a phased
+implementation plan mirroring B2/B3's own slice-by-slice governance). Its proposed ADR roadmap
+— **ADR-018 through ADR-022 — is approved as provisional** (subject to each ADR actually
+satisfying what it's proposed to decide when written, not a blank check).
+
+`docs/B4_THREAT_MODEL.md` is the required gate between that plan and any architecture decision —
+Phase 1's "Threat Model" check (`docs/PHASE_GATES.md`), performed before ADR-018, not after. It
+identifies six trust boundaries (TB1–TB6), runs a STRIDE analysis on each, and derives binding
+requirements ADR-018 through ADR-021 must satisfy. **The single most important finding:**
+overlap/duplicate-geometry detection needs a cross-tenant read to work as a fraud signal at all
+— structurally unlike every prior RLS boundary in this codebase (which assumed strict per-tenant
+isolation as the absolute default, with only the narrow, audited `super_admin` exception) — so
+that read must be fixed/input-bounded, read-only, and **audited** (ADR-020's job to design; this
+document only states the constraint). An ordinary registrant must never see another tenant's
+geometry or identity on conflict, only a minimal "conflict detected" signal.
+
+**No B4 code exists. ADR-018 has not been written** — it begins only after this threat model is
+reviewed and approved, per explicit instruction. **B4 is treated as an entirely new programme**
+— no implementation begins without explicit approval, the same discipline B3 itself started under.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
