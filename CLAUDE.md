@@ -157,65 +157,42 @@ one pre-existing type-annotation gap found and fixed). **B3 is the current produ
 architectural baseline** — every later programme builds on it, and no B3-scope change lands
 without a new ADR referencing ADR-013/014/015/016/017.
 
-## B4 status (Spatial Intelligence) — Slice 1 implemented, verification deferred, Slice 2 not authorized
+## B4 status (Spatial Intelligence) — Slice 1 built, ADR-022 proposed, Slice 2 not authorized
 
-`docs/B4_DISCOVERY_AND_PLANNING.md` is **accepted as the official B4 planning baseline**, and
-`docs/B4_THREAT_MODEL.md` is **accepted as the official B4 security and trust-boundary
-baseline** — its six trust boundaries (TB1–TB6) are mandatory architectural constraints on all B4
-work, and its STRIDE analysis is Spatial Intelligence's initial security model. Its central
-finding: overlap/duplicate-geometry detection needs a cross-tenant read to work as a fraud signal
-at all — structurally unlike every prior RLS boundary in this codebase — so that read must be
-fixed/input-bounded, read-only, and audited (ADR-021's job to design). **Controlled Platform
-Authority** (rule 6, above) was formalized as a platform-wide doctrine from this finding.
+`docs/B4_DISCOVERY_AND_PLANNING.md` and `docs/B4_THREAT_MODEL.md` are **accepted baselines** —
+the threat model's six trust boundaries (TB1–TB6) are mandatory constraints on all B4 work, and
+its central finding (overlap detection needs a cross-tenant read, unlike every prior RLS boundary
+in this codebase) produced **Controlled Platform Authority** as platform-wide rule 6, above.
 
-**ADR-018 — Spatial Domain Model is accepted** (`docs/adr/ADR-018-spatial-domain-model.md`) —
-the `ParcelGeometry` aggregate, `app/contexts/spatial/`'s bounded-context shape, validate-then-
-store persistence (satisfying the threat model's binding requirement that invalid geometry never
-reach storage), and the `geometry(Polygon, 4326)` storage/CRS decision. Domain model + bounded-
-context boundary only — overlap detection, real validation rules, and GIS services remain later
-ADRs' job.
+**Accepted ADRs:** **ADR-018** (Spatial Domain Model — the `ParcelGeometry` aggregate,
+`app/contexts/spatial/`'s shape, validate-then-store persistence, `geometry(Polygon, 4326)`).
+**ADR-019** (GeometryPort Interface Amendment — `reference_is_valid` now takes
+`tenant_id`/`parcel_id`; implemented and verified, 119/119 tests, zero test-file changes;
+`docs/adr/ADR-016-...md` preserved unmodified as historical record).
 
-**ADR-019 — GeometryPort Interface Amendment is accepted**
-(`docs/adr/ADR-019-geometry-port-interface-amendment.md`) — the first formal amendment of the B4
-programme, and the first time it reaches back into frozen B3 code: `GeometryPort.reference_is_valid`
-now takes `tenant_id`/`parcel_id` so a real adapter can verify a reference actually belongs to the
-parcel being mutated, closing a cross-tenant-reference leak the placeholder adapter couldn't have
-caught. `docs/adr/ADR-016-geometry-port-boundary-spatial-integration.md` is preserved unmodified
-as historical record of what B3 decided; ADR-019 is the current, authoritative contract.
-**Implemented and verified:** `GeometryPort`, `PlaceholderGeometryAdapter`,
-`ParcelService.set_geometry_reference` (using `parcel.tenant_id`, not `ctx.tenant_id` — a
-mypy-caught refinement, since `ExecutionContext.tenant_id` is `str | None`), and `FakeGeometryPort`
-all updated — strictly the signature change, no validation algorithm, no overlap detection, no
-other GIS functionality. Full `ruff`/`mypy` clean; full `pytest` **119/119 passed with zero test
-file changes**, confirming B3 regression is genuinely unaffected, not merely assumed to be.
+**B4 Slice 1 — Spatial Domain Foundation is implemented** (`app/contexts/spatial/`, mirroring
+Registry's shape exactly): `ParcelGeometry`'s append-only `ACTIVE`/`SUPERSEDED` lifecycle,
+validate-then-store persistence, `geometry(Polygon, 4326)` via a small dependency-free `Geometry`
+`TypeEngine` (no `geoalchemy2` added). `PUT`/`GET /v1/spatial/parcels/{id}/geometry`, gated by
+the coarse `PARCEL_REGISTRANT_ROLES` check plus an explicit `_in_scope` tenant check. 132/132
+tests pass (13 new); `ruff`/`mypy` clean; migration `0010` applied and verified live via `psql`.
+One real design gap was caught by a failing test and fixed: the first draft relied solely on RLS
+for tenant scoping (no equivalent in the in-memory fake) — fixed by adding `_in_scope`, the same
+defense-in-depth pattern Registry uses. Full live Postgres/Keycloak/RLS/concurrency/audit-chain/
+container verification is deferred to the eventual B4 Quality Gate — tracked in
+`docs/B4_VERIFICATION_CHECKLIST.md`, none skipped.
 
-**B4 Slice 1 — Spatial Domain Foundation is implemented** (`docs/B4_DISCOVERY_AND_PLANNING.md`
-§4, Slice B4.1): a new bounded context, `app/contexts/spatial/`, mirroring Registry's exact
-internal shape. `ParcelGeometry` — immutable identity, append-only `ACTIVE`/`SUPERSEDED`
-lifecycle (a correction supersedes the prior `ACTIVE` row and adds a new one, never an in-place
-edit), validate-then-store persistence (`ParcelGeometry.new()` is the only constructor and
-rejects malformed WKT before an instance can exist). `boundary` is `geometry(Polygon, 4326)`
-(migration `0010`) — SRID enforced at the column level; a small, local, dependency-free
-`Geometry` `TypeEngine` handles `ST_GeomFromText`/`ST_AsText` wrapping, deliberately avoiding a
-`geoalchemy2` dependency this slice doesn't need. `PUT`/`GET /v1/spatial/parcels/{id}/geometry`,
-gated by the same coarse `PARCEL_REGISTRANT_ROLES` role check Registry uses, plus an explicit
-`_in_scope` tenant check (the same two-independent-layers pattern every context in this codebase
-uses) — **not yet a full creator-or-governance model**; that is explicitly ADR-022's job, and is
-flagged in `docs/B4_VERIFICATION_CHECKLIST.md` as worth weighing carefully before this slice is
-considered production-ready, since it is structurally similar in shape to the original ADR-005
-defect. `PlaceholderGeometryAdapter` remains Registry's registered `GeometryPort` — this slice's
-real data is not yet wired to it (ADR-020's job).
-
-132/132 tests pass (13 new); `ruff`/`mypy` clean; migration `0010` applied and independently
-verified live via `psql` (schema, FKs, RLS fail-closed, grants, the "one `ACTIVE` geometry per
-parcel" partial unique index). One real design gap was found via a failing test (not assumed
-correct) and fixed: the first draft relied solely on RLS for tenant scoping, which the in-memory
-fake has no equivalent of — fixed by adding the explicit `_in_scope` check. Per the deferred-
-verification policy, full live Postgres/Keycloak/RLS/concurrency/audit-chain/container
-verification is deferred to the eventual B4 Quality Gate — every item tracked in
-`docs/B4_VERIFICATION_CHECKLIST.md`, none skipped. **B4 Slice 2 is not authorized** — this
-execution authorized Slice 1 only; B4 remains an entirely new programme with no further
-implementation without its own explicit go-ahead, the same discipline B3 itself started under.
+**ADR-022 — Spatial Authorization Model is drafted, not yet accepted**
+(`docs/adr/ADR-022-spatial-authorization-model.md`) — Slice 1's coarse role gate was explicitly
+flagged as structurally similar to the historical ADR-005 defect (any registrant could mutate
+any parcel's geometry in-tenant, not only ones tied to a parcel they created); this ADR mirrors
+ADR-015's creator-or-governance model for `ParcelGeometry` before that gap is allowed to persist
+into Slice 2. Defines the full mutation matrix, archived-parcel behavior (mirrors ADR-015: no
+override, any role), delegation (reuses ADR-011 unchanged), and audit requirements
+(`spatial.parcel_geometry.mutation_denied`, new). **No code was written or modified under this
+ADR** — Slice 1's coarse gate remains live in the shipped code until Slice 2 implements this
+model. **B4 Slice 2 is not authorized** — no further implementation proceeds until ADR-022 is
+reviewed and explicitly accepted, the same discipline B3's ADR-005→ADR-015 escalation followed.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

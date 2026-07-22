@@ -202,19 +202,21 @@ own ADR decision (§3) before any code implementing it is written.
 
 ## 3. ADR Roadmap
 
-**Status: ADR-018 accepted; ADR-019 proposed; ADR-020 through ADR-023 not yet created — proposed
-for review.** (Renumbered from the original discovery draft: the `GeometryPort` interface
-amendment ADR-018 §5 flagged now has its own dedicated slot, ADR-019, per explicit instruction
-that it be formally recorded and reviewed separately before B4 Slice 1 begins — every ADR after
-it shifted by one accordingly.)
+**Status: ADR-018 accepted; ADR-019 accepted; ADR-022 proposed (drafted ahead of ADR-020/021,
+after B4 Slice 1's review elevated Spatial's authorization model to a governance requirement
+before Slice 2 begins — the same escalation ADR-005→ADR-015 went through for Registry); ADR-020,
+ADR-021, ADR-023 not yet created.** (Renumbered from the original discovery draft: the
+`GeometryPort` interface amendment ADR-018 §5 flagged got its own dedicated slot, ADR-019, per
+explicit instruction that it be formally recorded and reviewed separately before B4 Slice 1
+began — every ADR after it shifted by one accordingly.)
 
 | ADR | Purpose | Depends on | Why required |
 |---|---|---|---|
 | **ADR-018** — Spatial Domain Model & Schema *(Accepted)* | Geometry storage type (PostGIS `geometry` vs `geography`), SRID/CRS decision, the aggregate B4 introduces (name, invariants), migration numbering (`0010`+), exact relationship to `parcels.geometry_reference` | ADR-016 (the seam), ADR-009/010 (RLS/tenant shape) | New bounded context, new schema, a real undecided design choice (§1.3's CRS question) |
-| **ADR-019** — GeometryPort Interface Amendment *(Proposed)* | Formally records the tenant/parcel-scoped extension to `GeometryPort.reference_is_valid` that ADR-018 §5 identified as necessary — closes a cross-tenant-reference leak the placeholder adapter couldn't have caught | ADR-016 (extends), ADR-018 (identifies the need) | Touches frozen B3 code (`ParcelService`'s call site); this codebase's amendment discipline requires that be its own explicit, reviewable record, not folded silently into a larger ADR |
-| **ADR-020** — GeometryPort Real Adapter & Validation Rules | What "valid" means in `reference_is_valid`'s real implementation: well-formed polygon, no self-intersection, real administrative-boundary containment (replacing Base44's hardcoded bounding-box check) | ADR-018, ADR-019 | Directly closes a named audit defect (`docs/REBUILD_PLAN.md`'s B4 row); must document the validation algorithm, not assume it |
-| **ADR-021** — Overlap & Duplicate-Geometry Detection Model | Spatial query design (`ST_Overlaps`/`ST_Intersects`/`ST_DWithin`), GiST indexing strategy, thresholds distinguishing "duplicate" from "overlap" from "adjacent," and **the cross-tenant visibility decision (§1.3)** | ADR-018, ADR-010 (tenant isolation) | The highest-stakes architectural decision in B4 — a genuine tension with the platform's absolute-tenant-isolation default, not a routine query-design choice |
-| **ADR-022** — Spatial Authorization Model | Whether B4 needs any authorization rule beyond reusing Registry's pipeline unchanged (per ADR-016's mandate) — specifically, how the cross-tenant read ADR-021 may require is itself narrowly scoped and audited, not a general bypass | ADR-015, ADR-021 | ADR-016 already mandates "no new authorization mechanism" as a principle; this ADR is where that principle meets the one place B4 may need an actual exception, and must justify it explicitly if so |
+| **ADR-019** — GeometryPort Interface Amendment *(Accepted, implemented)* | Formally records the tenant/parcel-scoped extension to `GeometryPort.reference_is_valid` that ADR-018 §5 identified as necessary — closes a cross-tenant-reference leak the placeholder adapter couldn't have caught | ADR-016 (extends), ADR-018 (identifies the need) | Touches frozen B3 code (`ParcelService`'s call site); this codebase's amendment discipline requires that be its own explicit, reviewable record, not folded silently into a larger ADR |
+| **ADR-020** — GeometryPort Real Adapter & Validation Rules | What "valid" means in `reference_is_valid`'s real implementation: well-formed polygon, no self-intersection, real administrative-boundary containment (replacing Base44's hardcoded bounding-box check) | ADR-018, ADR-019, ADR-022 (the authorization model any real submission path must respect) | Directly closes a named audit defect (`docs/REBUILD_PLAN.md`'s B4 row); must document the validation algorithm, not assume it |
+| **ADR-021** — Overlap & Duplicate-Geometry Detection Model | Spatial query design (`ST_Overlaps`/`ST_Intersects`/`ST_DWithin`), GiST indexing strategy, thresholds distinguishing "duplicate" from "overlap" from "adjacent," and **the cross-tenant visibility decision (§1.3)** | ADR-018, ADR-010 (tenant isolation), ADR-022 (same-tenant model this must not weaken) | The highest-stakes architectural decision in B4 — a genuine tension with the platform's absolute-tenant-isolation default, not a routine query-design choice |
+| **ADR-022** — Spatial Authorization Model *(Proposed — `docs/adr/ADR-022-spatial-authorization-model.md`)* | The complete creator-or-governance mutation authorization model for `ParcelGeometry`, mirroring ADR-015's model for Registry — closes the coarse-role-gate gap B4 Slice 1 shipped with and explicitly flagged; the full mutation matrix, archived-parcel behavior, and audit requirements for every Spatial mutation | ADR-015 (the model mirrored), ADR-011 (delegation, reused unchanged), ADR-018 (the domain model governed, not redefined) | Elevated from an implementation observation to a governance requirement after Slice 1's review — the identical ADR-005-shaped gap Registry once had, caught by design review this time rather than by a later audit |
 | **ADR-023** (open question, likely deferred) — Map Tiling / Spatial Search API & Public Exposure | Serving mechanism for map tiles/spatial search, whether any of it is ever public-facing | ADR-018 | Backend-only design has no frontend to validate against yet (F2 blocked on F1) — flagged as a candidate for deferral to whenever F2 actually begins, not decided here |
 
 None of these change ADR-009 through ADR-017 — they extend the platform the same way ADR-013–016
@@ -227,6 +229,17 @@ extended B1/B2's frozen baseline into Registry.
 Proposed as slices, mirroring B2's and B3's own pattern (each individually reviewed and accepted
 before the next begins). Slice count and order are a recommendation, not a commitment — subject
 to the approval discussion, same as B3.4 was flagged as reorderable in B3's own planning doc.
+
+**Actual execution has diverged from this section's original plan, in ways worth recording
+rather than leaving as stale numbering:** what shipped as "B4 Slice 1 — Spatial Domain
+Foundation" implemented only the domain-model half of Slice B4.1 below (the aggregate, schema,
+bounded-context shape) — the real `GeometryPort` adapter half was deferred once Slice 1's own
+review surfaced the authorization gap ADR-022 now governs. The commonly-referenced "B4 Slice 2 —
+Geometry Validation & Real Geometry Adapter" therefore corresponds to Slice B4.1's *remaining*
+half below, not to Slice B4.2 (Overlap & Duplicate-Geometry Detection) — that slice, if the
+numbering below is kept literally, becomes an effective "Slice 3" in execution order. Not
+renumbered here to avoid a second churn before Slice 2 itself is even authorized; whichever
+numbering is used going forward, ADR-022 must be accepted before it begins.
 
 ### Slice B4.1 — Spatial Domain Model & Real GeometryPort Adapter
 - **Objective:** the actual geometry aggregate, its own table/migration, and a real
