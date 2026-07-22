@@ -29,6 +29,11 @@ from app.contexts.registry.dependencies import (
     get_parcel_number_allocator,
     get_parcel_repository,
 )
+from app.contexts.spatial.api import spatial_router
+from app.contexts.spatial.dependencies import (
+    get_parcel_existence_port,
+    get_parcel_geometry_repository,
+)
 from app.kernel.audit import configure_audit_store
 from app.kernel.authorization.pep import configure_pep, current_context_dep, require_role
 from app.kernel.context import ExecutionContext
@@ -50,6 +55,7 @@ from tests.fakes.registry import (
     InMemoryParcelNumberAllocator,
     InMemoryParcelRepository,
 )
+from tests.fakes.spatial import FakeParcelExistencePort, InMemoryParcelGeometryRepository
 
 
 @dataclass
@@ -64,6 +70,7 @@ class AppHarness:
     parcels: InMemoryParcelRepository
     parcel_numbers: InMemoryParcelNumberAllocator
     geometry: FakeGeometryPort
+    parcel_geometries: InMemoryParcelGeometryRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
 
@@ -78,6 +85,8 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     parcels = InMemoryParcelRepository()
     parcel_numbers = InMemoryParcelNumberAllocator()
     geometry = FakeGeometryPort()
+    parcel_geometries = InMemoryParcelGeometryRepository()
+    parcel_existence = FakeParcelExistencePort(parcels)
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
 
@@ -92,6 +101,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.include_router(auth_router.router)
     app.include_router(admin_router.router)
     app.include_router(parcel_router.router)
+    app.include_router(spatial_router.router)
 
     # Same DI seam production uses (app.contexts.identity.dependencies) —
     # tests never touch get_db_session at all, since these overrides short-
@@ -105,6 +115,8 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_parcel_repository] = lambda: parcels
     app.dependency_overrides[get_parcel_number_allocator] = lambda: parcel_numbers
     app.dependency_overrides[get_geometry_port] = lambda: geometry
+    app.dependency_overrides[get_parcel_geometry_repository] = lambda: parcel_geometries
+    app.dependency_overrides[get_parcel_existence_port] = lambda: parcel_existence
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -133,6 +145,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         parcels=parcels,
         parcel_numbers=parcel_numbers,
         geometry=geometry,
+        parcel_geometries=parcel_geometries,
         identity_provider=identity_provider,
         audit_store=audit_store,
     )

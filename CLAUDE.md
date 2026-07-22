@@ -157,7 +157,7 @@ one pre-existing type-annotation gap found and fixed). **B3 is the current produ
 architectural baseline** — every later programme builds on it, and no B3-scope change lands
 without a new ADR referencing ADR-013/014/015/016/017.
 
-## B4 status (Spatial Intelligence) — ADR-018/019 accepted, Slice 1 authorized, not yet begun
+## B4 status (Spatial Intelligence) — Slice 1 implemented, verification deferred, Slice 2 not authorized
 
 `docs/B4_DISCOVERY_AND_PLANNING.md` is **accepted as the official B4 planning baseline**, and
 `docs/B4_THREAT_MODEL.md` is **accepted as the official B4 security and trust-boundary
@@ -189,11 +189,33 @@ all updated — strictly the signature change, no validation algorithm, no overl
 other GIS functionality. Full `ruff`/`mypy` clean; full `pytest` **119/119 passed with zero test
 file changes**, confirming B3 regression is genuinely unaffected, not merely assumed to be.
 
-**B4 Slice 1 — Spatial Domain Foundation is authorized** (`docs/B4_DISCOVERY_AND_PLANNING.md` §4)
-but **not yet begun** — the remaining roadmap (ADR-020 real adapter/validation rules, ADR-021
-overlap detection, ADR-022 spatial authorization, ADR-023 map tiling) is still unwritten, and B4
-is treated as an entirely new programme — no further implementation proceeds without its own
-explicit go-ahead, the same discipline B3 itself started under.
+**B4 Slice 1 — Spatial Domain Foundation is implemented** (`docs/B4_DISCOVERY_AND_PLANNING.md`
+§4, Slice B4.1): a new bounded context, `app/contexts/spatial/`, mirroring Registry's exact
+internal shape. `ParcelGeometry` — immutable identity, append-only `ACTIVE`/`SUPERSEDED`
+lifecycle (a correction supersedes the prior `ACTIVE` row and adds a new one, never an in-place
+edit), validate-then-store persistence (`ParcelGeometry.new()` is the only constructor and
+rejects malformed WKT before an instance can exist). `boundary` is `geometry(Polygon, 4326)`
+(migration `0010`) — SRID enforced at the column level; a small, local, dependency-free
+`Geometry` `TypeEngine` handles `ST_GeomFromText`/`ST_AsText` wrapping, deliberately avoiding a
+`geoalchemy2` dependency this slice doesn't need. `PUT`/`GET /v1/spatial/parcels/{id}/geometry`,
+gated by the same coarse `PARCEL_REGISTRANT_ROLES` role check Registry uses, plus an explicit
+`_in_scope` tenant check (the same two-independent-layers pattern every context in this codebase
+uses) — **not yet a full creator-or-governance model**; that is explicitly ADR-022's job, and is
+flagged in `docs/B4_VERIFICATION_CHECKLIST.md` as worth weighing carefully before this slice is
+considered production-ready, since it is structurally similar in shape to the original ADR-005
+defect. `PlaceholderGeometryAdapter` remains Registry's registered `GeometryPort` — this slice's
+real data is not yet wired to it (ADR-020's job).
+
+132/132 tests pass (13 new); `ruff`/`mypy` clean; migration `0010` applied and independently
+verified live via `psql` (schema, FKs, RLS fail-closed, grants, the "one `ACTIVE` geometry per
+parcel" partial unique index). One real design gap was found via a failing test (not assumed
+correct) and fixed: the first draft relied solely on RLS for tenant scoping, which the in-memory
+fake has no equivalent of — fixed by adding the explicit `_in_scope` check. Per the deferred-
+verification policy, full live Postgres/Keycloak/RLS/concurrency/audit-chain/container
+verification is deferred to the eventual B4 Quality Gate — every item tracked in
+`docs/B4_VERIFICATION_CHECKLIST.md`, none skipped. **B4 Slice 2 is not authorized** — this
+execution authorized Slice 1 only; B4 remains an entirely new programme with no further
+implementation without its own explicit go-ahead, the same discipline B3 itself started under.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

@@ -17,6 +17,7 @@ from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_production_context_hydrator
 from app.contexts.identity.dependencies import configure_identity_provider
 from app.contexts.registry.api import parcel_router
+from app.contexts.spatial.api import spatial_router
 from app.kernel.audit import configure_eager_fallback
 from app.kernel.audit_postgres import EagerPostgresAuditStore
 from app.kernel.authorization.pep import configure_pep
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router.router)
     app.include_router(admin_router.router)
     app.include_router(parcel_router.router)
+    app.include_router(spatial_router.router)
 
     return app
 
