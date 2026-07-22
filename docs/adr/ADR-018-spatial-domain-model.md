@@ -1,12 +1,15 @@
 # ADR-018 — Spatial Domain Model & Bounded Context Boundary
 
-**Status:** Proposed — drafted under explicit authorization to begin ADR-018 only. Not yet
-reviewed or accepted. **No B4 code exists; this ADR authorizes no implementation on its own** —
-per the governing instruction, implementation waits for this document to be reviewed and
-accepted, and even then covers only the domain model and bounded-context boundary. Overlap
-detection, real geometry-validation rules, and any other GIS service are explicitly out of scope
-here — ADR-019 (real `GeometryPort` adapter & validation rules) and ADR-020 (overlap & duplicate-
-geometry detection) own those, unwritten until this ADR is accepted.
+**Status:** **Accepted.** Reviewed and approved in full — the bounded-context boundary, the
+`ParcelGeometry` aggregate, the append-only `ACTIVE`/`SUPERSEDED` lifecycle, validate-then-store
+persistence, and the `geometry(Polygon, 4326)` storage/CRS decision are all adopted as B4's
+governing domain model. **This acceptance does not by itself authorize implementation.** The one
+`GeometryPort` interface change §5 identifies (extending `reference_is_valid`'s signature) is a
+touch on frozen B3 code and, per explicit instruction, must be formally recorded and approved as
+its own document — see `docs/adr/ADR-019-geometry-port-interface-amendment.md` — before B4 Slice
+1 begins. Overlap detection, real geometry-validation rules, and any other GIS service remain
+explicitly out of scope here — ADR-020 (real `GeometryPort` adapter & validation rules) and
+ADR-021 (overlap & duplicate-geometry detection) own those, unwritten until ADR-019 is accepted.
 
 **Date:** 2026-07-21
 
@@ -63,24 +66,24 @@ PostGIS payload, §4), `status` (`ACTIVE` | `SUPERSEDED` — see §3), `created_
    `ACTIVE → SUPERSEDED` (append-only, mirroring ADR-013's own "ownership history is append-only"
    principle, generalized here to geometry history). This is not merely a style preference: an
    in-place edit would silently invalidate any overlap-detection result already computed against
-   the old boundary (ADR-020's future concern) without leaving a trace of what changed or when —
-   an audit and correctness gap this ADR closes structurally, before ADR-020 ever needs to worry
+   the old boundary (ADR-021's future concern) without leaving a trace of what changed or when —
+   an audit and correctness gap this ADR closes structurally, before ADR-021 ever needs to worry
    about it.
 3. **Only `ACTIVE` geometries are valid.** `SUPERSEDED` rows are retained (never deleted — no
    `DELETE` grant, matching the platform's universal convention) but are not eligible answers to
    `GeometryPort.reference_is_valid` and are not eligible input to any future overlap query
-   (ADR-020). There is no `PENDING`/`REJECTED` status — see §3 for why.
+   (ADR-021). There is no `PENDING`/`REJECTED` status — see §3 for why.
 4. **A `ParcelGeometry` row is created only from an already-validated payload** — see §3.
 5. **Tenant isolation is absolute**, the same default every table in this codebase has used since
    migration `0001` — `FORCE`d RLS, `tenant_id = current_setting('app.tenant_id', true) OR
    is_super_admin`. **This ADR does not define any cross-tenant read mechanism.** The threat
-   model (TB5) established that overlap detection will need one — that mechanism is ADR-020's
+   model (TB5) established that overlap detection will need one — that mechanism is ADR-021's
    decision, bound by `docs/ENGINEERING_RULES.md` rule 9 (Controlled Platform Authority: fixed at
    the call site, read-only, as narrow as the task allows, audited). ADR-018 explicitly refuses
-   to weaken this table's default policy to make ADR-020 easier — the narrow exception belongs
-   in ADR-020, applied on top of, not instead of, this default.
+   to weaken this table's default policy to make ADR-021 easier — the narrow exception belongs
+   in ADR-021, applied on top of, not instead of, this default.
 6. **No second authorization mechanism.** Whatever endpoint eventually submits a `ParcelGeometry`
-   (ADR-021's job to design in full) reuses the identical Identity → Tenant → Delegation → RBAC →
+   (ADR-022's job to design in full) reuses the identical Identity → Tenant → Delegation → RBAC →
    PDP pipeline every other mutation in this codebase uses — this ADR introduces no new role and
    assumes none is needed (submitting geometry for a parcel one is authorized to mutate is a
    natural extension of ADR-015's creator-or-governance model, reusable rather than reinvented).
@@ -97,7 +100,7 @@ Two designs were considered for how validation interacts with storage:
   means every query touching this table must remember to filter by status correctly, forever —
   a structural foot-gun, not a one-time correctness question.
 - **(Chosen) Validate-then-store:** a `ParcelGeometry` row is only ever created *after* the
-  submitted payload has already passed validation (ADR-019's real rules — well-formedness, no
+  submitted payload has already passed validation (ADR-020's real rules — well-formedness, no
   self-intersection, coordinate-bounds sanity, administrative-boundary containment). A failed
   submission produces no row at all — the equivalent of a `400`-class rejection, exactly like
   Registry's own `_bad_request` pattern for `size_sqm <= 0` (ADR-013/015) — not a stored, marked-
@@ -106,7 +109,7 @@ Two designs were considered for how validation interacts with storage:
   directly satisfying the threat model's requirement that invalid geometry never reach the
   persistence or query layers.
 
-The actual validation *algorithm* is explicitly ADR-019's job, not this ADR's — ADR-018 decides
+The actual validation *algorithm* is explicitly ADR-020's job, not this ADR's — ADR-018 decides
 only that validation happens before the `INSERT`, never after.
 
 ### Geometry storage type and coordinate reference system
@@ -115,7 +118,7 @@ only that validation happens before the `INSERT`, never after.
   natively — storing in the CRS the data actually arrives in avoids a lossy reprojection at
   ingestion time, the exact "closer to the source of truth" reasoning ADR-013 already applied to
   keeping `size_sqm` a self-declared figure rather than a derived one at this stage. `geometry`
-  (planar), not `geography` (geodesic), because ADR-020's overlap/duplicate-detection queries
+  (planar), not `geography` (geodesic), because ADR-021's overlap/duplicate-detection queries
   will need PostGIS's full `ST_Overlaps`/`ST_Intersects`/GiST-indexing function surface, which is
   more complete and better-optimized against `geometry` than `geography` for this exact use case
   (polygon-to-polygon comparison at parcel scale, not global-scale geodesic distance).
@@ -126,7 +129,7 @@ only that validation happens before the `INSERT`, never after.
 - **Area/distance calculations reproject on demand, never store a second, redundant geometry.**
   Nigeria spans UTM zones 31N–33N (`EPSG:326xx` family, meters-based, appropriate for accurate
   area/distance); the specific zone/projection choice and the reprojection call sites are
-  ADR-019/020's implementation concern — this ADR fixes only that the *authoritative* stored
+  ADR-020/021's implementation concern — this ADR fixes only that the *authoritative* stored
   value stays `4326`, never a projected CRS, so there is exactly one source of truth per
   geometry, not two that could drift.
 - **`Polygon` only, not `MultiPolygon` or generic `Geometry`, for this first ADR.** Real
@@ -134,14 +137,22 @@ only that validation happens before the `INSERT`, never after.
   deferred rather than solved speculatively (rule of three), the same discipline ADR-016 applied
   to leaving B4's whole domain model undecided until this ADR. Widening to `MultiPolygon` later
   is additive (a column-type migration, not a redesign) if real registration data demands it.
-- **Administrative reference boundaries (LGA/state polygons, needed for ADR-019's real
+- **Administrative reference boundaries (LGA/state polygons, needed for ADR-020's real
   containment check) are explicitly a separate, not-yet-designed concept** — reference data,
   not tenant data, likely seeded once and read-mostly (closer to `registry_parcel_counters`'
-  RLS shape than to a tenant-scoped table's). Not designed here; named so ADR-019 does not have
+  RLS shape than to a tenant-scoped table's). Not designed here; named so ADR-020 does not have
   to rediscover that this data has different ownership/RLS characteristics than `ParcelGeometry`
   itself.
 
 ## 5. A flagged, narrow, necessary extension to ADR-016's `GeometryPort` (the one place this ADR touches frozen B3 code)
+
+**This section's proposal is formally recorded, reviewed, and accepted as its own document,
+`docs/adr/ADR-019-geometry-port-interface-amendment.md`** — per explicit instruction that a
+change touching frozen B3 code receive its own dedicated governance record rather than ride along
+inside this ADR's broader acceptance. The analysis below is preserved as the original reasoning
+that produced ADR-019; ADR-019 itself is the authoritative record for whether and how the
+`GeometryPort` signature actually changes, and implementation waits for *that* document's
+acceptance, not this section's.
 
 `GeometryPort.reference_is_valid` currently takes only `geometry_reference: str`. Under
 `PlaceholderGeometryAdapter` this was fine — the adapter validated nothing. A **real** adapter
@@ -192,7 +203,7 @@ B4 Slice 1 begins — not now.
   the corrected pattern, never the string-then-retrofit detour.
 - **ADR-013** — `Parcel` is untouched; this ADR does not add, remove, or reinterpret any Parcel
   field or invariant.
-- **ADR-015** — no new authorization rule; ADR-021 will reuse the creator-or-governance model,
+- **ADR-015** — no new authorization rule; ADR-022 will reuse the creator-or-governance model,
   not reinvent one, when it designs Spatial's own endpoints.
 - **ADR-016** — one explicit, narrow, flagged extension (§5) to `GeometryPort`'s signature,
   additive only, with the actual code change deferred to implementation once this ADR is
@@ -202,17 +213,17 @@ B4 Slice 1 begins — not now.
   exactly this kind of explicit justification, not a silent edit.
 - **`docs/B4_THREAT_MODEL.md`** — §3 (validate-then-store) directly satisfies the binding
   requirement stated in the threat model's §6 item 1. §2 invariant 5 explicitly declines to
-  define any cross-tenant mechanism, deferring it to ADR-020 under Controlled Platform Authority
+  define any cross-tenant mechanism, deferring it to ADR-021 under Controlled Platform Authority
   (`docs/ENGINEERING_RULES.md` rule 9) rather than solving it here under different framing.
 - **No frozen decision is modified** — ADR-016 is extended, not changed in what it already
   decided; every other frozen ADR is unaffected.
 
 ## Consequences
 
-- ADR-019 (real `GeometryPort` adapter & validation rules) can now be written against a concrete
+- ADR-020 (real `GeometryPort` adapter & validation rules) can now be written against a concrete
   schema and a concrete "validation happens before persistence" contract, rather than against an
   undecided domain model.
-- ADR-020 (overlap & duplicate-geometry detection) inherits a table already correctly indexed for
+- ADR-021 (overlap & duplicate-geometry detection) inherits a table already correctly indexed for
   tenant isolation and already guaranteed to contain only `ACTIVE`, previously-validated
   geometry — it does not need to re-litigate what "valid" or "current" means before designing the
   actual spatial queries.
@@ -224,7 +235,7 @@ B4 Slice 1 begins — not now.
 
 ## Approval Gate
 
-This ADR is **proposed**, not accepted. Per the governing instruction, implementation of any
-kind — including the §5 `GeometryPort` signature change — does not begin until this document is
-reviewed and explicitly accepted. ADR-019, ADR-020, and ADR-021 remain unwritten pending that
-review.
+This ADR is **accepted**. Per the governing instruction, implementation of any kind — including
+the §5 `GeometryPort` signature change — does not begin until `docs/adr/ADR-019-geometry-port-interface-amendment.md`
+is itself reviewed and explicitly accepted. ADR-020, ADR-021, and ADR-022 remain unwritten
+pending that review.

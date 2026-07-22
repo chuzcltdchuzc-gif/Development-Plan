@@ -157,41 +157,37 @@ one pre-existing type-annotation gap found and fixed). **B3 is the current produ
 architectural baseline** — every later programme builds on it, and no B3-scope change lands
 without a new ADR referencing ADR-013/014/015/016/017.
 
-## B4 status (Spatial Intelligence) — threat model complete, ADR-018 not yet begun, no code
+## B4 status (Spatial Intelligence) — ADR-018 accepted, ADR-019 (amendment) pending, no code
 
-`docs/B4_DISCOVERY_AND_PLANNING.md` is **accepted as the official B4 planning baseline**
-(user needs/technical constraints, the Registry-vs-Spatial architectural boundary, a phased
-implementation plan mirroring B2/B3's own slice-by-slice governance). Its proposed ADR roadmap
-— **ADR-018 through ADR-022 — is approved as provisional** (subject to each ADR actually
-satisfying what it's proposed to decide when written, not a blank check).
+`docs/B4_DISCOVERY_AND_PLANNING.md` is **accepted as the official B4 planning baseline**, and
+`docs/B4_THREAT_MODEL.md` is **accepted as the official B4 security and trust-boundary
+baseline** — its six trust boundaries (TB1–TB6) are mandatory architectural constraints on all B4
+work, and its STRIDE analysis is Spatial Intelligence's initial security model. Its central
+finding: overlap/duplicate-geometry detection needs a cross-tenant read to work as a fraud signal
+at all — structurally unlike every prior RLS boundary in this codebase — so that read must be
+fixed/input-bounded, read-only, and audited (ADR-021's job to design). **Controlled Platform
+Authority** (rule 6, above) was formalized as a platform-wide doctrine from this finding.
 
-`docs/B4_THREAT_MODEL.md` is the required gate between that plan and any architecture decision —
-Phase 1's "Threat Model" check (`docs/PHASE_GATES.md`), performed before ADR-018, not after. It
-identifies six trust boundaries (TB1–TB6), runs a STRIDE analysis on each, and derives binding
-requirements ADR-018 through ADR-021 must satisfy. **The single most important finding:**
-overlap/duplicate-geometry detection needs a cross-tenant read to work as a fraud signal at all
-— structurally unlike every prior RLS boundary in this codebase (which assumed strict per-tenant
-isolation as the absolute default, with only the narrow, audited `super_admin` exception) — so
-that read must be fixed/input-bounded, read-only, and **audited** (ADR-020's job to design; this
-document only states the constraint). An ordinary registrant must never see another tenant's
-geometry or identity on conflict, only a minimal "conflict detected" signal.
+**ADR-018 — Spatial Domain Model is accepted** (`docs/adr/ADR-018-spatial-domain-model.md`) —
+the `ParcelGeometry` aggregate, `app/contexts/spatial/`'s bounded-context shape, validate-then-
+store persistence (satisfying the threat model's binding requirement that invalid geometry never
+reach storage), and the `geometry(Polygon, 4326)` storage/CRS decision. Domain model + bounded-
+context boundary only — overlap detection, real validation rules, and GIS services remain later
+ADRs' job.
 
-**`docs/B4_THREAT_MODEL.md` is approved as the official B4 security and trust-boundary baseline**
-— its six trust boundaries (TB1–TB6) are mandatory architectural constraints for all B4 work, and
-its STRIDE analysis is accepted as Spatial Intelligence's initial security model. **Controlled
-Platform Authority** (rule 6, above) is now a platform-wide doctrine, not a B4-specific one.
-**ADR-018 — Spatial Domain Model is drafted** (`docs/adr/ADR-018-spatial-domain-model.md`,
-Status: Proposed, not yet accepted) — the `ParcelGeometry` aggregate, its bounded-context folder
-(`app/contexts/spatial/`), validate-then-store persistence (satisfying the threat model's binding
-requirement that invalid geometry never reach storage), the `geometry(Polygon, 4326)` storage/CRS
-decision, and one flagged, narrow, additive extension to `GeometryPort`'s signature (adding
-`tenant_id`/`parcel_id` so a real adapter can verify a reference belongs to the caller, closing a
-cross-tenant-reference leak the placeholder adapter couldn't have caught). Domain model + bounded-
-context boundary only — overlap detection, real validation rules, and GIS services remain
-ADR-019/020's job. **No B4 code exists** — implementation, including that one `GeometryPort`
-signature change, waits for ADR-018 to be reviewed and accepted. **B4 is treated as an entirely
-new programme** — no implementation begins without explicit approval, the same discipline B3
-itself started under.
+**ADR-019 — GeometryPort Interface Amendment is drafted, not yet accepted**
+(`docs/adr/ADR-019-geometry-port-interface-amendment.md`) — the one place B4 touches frozen B3
+code: extending `GeometryPort.reference_is_valid` with `tenant_id`/`parcel_id` so a real adapter
+can verify a reference actually belongs to the caller (closing a cross-tenant-reference leak the
+placeholder adapter couldn't have caught), given its own dedicated governance record per explicit
+instruction rather than riding inside ADR-018. **No B4 code exists — implementation, including
+this signature change and B4 Slice 1, waits for ADR-019 specifically to be reviewed and
+accepted.** The remaining roadmap shifted by one to make room: ADR-020 (real adapter & validation
+rules), ADR-021 (overlap & duplicate-geometry detection), ADR-022 (spatial authorization),
+ADR-023 (map tiling, likely deferred) — all unwritten.
+
+**B4 is treated as an entirely new programme** — no implementation begins without explicit
+approval, the same discipline B3 itself started under.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

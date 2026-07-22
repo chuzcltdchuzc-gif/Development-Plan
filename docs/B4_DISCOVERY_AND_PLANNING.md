@@ -200,15 +200,22 @@ own ADR decision (§3) before any code implementing it is written.
 
 ---
 
-## 3. ADR Roadmap (not created — proposed for review)
+## 3. ADR Roadmap
+
+**Status: ADR-018 accepted; ADR-019 proposed; ADR-020 through ADR-023 not yet created — proposed
+for review.** (Renumbered from the original discovery draft: the `GeometryPort` interface
+amendment ADR-018 §5 flagged now has its own dedicated slot, ADR-019, per explicit instruction
+that it be formally recorded and reviewed separately before B4 Slice 1 begins — every ADR after
+it shifted by one accordingly.)
 
 | ADR | Purpose | Depends on | Why required |
 |---|---|---|---|
-| **ADR-018** — Spatial Domain Model & Schema | Geometry storage type (PostGIS `geometry` vs `geography`), SRID/CRS decision, the aggregate B4 introduces (name, invariants), migration numbering (`0010`+), exact relationship to `parcels.geometry_reference` | ADR-016 (the seam), ADR-009/010 (RLS/tenant shape) | New bounded context, new schema, a real undecided design choice (§1.3's CRS question) |
-| **ADR-019** — GeometryPort Real Adapter & Validation Rules | What "valid" means in `reference_is_valid`'s real implementation: well-formed polygon, no self-intersection, real administrative-boundary containment (replacing Base44's hardcoded bounding-box check) | ADR-018 | Directly closes a named audit defect (`docs/REBUILD_PLAN.md`'s B4 row); must document the validation algorithm, not assume it |
-| **ADR-020** — Overlap & Duplicate-Geometry Detection Model | Spatial query design (`ST_Overlaps`/`ST_Intersects`/`ST_DWithin`), GiST indexing strategy, thresholds distinguishing "duplicate" from "overlap" from "adjacent," and **the cross-tenant visibility decision (§1.3)** | ADR-018, ADR-010 (tenant isolation) | The highest-stakes architectural decision in B4 — a genuine tension with the platform's absolute-tenant-isolation default, not a routine query-design choice |
-| **ADR-021** — Spatial Authorization Model | Whether B4 needs any authorization rule beyond reusing Registry's pipeline unchanged (per ADR-016's mandate) — specifically, how the cross-tenant read ADR-020 may require is itself narrowly scoped and audited, not a general bypass | ADR-015, ADR-020 | ADR-016 already mandates "no new authorization mechanism" as a principle; this ADR is where that principle meets the one place B4 may need an actual exception, and must justify it explicitly if so |
-| **ADR-022** (open question, likely deferred) — Map Tiling / Spatial Search API & Public Exposure | Serving mechanism for map tiles/spatial search, whether any of it is ever public-facing | ADR-018 | Backend-only design has no frontend to validate against yet (F2 blocked on F1) — flagged as a candidate for deferral to whenever F2 actually begins, not decided here |
+| **ADR-018** — Spatial Domain Model & Schema *(Accepted)* | Geometry storage type (PostGIS `geometry` vs `geography`), SRID/CRS decision, the aggregate B4 introduces (name, invariants), migration numbering (`0010`+), exact relationship to `parcels.geometry_reference` | ADR-016 (the seam), ADR-009/010 (RLS/tenant shape) | New bounded context, new schema, a real undecided design choice (§1.3's CRS question) |
+| **ADR-019** — GeometryPort Interface Amendment *(Proposed)* | Formally records the tenant/parcel-scoped extension to `GeometryPort.reference_is_valid` that ADR-018 §5 identified as necessary — closes a cross-tenant-reference leak the placeholder adapter couldn't have caught | ADR-016 (extends), ADR-018 (identifies the need) | Touches frozen B3 code (`ParcelService`'s call site); this codebase's amendment discipline requires that be its own explicit, reviewable record, not folded silently into a larger ADR |
+| **ADR-020** — GeometryPort Real Adapter & Validation Rules | What "valid" means in `reference_is_valid`'s real implementation: well-formed polygon, no self-intersection, real administrative-boundary containment (replacing Base44's hardcoded bounding-box check) | ADR-018, ADR-019 | Directly closes a named audit defect (`docs/REBUILD_PLAN.md`'s B4 row); must document the validation algorithm, not assume it |
+| **ADR-021** — Overlap & Duplicate-Geometry Detection Model | Spatial query design (`ST_Overlaps`/`ST_Intersects`/`ST_DWithin`), GiST indexing strategy, thresholds distinguishing "duplicate" from "overlap" from "adjacent," and **the cross-tenant visibility decision (§1.3)** | ADR-018, ADR-010 (tenant isolation) | The highest-stakes architectural decision in B4 — a genuine tension with the platform's absolute-tenant-isolation default, not a routine query-design choice |
+| **ADR-022** — Spatial Authorization Model | Whether B4 needs any authorization rule beyond reusing Registry's pipeline unchanged (per ADR-016's mandate) — specifically, how the cross-tenant read ADR-021 may require is itself narrowly scoped and audited, not a general bypass | ADR-015, ADR-021 | ADR-016 already mandates "no new authorization mechanism" as a principle; this ADR is where that principle meets the one place B4 may need an actual exception, and must justify it explicitly if so |
+| **ADR-023** (open question, likely deferred) — Map Tiling / Spatial Search API & Public Exposure | Serving mechanism for map tiles/spatial search, whether any of it is ever public-facing | ADR-018 | Backend-only design has no frontend to validate against yet (F2 blocked on F1) — flagged as a candidate for deferral to whenever F2 actually begins, not decided here |
 
 None of these change ADR-009 through ADR-017 — they extend the platform the same way ADR-013–016
 extended B1/B2's frozen baseline into Registry.
@@ -231,7 +238,7 @@ to the approval discussion, same as B3.4 was flagged as reorderable in B3's own 
   `0009`.
 - **Dependencies:** none beyond the frozen B3 baseline.
 - **Complexity:** Medium.
-- **ADR requirement:** ADR-018, ADR-019.
+- **ADR requirement:** ADR-018, ADR-019, ADR-020.
 
 ### Slice B4.2 — Overlap & Duplicate-Geometry Detection
 - **Objective:** the actual fraud-signal feature — real polygon overlap/duplicate detection,
@@ -240,18 +247,18 @@ to the approval discussion, same as B3.4 was flagged as reorderable in B3's own 
 - **Business value:** the first genuine anti-fraud spatial signal this platform has ever had
   correctly implemented (Base44's version is the confirmed negative example, §1.2).
   Directly feeds B7's future scoring.
-- **Dependencies:** B4.1; resolves the cross-tenant question ADR-020 must decide before this
+- **Dependencies:** B4.1; resolves the cross-tenant question ADR-021 must decide before this
   slice's authorization model can be finalized.
 - **Complexity:** High — the cross-tenant visibility decision (§1.3/§3) is a genuine open
   architectural question, not routine implementation.
-- **ADR requirement:** ADR-020, ADR-021.
+- **ADR requirement:** ADR-021, ADR-022.
 
 ### Slice B4.3 — Spatial Search / Adjacency / Distance
 - **Objective:** the remaining query capabilities named in `docs/REBUILD_PLAN.md`'s B4 row
   (adjacency, distance) beyond overlap/duplicate detection specifically.
 - **Dependencies:** B4.1, B4.2.
 - **Complexity:** Medium.
-- **ADR requirement:** likely none beyond ADR-018/020 if the query model is already settled;
+- **ADR requirement:** likely none beyond ADR-018/021 if the query model is already settled;
   reassessed at B4.2's completion, not presupposed here.
 
 ### Slice B4.4 — Map Tiling Foundation (candidate for deferral)
@@ -259,7 +266,7 @@ to the approval discussion, same as B3.4 was flagged as reorderable in B3's own 
 - **Recommendation:** likely defer until F1/F2 frontend work is scheduled, since there is no
   consumer to validate against yet — flagged as a decision for the approval discussion, not
   presupposed.
-- **ADR requirement:** ADR-022, if and when pursued.
+- **ADR requirement:** ADR-023, if and when pursued.
 
 **Recommended execution order:** B4.1 → B4.2 → B4.3, each paused for review before the next
 begins, matching B3's own slice-by-slice governance. B4.4 recommended deferred pending frontend
@@ -273,7 +280,7 @@ No B4 production code has been written. This document is presented for review of
 needs and technical constraints (§1), the Registry/Spatial architectural boundary (§2),
 the proposed ADR roadmap (§3), the phased implementation plan (§4), and the recommended
 execution order (§4's closing paragraph) — most importantly, **the cross-tenant overlap-
-detection question (§1.3/§3/ADR-020)**, which is a genuine architectural tension with this
+detection question (§1.3/§3/ADR-021)**, which is a genuine architectural tension with this
 platform's absolute-tenant-isolation default and should be explicitly discussed before any ADR
 resolves it, not resolved by default inside an ADR draft.
 
