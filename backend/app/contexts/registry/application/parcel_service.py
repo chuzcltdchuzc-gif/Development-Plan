@@ -303,12 +303,24 @@ class ParcelService:
         a new field the same rule applies to. Registry never learns what
         `geometry_reference` means; it only asks the injected GeometryPort
         whether the string is one worth storing, never PostGIS or any
-        concrete GIS technology directly."""
+        concrete GIS technology directly. `tenant_id`/`parcel_id` are
+        passed through (docs/adr/ADR-019) so a real adapter can verify the
+        reference actually belongs to the parcel being mutated —
+        `parcel.tenant_id`, not `ctx.tenant_id`: the question is "does
+        this reference belong to the tenant that owns this parcel," which
+        for a `super_admin` acting cross-tenant is not necessarily the
+        acting principal's own (possibly unrelated) tenant.
+        `parcel.tenant_id` is always defined, unlike `ctx.tenant_id`
+        (`str | None` on `ExecutionContext`)."""
         parcel = await self._load_in_scope(ctx=ctx, parcel_id=parcel_id)
         await self._authorize_mutation(ctx=ctx, parcel=parcel)
 
         if geometry_reference is not None:
-            valid = await self.geometry.reference_is_valid(geometry_reference=geometry_reference)
+            valid = await self.geometry.reference_is_valid(
+                geometry_reference=geometry_reference,
+                tenant_id=parcel.tenant_id,
+                parcel_id=parcel_id,
+            )
             if not valid:
                 raise _bad_request("geometry_reference failed validation")
 

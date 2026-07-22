@@ -1,11 +1,18 @@
 # ADR-019 — GeometryPort Interface Amendment (Tenant/Parcel-Scoped Reference Validation)
 
-**Status:** Proposed — drafted under explicit authorization to formally record the amendment
-`docs/adr/ADR-018-spatial-domain-model.md` §5 identified. Not yet reviewed or accepted.
-**No B4 code exists; this document authorizes no implementation on its own.** Per the governing
-instruction, the `GeometryPort` signature change described below does not happen — and B4 Slice
-1 does not begin — until this ADR is itself reviewed and explicitly accepted, separate from
-ADR-018's own acceptance.
+**Status:** **Accepted.** Reviewed and approved in full — this is **the first formal amendment
+of the B4 (Spatial Intelligence) programme**: the first time a B4 decision reaches back into
+already-frozen B1–B3 code, and the first exercise of this codebase's amendment discipline
+(ADR-011/012/017) in the direction of extending a *contract*, rather than merely restating that
+a later bounded context reuses one unchanged. `docs/adr/ADR-016-geometry-port-boundary-spatial-integration.md`
+is preserved unmodified as historical context — it correctly records what B3 decided at the time
+B3 shipped — while this document is the authoritative, citable record of how that decision has
+since evolved. `GeometryPort`'s signature change, `PlaceholderGeometryAdapter`'s corresponding
+update, and the one touched call site in `ParcelService` are implemented as part of this
+acceptance (§"Implementation evidence," below) — narrowly, per the approved scope: no validation
+algorithm, no overlap detection, and no other GIS functionality is introduced here; those remain
+ADR-020/021's job, unwritten. B4 Slice 1 — Spatial Domain Foundation is authorized to begin
+following this acceptance.
 
 **Date:** 2026-07-22
 
@@ -71,38 +78,56 @@ class GeometryPort(Protocol):
     ) -> bool: ...
 ```
 
-`tenant_id` and `parcel_id` are the caller's own already-authorized context — `ctx.tenant_id` and
-the `parcel_id` already being mutated in the same `ParcelService.set_geometry_reference` call —
-not new input the caller doesn't already possess. A real adapter's implementation checks that the
-`ParcelGeometry` row matching `geometry_reference` has exactly this `tenant_id` and `parcel_id`;
-any mismatch (wrong tenant, wrong parcel, or no such row at all) returns `False`, indistinguishable
-from any other invalid reference — the port still returns only a plain boolean (unchanged from
-ADR-016, and consistent with `docs/B4_THREAT_MODEL.md` §6's requirement that the adapter's failure
-mode never leak richer diagnostic detail through Registry's error surface).
+`tenant_id` and `parcel_id` are the caller's own already-authorized context — the `parcel_id`
+already being mutated in the same `ParcelService.set_geometry_reference` call, and the tenant
+that *owns* it — not new input the caller doesn't already possess. A real adapter's
+implementation checks that the `ParcelGeometry` row matching `geometry_reference` has exactly
+this `tenant_id` and `parcel_id`; any mismatch (wrong tenant, wrong parcel, or no such row at
+all) returns `False`, indistinguishable from any other invalid reference — the port still
+returns only a plain boolean (unchanged from ADR-016, and consistent with
+`docs/B4_THREAT_MODEL.md` §6's requirement that the adapter's failure mode never leak richer
+diagnostic detail through Registry's error surface).
 
 ### The one code touchpoint
 
 `ParcelService.set_geometry_reference` (`backend/app/contexts/registry/application/parcel_service.py`,
-frozen B3 Slice 4 / ADR-015 / ADR-016) currently calls:
+frozen B3 Slice 4 / ADR-015 / ADR-016) called:
 
 ```python
 valid = await self.geometry.reference_is_valid(geometry_reference=geometry_reference)
 ```
 
-and will call, once this ADR is accepted and implemented:
+and, as implemented under this ADR's acceptance, now calls:
 
 ```python
 valid = await self.geometry.reference_is_valid(
-    geometry_reference=geometry_reference, tenant_id=ctx.tenant_id, parcel_id=parcel_id
+    geometry_reference=geometry_reference,
+    tenant_id=parcel.tenant_id,
+    parcel_id=parcel_id,
 )
 ```
 
-Both `ctx.tenant_id` and `parcel_id` are already in scope at this call site — nothing new is
+**`parcel.tenant_id`, not `ctx.tenant_id`** — a refinement made during implementation, not part
+of the original proposal above. `ExecutionContext.tenant_id` is typed `str | None` (an anonymous
+or tenant-less context is structurally possible), and more importantly, the actual question this
+check answers is *"does this reference belong to the tenant that owns this parcel,"* which for a
+`super_admin` acting cross-tenant is `parcel.tenant_id`, not necessarily the acting principal's
+own tenant. `parcel.tenant_id` is always defined (the parcel is already loaded via
+`_load_in_scope` by this point) and is the semantically correct value regardless of which caller
+tier is acting — confirmed by `mypy` rejecting the original `ctx.tenant_id` draft outright
+(`str | None` where `str` was required), which is exactly the kind of real, non-speculative
+correctness check this codebase's "never mark complete without observing it pass" discipline
+exists to catch before it ships, not after.
+
+Both `parcel.tenant_id` and `parcel_id` are already in scope at this call site — nothing new is
 threaded in from outside the method, no new dependency, no new parameter on
 `set_geometry_reference` itself. `PlaceholderGeometryAdapter.reference_is_valid`'s signature
-gains the same two keyword-only parameters and continues to ignore them, returning `True`
+gained the same two keyword-only parameters and continues to ignore them, returning `True`
 unconditionally — its behavior is unaffected; it simply accepts (and disregards) more context,
-exactly as a stub implementing a real protocol should.
+exactly as a stub implementing a real protocol should. `FakeGeometryPort` (tests) gained the same
+two parameters, deliberately not adding them to its `.calls` recording — no existing test
+assertion needed to change as a result (confirmed, not assumed — see "Implementation evidence,"
+below).
 
 ### Why additive, not breaking
 
@@ -152,17 +177,35 @@ implementers can be safely extended in place rather than versioned.
 - ADR-020 (real `GeometryPort` adapter & validation rules) can be written and implemented against
   a signature that actually supports correct tenant/parcel-scoped validation, rather than
   inheriting the placeholder-era signature's blind spot.
-- B3's frozen test suite for `ParcelService` (Slice 3/4 tests) gains two additional call-site
-  arguments to account for once this is implemented — an additive test update, not a rewrite of
-  existing assertions, since `PlaceholderGeometryAdapter`'s always-`True` behavior is unchanged.
+- **B3's frozen test suite for `ParcelService` required zero changes** (confirmed, §"Implementation
+  evidence," below) — `PlaceholderGeometryAdapter` and `FakeGeometryPort` both accept the new
+  parameters and ignore them for behavior/recording purposes, so every existing assertion against
+  either still holds unmodified. This was a design goal (§"Why additive, not breaking"), not
+  merely a hope.
 - This is now the documented precedent for how a future B4+ ADR should propose touching frozen
   B1–B3 code going forward: identify the need in the ADR that discovers it (as ADR-018 §5 did),
   then formally record the actual amendment as its own dedicated ADR before implementing it.
 
+## Implementation evidence
+
+Implemented in full under this ADR's acceptance — `GeometryPort.reference_is_valid`
+(`app/contexts/registry/ports.py`), `PlaceholderGeometryAdapter`
+(`app/contexts/registry/adapters/geometry.py`), `ParcelService.set_geometry_reference`
+(`app/contexts/registry/application/parcel_service.py`, using `parcel.tenant_id` per the
+refinement above), and `FakeGeometryPort` (`tests/fakes/registry.py`) all updated. No validation
+algorithm, overlap detection, or other GIS functionality was introduced — strictly the signature
+change and its one call site, per the approved scope.
+
+- Full `ruff check .`: clean.
+- Full `mypy .`: clean, 88 source files (initially caught the `ctx.tenant_id` vs. `parcel.tenant_id`
+  type error described above — fixed before this evidence was recorded, not after).
+- Full `pytest` suite: **119/119 passed**, zero test file changes required.
+- Geometry-specific tests (`test_b3_registry.py -k geometry`): **9/9 passed**, confirming the
+  amendment holds for every previously-verified scenario (attach, detach, ownership reuse,
+  cross-tenant denial, archived-parcel denial, port-rejection, audit) without alteration.
+
 ## Approval Gate
 
-This ADR is **proposed**, not accepted. Implementation — the signature change on `GeometryPort`,
-`PlaceholderGeometryAdapter`, `FakeGeometryPort`, and the one call site in `ParcelService` — does
-not begin until this document is reviewed and explicitly accepted. B4 Slice 1 does not begin
-until then either, since Slice 1's own scope (`docs/B4_DISCOVERY_AND_PLANNING.md` §4, Slice B4.1)
-depends on this amendment being in place.
+This ADR is **accepted**, and its implementation is complete and verified (above). B4 Slice 1 —
+Spatial Domain Foundation is authorized to begin, per `docs/B4_DISCOVERY_AND_PLANNING.md` §4's
+Slice B4.1 scope.

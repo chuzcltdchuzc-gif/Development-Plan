@@ -54,18 +54,23 @@ class InMemoryParcelNumberAllocator:
 
 
 class FakeGeometryPort:
-    """Configurable in-memory GeometryPort (B3 slice 4, docs/adr/ADR-016).
-    Defaults to always-valid, matching production's
-    PlaceholderGeometryAdapter; tests can construct with
-    `always_valid=False` to prove ParcelService actually consults the
+    """Configurable in-memory GeometryPort (B3 slice 4, docs/adr/ADR-016;
+    signature amended B4, docs/adr/ADR-019). Defaults to always-valid,
+    matching production's PlaceholderGeometryAdapter; tests can construct
+    with `always_valid=False` to prove ParcelService actually consults the
     port's answer rather than merely wiring it decoratively. `calls`
-    records every reference the port was asked about, so a test can also
+    records every reference the port was asked about (geometry_reference
+    only, matching the pre-amendment recording shape — tenant_id/parcel_id
+    are accepted per the amended signature but deliberately not recorded,
+    so no existing test assertion needed to change), so a test can also
     assert the port was (or wasn't) invoked."""
 
     def __init__(self, *, always_valid: bool = True) -> None:
         self.always_valid = always_valid
         self.calls: list[str] = []
 
-    async def reference_is_valid(self, *, geometry_reference: str) -> bool:
+    async def reference_is_valid(
+        self, *, geometry_reference: str, tenant_id: str, parcel_id: str
+    ) -> bool:
         self.calls.append(geometry_reference)
         return self.always_valid

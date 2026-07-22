@@ -157,7 +157,7 @@ one pre-existing type-annotation gap found and fixed). **B3 is the current produ
 architectural baseline** — every later programme builds on it, and no B3-scope change lands
 without a new ADR referencing ADR-013/014/015/016/017.
 
-## B4 status (Spatial Intelligence) — ADR-018 accepted, ADR-019 (amendment) pending, no code
+## B4 status (Spatial Intelligence) — ADR-018/019 accepted, Slice 1 authorized, not yet begun
 
 `docs/B4_DISCOVERY_AND_PLANNING.md` is **accepted as the official B4 planning baseline**, and
 `docs/B4_THREAT_MODEL.md` is **accepted as the official B4 security and trust-boundary
@@ -175,19 +175,25 @@ reach storage), and the `geometry(Polygon, 4326)` storage/CRS decision. Domain m
 context boundary only — overlap detection, real validation rules, and GIS services remain later
 ADRs' job.
 
-**ADR-019 — GeometryPort Interface Amendment is drafted, not yet accepted**
-(`docs/adr/ADR-019-geometry-port-interface-amendment.md`) — the one place B4 touches frozen B3
-code: extending `GeometryPort.reference_is_valid` with `tenant_id`/`parcel_id` so a real adapter
-can verify a reference actually belongs to the caller (closing a cross-tenant-reference leak the
-placeholder adapter couldn't have caught), given its own dedicated governance record per explicit
-instruction rather than riding inside ADR-018. **No B4 code exists — implementation, including
-this signature change and B4 Slice 1, waits for ADR-019 specifically to be reviewed and
-accepted.** The remaining roadmap shifted by one to make room: ADR-020 (real adapter & validation
-rules), ADR-021 (overlap & duplicate-geometry detection), ADR-022 (spatial authorization),
-ADR-023 (map tiling, likely deferred) — all unwritten.
+**ADR-019 — GeometryPort Interface Amendment is accepted**
+(`docs/adr/ADR-019-geometry-port-interface-amendment.md`) — the first formal amendment of the B4
+programme, and the first time it reaches back into frozen B3 code: `GeometryPort.reference_is_valid`
+now takes `tenant_id`/`parcel_id` so a real adapter can verify a reference actually belongs to the
+parcel being mutated, closing a cross-tenant-reference leak the placeholder adapter couldn't have
+caught. `docs/adr/ADR-016-geometry-port-boundary-spatial-integration.md` is preserved unmodified
+as historical record of what B3 decided; ADR-019 is the current, authoritative contract.
+**Implemented and verified:** `GeometryPort`, `PlaceholderGeometryAdapter`,
+`ParcelService.set_geometry_reference` (using `parcel.tenant_id`, not `ctx.tenant_id` — a
+mypy-caught refinement, since `ExecutionContext.tenant_id` is `str | None`), and `FakeGeometryPort`
+all updated — strictly the signature change, no validation algorithm, no overlap detection, no
+other GIS functionality. Full `ruff`/`mypy` clean; full `pytest` **119/119 passed with zero test
+file changes**, confirming B3 regression is genuinely unaffected, not merely assumed to be.
 
-**B4 is treated as an entirely new programme** — no implementation begins without explicit
-approval, the same discipline B3 itself started under.
+**B4 Slice 1 — Spatial Domain Foundation is authorized** (`docs/B4_DISCOVERY_AND_PLANNING.md` §4)
+but **not yet begun** — the remaining roadmap (ADR-020 real adapter/validation rules, ADR-021
+overlap detection, ADR-022 spatial authorization, ADR-023 map tiling) is still unwritten, and B4
+is treated as an entirely new programme — no further implementation proceeds without its own
+explicit go-ahead, the same discipline B3 itself started under.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

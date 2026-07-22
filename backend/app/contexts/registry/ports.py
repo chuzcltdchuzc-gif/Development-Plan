@@ -39,6 +39,16 @@ class GeometryPort(Protocol):
     PlaceholderGeometryAdapter` satisfies this with zero business logic;
     a future Spatial Intelligence context (B4) supplies the first real
     implementation without any change to ParcelService, Parcel, or this
-    protocol."""
+    protocol.
 
-    async def reference_is_valid(self, *, geometry_reference: str) -> bool: ...
+    `tenant_id`/`parcel_id` (docs/adr/ADR-019, amending ADR-016) are the
+    caller's own already-authorized context, passed through so a real
+    adapter can verify a reference actually belongs to the tenant/parcel
+    attaching it — without them, a real adapter could only confirm a
+    `geometry_reference` exists *somewhere*, not that it belongs to this
+    caller, letting one tenant attach another tenant's reference merely by
+    guessing or observing a valid-looking value."""
+
+    async def reference_is_valid(
+        self, *, geometry_reference: str, tenant_id: str, parcel_id: str
+    ) -> bool: ...
