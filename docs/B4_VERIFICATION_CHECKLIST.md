@@ -179,3 +179,19 @@ measurable overhead versus Slice 1's placeholder regex.
 
 **Infrastructure observations:** the container-networking Keycloak-URL gap above; otherwise none
 new.
+
+**Governance decision — accepted and frozen (2026-07-23):** following architectural review, B4
+Slice 2 is accepted. No architectural conflicts were identified against ADR-018, ADR-019, or
+ADR-022. The Spatial bounded context's authorization model, geometry validation, and the real
+`GeometryPort` production integration (`RealGeometryAdapter`, wired via `app/main.py`'s
+`dependency_overrides`) are frozen under ADR-022 — no further change to any of them lands without
+a new ADR referencing ADR-018/019/022. The `GeometryPort` production integration is recorded as a
+permanent architectural milestone: the first time this platform has connected two bounded
+contexts' real (non-placeholder) implementations across a ports-and-adapters seam. The Keycloak
+container-networking correction (`infra/docker/docker-compose.yml`, documented above) is this
+release's operational fix of record. ADR-021 — Spatial Conflict Detection & Controlled
+Cross-Tenant Intelligence — is authorized for drafting and is now proposed
+(`docs/adr/ADR-021-spatial-conflict-detection-and-controlled-cross-tenant-intelligence.md`);
+B4 Slice 3 (overlap detection, duplicate detection, fraud detection, conflict scoring, AI
+analysis, spatial search, risk engines) is **not authorized** and does not begin until ADR-021 is
+itself reviewed and explicitly accepted.

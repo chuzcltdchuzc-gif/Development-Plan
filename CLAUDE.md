@@ -157,7 +157,7 @@ one pre-existing type-annotation gap found and fixed). **B3 is the current produ
 architectural baseline** — every later programme builds on it, and no B3-scope change lands
 without a new ADR referencing ADR-013/014/015/016/017.
 
-## B4 status (Spatial Intelligence) — Slices 1 & 2 built and live-verified; Slice 3/ADR-021 not authorized
+## B4 status (Spatial Intelligence) — Slices 1 & 2 accepted and frozen under ADR-022; ADR-021 proposed; Slice 3 not authorized
 
 `docs/B4_DISCOVERY_AND_PLANNING.md` and `docs/B4_THREAT_MODEL.md` are **accepted baselines** —
 the threat model's six trust boundaries (TB1–TB6) are mandatory constraints on all B4 work, and
@@ -206,10 +206,30 @@ container-to-container networking but not the three `KEYCLOAK_*` URLs, which lea
 host-oriented `localhost` values — real Keycloak was unreachable from inside the container. Fixed
 by adding the same kind of override already used for `DATABASE_URL`.
 
-**B4 Slice 3 (overlap/duplicate detection) and ADR-021 (the Controlled-Platform-Authority-
-compliant cross-tenant read design) are not authorized** — explicit stop condition on Slice 2's
-own authorization. No overlap detection, fraud detection, or GIS analysis exists anywhere in this
-codebase yet.
+**B4 Slice 2 has completed architectural review and is accepted; its architecture is frozen under
+ADR-022** — no further change to Spatial's authorization model, geometry validation, or the
+Registry↔Spatial `GeometryPort` seam lands without a new ADR referencing ADR-018/019/022. The
+real `GeometryPort` production integration (`RealGeometryAdapter`, wired via `app/main.py`'s
+`dependency_overrides`) is recorded as a permanent architectural milestone — the first time this
+platform has connected two bounded contexts' real (non-placeholder) implementations across the
+ports-and-adapters seam established in ADR-002/ADR-016. The Keycloak container-networking
+correction (`infra/docker/docker-compose.yml`) is recorded in `docs/B4_VERIFICATION_CHECKLIST.md`'s
+Slice 2 section as this release's operational fix.
+
+**ADR-021 — Spatial Conflict Detection & Controlled Cross-Tenant Intelligence is now drafted**
+(`docs/adr/ADR-021-spatial-conflict-detection-and-controlled-cross-tenant-intelligence.md`),
+architecture only, no implementation — the constitutional doctrine `docs/B4_THREAT_MODEL.md` TB5
+required before overlap/duplicate-geometry detection could be designed: which single component
+may perform a cross-tenant geometry read (Controlled Platform Authority, `docs/
+ENGINEERING_RULES.md` rule 9), the six-category conflict classification model (no conflict /
+boundary overlap / duplicate / near duplicate / suspicious pattern / confirmed conflict — model
+only, no algorithm), the minimal-disclosure default to an ordinary registrant vs. a governance
+role's narrowly-extended reach, the Registry/Spatial ownership split (conflict detection is a
+Spatial-internal service, not a new bounded context and not something Registry absorbs), and full
+audit requirements. **Not yet accepted. B4 Slice 3 is not authorized** — no overlap detection,
+duplicate detection, fraud detection, conflict scoring, AI analysis, spatial search, or risk
+engine exists anywhere in this codebase yet, and none begins until ADR-021 is reviewed and
+explicitly accepted, the same discipline every prior escalation in this codebase has followed.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
