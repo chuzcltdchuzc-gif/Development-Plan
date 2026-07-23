@@ -13,43 +13,29 @@ row being corrected transitions `ACTIVE -> SUPERSEDED` and is retained
 forever (no delete grant, matching the platform's universal convention).
 
 Validation gates persistence (ADR-018 §"Validation gates persistence"):
-`ParcelGeometry.new()` is the only constructor and performs structural
-validation before an instance can exist at all — there is no
+`ParcelGeometry.new()` is the only constructor and performs real
+structural validation (`app.contexts.spatial.domain.geometry_validation`,
+B4 Slice 2) before an instance can exist at all — there is no
 `PENDING`/`REJECTED` status, and no code path can construct an instance
-representing invalid geometry. The validation performed here is
-deliberately structural only (non-empty, well-formed WKT `POLYGON`
-syntax) — real geometric validity (self-intersection, coordinate-bounds
-sanity, administrative-boundary containment) is explicitly ADR-020's job,
-not this slice's.
+representing invalid geometry. Validation remains structural only —
+well-formedness, ring closure, minimum point count, coordinate sanity,
+winding order, SRID — never self-intersection or administrative-boundary
+containment, which stay ADR-020's job.
 """
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from app.contexts.spatial.domain.geometry_validation import validate_wkt_polygon
+
 STATUS_ACTIVE = "ACTIVE"
 STATUS_SUPERSEDED = "SUPERSEDED"
-
-# Deliberately minimal: confirms the payload at least looks like a WKT
-# POLYGON (case-insensitive keyword, a parenthesized body) — not a real
-# geometric validator. Self-intersection, ring closure, coordinate-bounds
-# sanity, and administrative-boundary containment are ADR-020's job; this
-# slice only guarantees "the database will not be asked to store something
-# that isn't shaped like a polygon at all."
-_WKT_POLYGON_RE = re.compile(r"^\s*POLYGON\s*\(\(.+\)\)\s*$", re.IGNORECASE | re.DOTALL)
 
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
-
-
-class InvalidGeometryError(ValueError):
-    """Raised by `ParcelGeometry.new()` when the submitted payload fails
-    structural validation — the payload never becomes a `ParcelGeometry`
-    instance, so it can never reach persistence (ADR-018's binding
-    requirement, docs/B4_THREAT_MODEL.md §6 item 1)."""
 
 
 class ParcelGeometryAlreadySupersededError(Exception):
@@ -75,16 +61,12 @@ class ParcelGeometry:
     def new(
         cls, *, tenant_id: str, parcel_id: str, boundary: str, created_by: str
     ) -> ParcelGeometry:
-        if not _WKT_POLYGON_RE.match(boundary or ""):
-            raise InvalidGeometryError(
-                "boundary must be a well-formed WKT POLYGON, e.g. "
-                "'POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))'"
-            )
+        validated_boundary = validate_wkt_polygon(boundary)
         return cls(
             geometry_id=str(uuid.uuid4()),
             tenant_id=tenant_id,
             parcel_id=parcel_id,
-            boundary=boundary,
+            boundary=validated_boundary,
             created_by=created_by,
         )
 

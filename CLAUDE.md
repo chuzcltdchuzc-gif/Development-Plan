@@ -157,7 +157,7 @@ one pre-existing type-annotation gap found and fixed). **B3 is the current produ
 architectural baseline** — every later programme builds on it, and no B3-scope change lands
 without a new ADR referencing ADR-013/014/015/016/017.
 
-## B4 status (Spatial Intelligence) — Slice 1 built, ADR-022 proposed, Slice 2 not authorized
+## B4 status (Spatial Intelligence) — Slices 1 & 2 built and live-verified; Slice 3/ADR-021 not authorized
 
 `docs/B4_DISCOVERY_AND_PLANNING.md` and `docs/B4_THREAT_MODEL.md` are **accepted baselines** —
 the threat model's six trust boundaries (TB1–TB6) are mandatory constraints on all B4 work, and
@@ -168,31 +168,48 @@ in this codebase) produced **Controlled Platform Authority** as platform-wide ru
 `app/contexts/spatial/`'s shape, validate-then-store persistence, `geometry(Polygon, 4326)`).
 **ADR-019** (GeometryPort Interface Amendment — `reference_is_valid` now takes
 `tenant_id`/`parcel_id`; implemented and verified, 119/119 tests, zero test-file changes;
-`docs/adr/ADR-016-...md` preserved unmodified as historical record).
+`docs/adr/ADR-016-...md` preserved unmodified as historical record). **ADR-022** (Spatial
+Authorization Model — creator-or-governance mutation authority for `ParcelGeometry`, mirroring
+ADR-015 exactly; accepted and now fully implemented, see below).
 
 **B4 Slice 1 — Spatial Domain Foundation is implemented** (`app/contexts/spatial/`, mirroring
 Registry's shape exactly): `ParcelGeometry`'s append-only `ACTIVE`/`SUPERSEDED` lifecycle,
 validate-then-store persistence, `geometry(Polygon, 4326)` via a small dependency-free `Geometry`
-`TypeEngine` (no `geoalchemy2` added). `PUT`/`GET /v1/spatial/parcels/{id}/geometry`, gated by
-the coarse `PARCEL_REGISTRANT_ROLES` check plus an explicit `_in_scope` tenant check. 132/132
-tests pass (13 new); `ruff`/`mypy` clean; migration `0010` applied and verified live via `psql`.
-One real design gap was caught by a failing test and fixed: the first draft relied solely on RLS
-for tenant scoping (no equivalent in the in-memory fake) — fixed by adding `_in_scope`, the same
-defense-in-depth pattern Registry uses. Full live Postgres/Keycloak/RLS/concurrency/audit-chain/
-container verification is deferred to the eventual B4 Quality Gate — tracked in
-`docs/B4_VERIFICATION_CHECKLIST.md`, none skipped.
+`TypeEngine` (no `geoalchemy2` added). Migration `0010` applied and verified live via `psql`.
 
-**ADR-022 — Spatial Authorization Model is drafted, not yet accepted**
-(`docs/adr/ADR-022-spatial-authorization-model.md`) — Slice 1's coarse role gate was explicitly
-flagged as structurally similar to the historical ADR-005 defect (any registrant could mutate
-any parcel's geometry in-tenant, not only ones tied to a parcel they created); this ADR mirrors
-ADR-015's creator-or-governance model for `ParcelGeometry` before that gap is allowed to persist
-into Slice 2. Defines the full mutation matrix, archived-parcel behavior (mirrors ADR-015: no
-override, any role), delegation (reuses ADR-011 unchanged), and audit requirements
-(`spatial.parcel_geometry.mutation_denied`, new). **No code was written or modified under this
-ADR** — Slice 1's coarse gate remains live in the shipped code until Slice 2 implements this
-model. **B4 Slice 2 is not authorized** — no further implementation proceeds until ADR-022 is
-reviewed and explicitly accepted, the same discipline B3's ADR-005→ADR-015 escalation followed.
+**B4 Slice 2 — Geometry Validation & Real Geometry Adapter is implemented and live-verified**
+(`docs/adr/ADR-022`): real structural WKT `POLYGON` validation
+(`app/contexts/spatial/domain/geometry_validation.py` — ring closure, minimum point count,
+coordinate bounds, OGC winding order via the shoelace formula, EWKT SRID verification — all pure
+Python, no GIS dependency added); ADR-022's creator-or-governance authorization is now enforced
+in `SpatialService` (mirroring `ParcelService._can_mutate`/`_effective_authority` exactly),
+including delegated governance (ADR-011, unchanged) and an unconditional archived-parcel block
+(`409`, no override for any role, mirroring ADR-015); `ParcelExistencePort` extended to
+`get_parcel_authority` returning `ParcelAuthorityInfo` (`tenant_id`/`created_by`/`status`) in one
+round-trip; a real `GeometryPort` implementation (`RealGeometryAdapter`, in
+`app.contexts.spatial.adapters`) is wired into Registry via `app/main.py`'s
+`dependency_overrides` only — Registry's own code was not touched and still imports nothing from
+Spatial. The persist-ordering bug Slice 1 shipped with (superseding the old geometry *before*
+validating the new one, which could strand a parcel with no ACTIVE geometry on a validation
+failure) was fixed: validation now happens before any persistence. 29/29 Spatial tests pass
+(148/148 full suite); `ruff`/`mypy` clean. **Full live verification performed, not deferred**:
+real Postgres/PostGIS/Keycloak/RLS (fail-closed under `landvault_app`, confirmed 0 rows
+cross-tenant, DELETE denied), all four authorization tiers (creator/governance/delegated/
+`super_admin` cross-tenant), archived-parcel `409` for every tier, cross-tenant `404`, malformed/
+clockwise-wound geometry `400`, the real Registry↔Spatial `GeometryPort` seam (a genuine
+`geometry_id` accepted, an unknown one and a foreign parcel's rejected), audit chain integrity
+(`verify_chain()` → `True` over the platform's full history), and a full container rebuild +
+health-check — see `docs/B4_VERIFICATION_CHECKLIST.md` for the complete evidence log. One
+pre-existing infra gap, unrelated to Slice 2's own code, was found and fixed as a live-verification
+blocker: `infra/docker/docker-compose.yml`'s `backend` service overrode `DATABASE_URL` for
+container-to-container networking but not the three `KEYCLOAK_*` URLs, which leaked `.env`'s
+host-oriented `localhost` values — real Keycloak was unreachable from inside the container. Fixed
+by adding the same kind of override already used for `DATABASE_URL`.
+
+**B4 Slice 3 (overlap/duplicate detection) and ADR-021 (the Controlled-Platform-Authority-
+compliant cross-tenant read design) are not authorized** — explicit stop condition on Slice 2's
+own authorization. No overlap detection, fraud detection, or GIS analysis exists anywhere in this
+codebase yet.
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

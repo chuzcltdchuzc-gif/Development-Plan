@@ -1,13 +1,16 @@
-"""B4 slice 1 — Spatial Domain Foundation (docs/adr/ADR-018, docs/adr/ADR-019).
+"""B4 Slice 1 + Slice 2 — Spatial Domain Foundation and Geometry
+Validation & Authorization (docs/adr/ADR-018, docs/adr/ADR-019,
+docs/adr/ADR-022).
 
-Covers: the ParcelGeometry aggregate's domain invariants (structural
-validation gates persistence, append-only ACTIVE/SUPERSEDED lifecycle),
-the Spatial bounded context's own authorization boundary (coarse
-PARCEL_REGISTRANT_ROLES gate + parcel-existence/tenant-scope check via
-ParcelExistencePort — NOT yet a full creator-or-governance model, that is
-ADR-022's job), and audit integration. No overlap detection, no real
-geometry validation beyond structural well-formedness, no GIS computation
-of any kind — those are ADR-020/021's job. Real business logic
+Covers: the ParcelGeometry aggregate's domain invariants (real structural
+WKT validation gates persistence, append-only ACTIVE/SUPERSEDED
+lifecycle), Spatial's ADR-022 creator-or-governance authorization model
+(mirroring Registry's ADR-015 exactly: creator permit, governance permit,
+delegated-governance permit, non-creator/non-governance deny — the
+ADR-005-shaped regression — archived-parcel unconditional block), and
+audit integration (`spatial.parcel_geometry.created`/`.mutation_denied`).
+No overlap detection, no self-intersection/topology, no GIS computation
+of any kind — those remain later ADRs' job. Real business logic
 throughout; Keycloak and Postgres are swapped for in-memory fakes at the
 port boundary, same as the rest of the B1/B2/B3/B4 suite. RLS and the
 database-level "one ACTIVE geometry per parcel" constraint are verified
@@ -25,16 +28,21 @@ from httpx import Response
 from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
 from app.contexts.identity.ports import IdentityProviderTokens
-from app.contexts.spatial.domain.parcel_geometry import (
+from app.contexts.registry.dependencies import get_geometry_port
+from app.contexts.spatial.adapters.geometry_port_adapter import RealGeometryAdapter
+from app.contexts.spatial.domain.geometry_validation import (
     InvalidGeometryError,
+    validate_wkt_polygon,
+)
+from app.contexts.spatial.domain.parcel_geometry import (
     ParcelGeometry,
     ParcelGeometryAlreadySupersededError,
 )
 from app.kernel.audit import verify_chain
 from tests.app_factory import AppHarness, build_test_app
 
-VALID_POLYGON = "POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))"
-OTHER_POLYGON = "POLYGON((2 2, 2 3, 3 3, 3 2, 2 2))"
+VALID_POLYGON = "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))"
+OTHER_POLYGON = "POLYGON((2 2, 3 2, 3 3, 2 3, 2 2))"
 
 
 @pytest.fixture
@@ -84,6 +92,35 @@ def _submit_geometry(
 def _get_active_geometry(client: TestClient, access_token: str, parcel_id: str) -> Response:
     return client.get(
         f"/v1/spatial/parcels/{parcel_id}/geometry",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+
+def _archive_parcel(client: TestClient, access_token: str, parcel_id: str) -> Response:
+    return client.post(
+        f"/v1/parcels/{parcel_id}/archive", headers={"Authorization": f"Bearer {access_token}"}
+    )
+
+
+def _set_geometry(
+    client: TestClient, access_token: str, parcel_id: str, geometry_reference: str | None
+) -> Response:
+    return client.put(
+        f"/v1/parcels/{parcel_id}/geometry",
+        json={"geometry_reference": geometry_reference},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+
+def _create_delegation(
+    client: TestClient, access_token: str, *, delegate_user_id: str, delegated_roles: list[str]
+) -> Response:
+    return client.post(
+        "/v1/admin/delegations",
+        json={
+            "delegate_user_id": delegate_user_id, "delegated_roles": delegated_roles,
+            "scope": "tenant_governance", "expires_at": None,
+        },
         headers={"Authorization": f"Bearer {access_token}"},
     )
 
@@ -319,3 +356,268 @@ def test_registry_endpoints_still_work(harness: AppHarness, client: TestClient) 
         headers={"Authorization": f"Bearer {tokens.access_token}"},
     )
     assert fetched.status_code == 200
+
+
+# --- B4 Slice 2 (docs/adr/ADR-022) ------------------------------------------------
+
+# 13. A governance role can submit geometry for a colleague's parcel (override) --
+
+def test_governance_role_can_submit_geometry_for_colleagues_parcel(
+    harness: AppHarness, client: TestClient
+) -> None:
+    agent_tokens, agent = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-agent13@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    officer_tokens, _officer = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-officer13@example.test", password="pw12345678",
+            role="compliance_officer", tenant_id=agent.tenant_id,
+        )
+    )
+    created = _create_parcel(client, agent_tokens.access_token, title="Agent's plot").json()
+
+    response = _submit_geometry(
+        client, officer_tokens.access_token, created["parcel_id"], VALID_POLYGON
+    )
+    assert response.status_code == 201, response.text
+
+
+# 14. A delegated governance role inherits the same override -----------------------
+
+def test_delegated_governance_role_can_submit_geometry(
+    harness: AppHarness, client: TestClient
+) -> None:
+    officer_tokens, officer = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-officer14@example.test", password="pw12345678",
+            role="compliance_officer",
+        )
+    )
+    agent_tokens, _agent = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-agent14@example.test", password="pw12345678",
+            role="field_agent", tenant_id=officer.tenant_id,
+        )
+    )
+    delegate_tokens, delegate = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-delegate14@example.test", password="pw12345678",
+            role="general_user", tenant_id=officer.tenant_id,
+        )
+    )
+    created = _create_parcel(client, agent_tokens.access_token, title="Needs geometry").json()
+
+    delegation = _create_delegation(
+        client, officer_tokens.access_token,
+        delegate_user_id=delegate.user_id, delegated_roles=["compliance_officer"],
+    )
+    assert delegation.status_code == 201, delegation.text
+
+    response = _submit_geometry(
+        client, delegate_tokens.access_token, created["parcel_id"], VALID_POLYGON
+    )
+    assert response.status_code == 201, response.text
+
+
+# 15. ADR-005-SHAPED REGRESSION: a non-creator holding a registrant role, same
+# tenant, cannot submit geometry for a colleague's parcel — the exact historical
+# defect ADR-022 exists to prevent for Spatial. Also confirms the denial is
+# audited with the same reason string Registry's own ADR-015 audit uses.
+
+def test_non_creator_registrant_denied_adr005_regression(
+    harness: AppHarness, client: TestClient
+) -> None:
+    tokens_a, a = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-agentA15@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    tokens_b, _b = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-agentB15@example.test", password="pw12345678",
+            role="field_agent", tenant_id=a.tenant_id,
+        )
+    )
+    created = _create_parcel(client, tokens_a.access_token, title="A's plot").json()
+
+    response = _submit_geometry(client, tokens_b.access_token, created["parcel_id"], VALID_POLYGON)
+    assert response.status_code == 403
+
+    entries = asyncio.run(harness.audit_store.all_entries())
+    denials = [e for e in entries if e.action == "spatial.parcel_geometry.mutation_denied"]
+    assert any(
+        e.resource_id == created["parcel_id"]
+        and e.payload.get("reason") == "not_creator_and_not_governance"
+        for e in denials
+    )
+
+    # And no geometry was left behind for A's parcel.
+    still = _get_active_geometry(client, tokens_a.access_token, created["parcel_id"])
+    assert still.status_code == 404
+
+
+# 16. Archived-parcel geometry mutation is unconditionally blocked — creator,
+# governance, and super_admin alike, no override path (ADR-022 §8, mirroring
+# ADR-015's identical rule for Registry).
+
+def test_archived_parcel_blocks_geometry_mutation_for_every_role(
+    harness: AppHarness, client: TestClient
+) -> None:
+    agent_tokens, agent = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-agent16@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    officer_tokens, _officer = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-officer16@example.test", password="pw12345678",
+            role="compliance_officer", tenant_id=agent.tenant_id,
+        )
+    )
+    admin_tokens, _admin = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-root16@example.test", password="pw12345678", role="super_admin"
+        )
+    )
+    created = _create_parcel(client, agent_tokens.access_token, title="Will be archived").json()
+    archived = _archive_parcel(client, agent_tokens.access_token, created["parcel_id"])
+    assert archived.status_code == 200, archived.text
+
+    creator_attempt = _submit_geometry(
+        client, agent_tokens.access_token, created["parcel_id"], VALID_POLYGON
+    )
+    assert creator_attempt.status_code == 409
+
+    governance_attempt = _submit_geometry(
+        client, officer_tokens.access_token, created["parcel_id"], VALID_POLYGON
+    )
+    assert governance_attempt.status_code == 409
+
+    super_admin_attempt = _submit_geometry(
+        client, admin_tokens.access_token, created["parcel_id"], VALID_POLYGON
+    )
+    assert super_admin_attempt.status_code == 409
+
+    # Reading remains permitted on an archived parcel — reading is not a
+    # mutation (ADR-022 §6) — but there is no geometry to find yet.
+    read = _get_active_geometry(client, agent_tokens.access_token, created["parcel_id"])
+    assert read.status_code == 404
+
+
+# 17. Validator edge cases (pure domain-level, no HTTP) -----------------------------
+
+def test_validator_rejects_empty_boundary() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("")
+
+
+def test_validator_rejects_non_polygon_keyword() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("POINT(0 0)")
+
+
+def test_validator_rejects_unclosed_ring() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("POLYGON((0 0, 1 0, 1 1, 0 1))")
+
+
+def test_validator_rejects_too_few_points() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("POLYGON((0 0, 1 1, 0 0))")
+
+
+def test_validator_rejects_non_numeric_coordinates() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("POLYGON((0 0, 1 0, x y, 0 1, 0 0))")
+
+
+def test_validator_rejects_out_of_range_coordinates() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("POLYGON((0 0, 200 0, 200 1, 0 1, 0 0))")
+
+
+def test_validator_rejects_clockwise_exterior_ring() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))")
+
+
+def test_validator_rejects_unsupported_srid() -> None:
+    with pytest.raises(InvalidGeometryError):
+        validate_wkt_polygon("SRID=3857;POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))")
+
+
+def test_validator_accepts_matching_ewkt_srid() -> None:
+    assert validate_wkt_polygon(
+        "SRID=4326;POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))"
+    ) == "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))"
+
+
+def test_validator_accepts_valid_polygon_with_hole() -> None:
+    # Exterior CCW, interior (hole) CW — OGC Simple Features convention.
+    polygon = (
+        "POLYGON((0 0, 10 0, 10 10, 0 10, 0 0), (2 2, 2 4, 4 4, 4 2, 2 2))"
+    )
+    assert validate_wkt_polygon(polygon) == polygon
+
+
+# 18. Registry<->Spatial GeometryPort integration: a geometry_reference produced
+# by Spatial is genuinely honoured by Registry's real GeometryPort adapter, and a
+# foreign/unknown reference is genuinely rejected — proving the composition-root
+# wiring (app.main's dependency_overrides) is not merely decorative.
+
+def test_registry_accepts_real_spatial_geometry_reference(
+    harness: AppHarness, client: TestClient
+) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-agent18@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    parcel = _create_parcel(client, tokens.access_token, title="Real geometry seam").json()
+    submitted = _submit_geometry(
+        client, tokens.access_token, parcel["parcel_id"], VALID_POLYGON
+    ).json()
+
+    real_port = RealGeometryAdapter(harness.parcel_geometries)
+    harness.app.dependency_overrides[get_geometry_port] = lambda: real_port
+    try:
+        accepted = _set_geometry(
+            client, tokens.access_token, parcel["parcel_id"], submitted["geometry_id"]
+        )
+        assert accepted.status_code == 200, accepted.text
+        assert accepted.json()["geometry_reference"] == submitted["geometry_id"]
+
+        rejected = _set_geometry(
+            client, tokens.access_token, parcel["parcel_id"],
+            "00000000-0000-0000-0000-000000000000",
+        )
+        assert rejected.status_code == 400
+    finally:
+        harness.app.dependency_overrides[get_geometry_port] = lambda: harness.geometry
+
+
+def test_registry_rejects_geometry_reference_belonging_to_another_parcel(
+    harness: AppHarness, client: TestClient
+) -> None:
+    tokens, _user = asyncio.run(
+        _seed_user_with_role(
+            harness, email="s-agent18b@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    parcel_a = _create_parcel(client, tokens.access_token, title="Parcel A").json()
+    parcel_b = _create_parcel(client, tokens.access_token, title="Parcel B").json()
+    submitted_for_a = _submit_geometry(
+        client, tokens.access_token, parcel_a["parcel_id"], VALID_POLYGON
+    ).json()
+
+    real_port = RealGeometryAdapter(harness.parcel_geometries)
+    harness.app.dependency_overrides[get_geometry_port] = lambda: real_port
+    try:
+        cross_parcel = _set_geometry(
+            client, tokens.access_token, parcel_b["parcel_id"], submitted_for_a["geometry_id"]
+        )
+        assert cross_parcel.status_code == 400
+    finally:
+        harness.app.dependency_overrides[get_geometry_port] = lambda: harness.geometry

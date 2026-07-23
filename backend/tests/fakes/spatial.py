@@ -8,6 +8,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 from app.contexts.spatial.domain.parcel_geometry import ParcelGeometry
+from app.contexts.spatial.ports import ParcelAuthorityInfo
 from tests.fakes.registry import InMemoryParcelRepository
 
 
@@ -45,6 +46,10 @@ class FakeParcelExistencePort:
     def __init__(self, parcels: InMemoryParcelRepository) -> None:
         self._parcels = parcels
 
-    async def get_tenant_id(self, *, parcel_id: str) -> str | None:
+    async def get_parcel_authority(self, *, parcel_id: str) -> ParcelAuthorityInfo | None:
         parcel = await self._parcels.get(parcel_id)
-        return parcel.tenant_id if parcel else None
+        if parcel is None:
+            return None
+        return ParcelAuthorityInfo(
+            tenant_id=parcel.tenant_id, created_by=parcel.created_by, status=parcel.status
+        )

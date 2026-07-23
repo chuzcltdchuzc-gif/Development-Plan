@@ -1,10 +1,10 @@
 # ADR-022 — Spatial Authorization Model
 
-**Status:** Proposed — drafted under explicit authorization to formally record Spatial's
-authorization model before B4 Slice 2 begins. Not yet reviewed or accepted. **No code is
-written or modified under this document.** Per the governing instruction, B4 Slice 2 does not
-begin — and no Spatial service is touched — until this ADR is itself reviewed and explicitly
-accepted, separate from B4 Slice 1's own acceptance.
+**Status:** Accepted — reviewed and explicitly accepted as the governing authorization model for
+the Spatial bounded context. B4 Slice 2 — Geometry Validation & Real Geometry Adapter is
+authorized to proceed on this basis; Slice 2 must implement §8's `ParcelExistencePort` extension,
+§§2–3/§6's creator-or-governance check, §8's archived-parcel block, and §9's
+`spatial.parcel_geometry.mutation_denied` audit event.
 
 **Date:** 2026-07-23
 
@@ -367,6 +367,5 @@ registrant denied geometry mutation on a colleague's parcel — the same regress
 
 ## Approval Gate
 
-This ADR is **proposed**, not accepted. Per the governing instruction, no B4 Slice 2
-implementation — including any change to `SpatialService`, `ParcelExistencePort`, or any other
-Spatial code — begins until this document is reviewed and explicitly accepted.
+This ADR is **accepted**. B4 Slice 2 implementation — extending `SpatialService`,
+`ParcelExistencePort`, and related Spatial code per this document's design — is authorized.

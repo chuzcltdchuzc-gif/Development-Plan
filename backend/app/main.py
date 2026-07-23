@@ -8,15 +8,19 @@ CLAUDE.md for what that verification covered).
 """
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.contexts.identity.adapters.keycloak import KeycloakIdentityProvider, KeycloakJWKSProvider
 from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_production_context_hydrator
 from app.contexts.identity.dependencies import configure_identity_provider
 from app.contexts.registry.api import parcel_router
+from app.contexts.registry.dependencies import get_geometry_port
+from app.contexts.registry.ports import GeometryPort
+from app.contexts.spatial.adapters.geometry_port_adapter import RealGeometryAdapter
+from app.contexts.spatial.adapters.postgres_repositories import PostgresParcelGeometryRepository
 from app.contexts.spatial.api import spatial_router
 from app.kernel.audit import configure_eager_fallback
 from app.kernel.audit_postgres import EagerPostgresAuditStore
@@ -28,7 +32,7 @@ from app.kernel.health import build_health_router
 from app.kernel.logging import configure_logging
 from app.kernel.security.http_hardening import configure_security
 from app.kernel.security.jwt import JwtVerifier
-from app.kernel.uow import configure_uow
+from app.kernel.uow import configure_uow, get_db_session
 
 
 def create_app() -> FastAPI:
@@ -73,6 +77,20 @@ def create_app() -> FastAPI:
     app.include_router(admin_router.router)
     app.include_router(parcel_router.router)
     app.include_router(spatial_router.router)
+
+    # Composition-root-only wiring (docs/adr/ADR-019/ADR-022): connects
+    # Registry's GeometryPort to Spatial's real adapter via
+    # dependency_overrides, so neither app.contexts.registry nor
+    # app.contexts.spatial imports the other directly. Registry's own
+    # get_geometry_port (app/contexts/registry/dependencies.py) is never
+    # edited for this — only this file, and tests/app_factory.py, are
+    # allowed to know about both bounded contexts at once.
+    def _get_real_geometry_port(
+        session: AsyncSession = Depends(get_db_session),
+    ) -> GeometryPort:
+        return RealGeometryAdapter(PostgresParcelGeometryRepository(session))
+
+    app.dependency_overrides[get_geometry_port] = _get_real_geometry_port
 
     return app
 

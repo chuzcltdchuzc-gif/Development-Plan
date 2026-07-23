@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.spatial.adapters.orm import ParcelGeometryRecord
 from app.contexts.spatial.domain.parcel_geometry import ParcelGeometry
+from app.contexts.spatial.ports import ParcelAuthorityInfo
 
 
 def _geometry_from_record(record: ParcelGeometryRecord) -> ParcelGeometry:
@@ -78,13 +79,21 @@ class PostgresParcelExistenceAdapter:
     Registry's `parcels` table, through the same request-scoped session
     — RLS (already in effect via the Unit-of-Work's session variables)
     makes this return no row for a parcel outside the caller's tenant
-    scope, exactly as it already does for Registry's own queries."""
+    scope, exactly as it already does for Registry's own queries.
+    Extended B4 Slice 2 (docs/adr/ADR-022 §8) to also return `created_by`
+    and `status` in the same round-trip, rather than a second query."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get_tenant_id(self, *, parcel_id: str) -> str | None:
+    async def get_parcel_authority(self, *, parcel_id: str) -> ParcelAuthorityInfo | None:
         result = await self._session.execute(
-            text("SELECT tenant_id FROM parcels WHERE id = :parcel_id"), {"parcel_id": parcel_id}
+            text("SELECT tenant_id, created_by, status FROM parcels WHERE id = :parcel_id"),
+            {"parcel_id": parcel_id},
         )
-        return result.scalar_one_or_none()
+        row = result.one_or_none()
+        if row is None:
+            return None
+        return ParcelAuthorityInfo(
+            tenant_id=row.tenant_id, created_by=str(row.created_by), status=row.status
+        )
