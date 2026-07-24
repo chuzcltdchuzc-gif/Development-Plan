@@ -1,11 +1,12 @@
-# Constitutional Recommendations — Pending LV-000
+# Constitutional Recommendations — Register
 
-Cumulative, append-only register of principles recommended for inclusion in **LV-000** (this
-platform's eventual top-level constitutional document) whenever constitutional work resumes.
-**LV-000 does not exist yet** — nothing in this file has been ratified, adopted, or incorporated
-anywhere. This file exists solely so recommendations made during ordinary programme work (B1–B4
-and beyond) are not lost before LV-000 is drafted. Each entry records what was recommended, when,
-and why — never the recommendation's own adoption, which is LV-000's act, not this file's.
+Cumulative, append-only register of principles recommended for inclusion in **LV-000**
+(`docs/LV-000-constitution.md`, adopted 2026-07-26). Each entry records what was recommended,
+when, and why. **As of LV-000 v1.0's adoption, both entries below have been incorporated** —
+see each entry's own updated Status line for exactly where. This file remains the historical
+record of *why* each principle was proposed; LV-000 itself is now the authoritative, adopted text.
+Future recommendations (for a future LV-000 amendment, per LV-000 Article XX) continue to be
+logged here first, exactly as these two were.
 
 ---
 
@@ -38,9 +39,10 @@ read/write" to the specific case of a named platform-services layer observing mu
 contexts at once. When LV-000 is drafted, this entry and rule 9 should be reconciled into one
 statement, not adopted as two independently-worded versions of the same idea.
 
-**Status:** Recorded, not adopted. No amendment to any existing document has been made under this
-entry — `docs/ENGINEERING_RULES.md` rule 9 remains the operative, binding rule until LV-000 exists
-and formally supersedes or restates it.
+**Status:** **Incorporated into LV-000 v1.0, Article IX, Section 4** (2026-07-26), verbatim as
+proposed above. `docs/ENGINEERING_RULES.md` rule 9 remains the operative engineering-level rule —
+per LV-000 Article VI, Section 3 and Article XX, Section 2, this incorporation ratifies the
+principle at constitutional altitude without reopening or modifying rule 9's own text.
 
 ---
 
@@ -80,7 +82,8 @@ for its opening/foundational section, with `docs/PLATFORM_STRATEGY.md`'s own pos
 ("Nigeria's trusted digital infrastructure for land verification, powered by a nationwide network
 of licensed land professionals") as its product-facing restatement.
 
-**Status:** Recorded, not adopted. No amendment to any existing document has been made under this
-entry. `docs/PLATFORM_STRATEGY.md` treats this principle as its own organizing frame for planning
-purposes, but that document is itself planning-only and adopts no constitutional authority it does
-not have — the principle becomes binding only once LV-000 exists and ratifies it.
+**Status:** **Incorporated into LV-000 v1.0, Article IX, Section 1** (2026-07-26), verbatim as
+proposed above, and further reflected in Article IV (listed first among the ten constitutional
+principles) and the Preamble's own framing. `docs/PLATFORM_STRATEGY.md`'s positioning statement
+remains that principle's product-facing restatement, unchanged and consistent with the now-adopted
+constitutional text.

@@ -1,15 +1,19 @@
 # LandVault Architecture Handbook
 
-**Version 1.0**
+**Version 1.1**
 
-**Type:** Operational engineering reference. **Not an ADR. Not the Constitution (LV-000 — does
-not yet exist, `docs/CONSTITUTIONAL_RECOMMENDATIONS.md`). Not a PRD. Not a TRD.** This handbook
-consolidates, cross-references, and interprets the architectural decisions this platform has
-already made — it decides nothing new, overrides nothing, and duplicates no ADR's own text.
-Where this handbook and any ADR appear to differ, **the ADR is authoritative**; that would be a
-defect in this handbook to fix, never a reason to treat the handbook as a second source of truth.
+**Type:** Operational engineering reference. **Not an ADR. Not the Constitution — LV-000
+(`docs/LV-000-constitution.md`, adopted 2026-07-26) is superior to this Handbook in the platform's
+documentation hierarchy (LV-000 Article II, Section 2) and this Handbook does not restate its
+content. Not a PRD. Not a TRD.** This handbook consolidates, cross-references, and interprets the
+architectural decisions this platform has already made — it decides nothing new, overrides
+nothing, and duplicates no ADR's own text. Where this handbook and any ADR appear to differ, **the
+ADR is authoritative** (LV-000 Article VI, Section 3 ratifies this); that would be a defect in
+this handbook to fix, never a reason to treat the handbook as a second source of truth. Where this
+handbook and LV-000 itself appear to differ, **LV-000 is authoritative** — that would likewise be
+a defect in this handbook to fix.
 
-**Date:** 2026-07-24
+**Date:** 2026-07-24 (v1.0); updated 2026-07-26 (v1.1, LV-000's adoption)
 
 **Documentation programme only.** No production code, migration, API change, bounded context, or
 ADR amendment is introduced by this document. This handbook does not authorize B4 Slice 3 or any
@@ -547,15 +551,19 @@ recorded here because consistency is itself a governance property worth naming.
 # PART VII — DOCUMENTATION HIERARCHY
 
 ```
-LV-000 Constitution          (does not exist yet — docs/CONSTITUTIONAL_RECOMMENDATIONS.md is a
-   ↓                          pending log of what it should eventually contain)
+LV-000 Constitution           (docs/LV-000-constitution.md, adopted 2026-07-26 — the platform's
+   ↓                          supreme governing document, per its own Article II)
 Architecture Handbook         (this document — navigation and interpretation, not decision)
    ↓
-Platform Strategy             (docs/REBUILD_PLAN.md — the 13-context plan, stack choices,
-   ↓                          milestone sequencing)
+Platform Strategy             (docs/PLATFORM_STRATEGY.md — vision, positioning, five-layer
+   ↓                          model; docs/REBUILD_PLAN.md remains the underlying 13-context
+   ↓                          technical plan/stack-choice/milestone document the strategy
+   ↓                          layer explains the commercial significance of)
 PRD                           (product requirements — not a distinct document type in this
    ↓                          codebase today; product intent is currently expressed through
-   ↓                          docs/REBUILD_PLAN.md and each programme's own Discovery document)
+   ↓                          docs/REBUILD_PLAN.md, each programme's own Discovery document, and
+   ↓                          — for future programmes — their own Business Strategy document,
+   ↓                          e.g. docs/PARTNER_PROGRAMME_STRATEGY.md)
 TRD                           (technical requirements — likewise expressed today through each
    ↓                          programme's own Discovery-and-Planning document, e.g.
    ↓                          docs/B4_DISCOVERY_AND_PLANNING.md, rather than a separate TRD file)
@@ -573,13 +581,21 @@ Release Notes                  (docs/audits/B2_RELEASE_NOTES.md, B3_RELEASE_NOTE
 Implementation                 (the actual code, migrations, and tests)
 ```
 
-**No document overrides the Constitution (once it exists) or any accepted ADR.** This handbook
-sits directly beneath the (not-yet-existing) Constitution and above the platform-strategy/
-discovery layer, precisely because its role is to explain how the layers below it relate to one
-another — it does not itself belong in the decision-making chain. Where this codebase does not yet
-have a distinct PRD/TRD artifact type, the programme-level Discovery-and-Planning documents
-currently serve that role; introducing genuinely separate PRD/TRD documents is a future
-documentation-process decision, not one this handbook makes.
+**No document overrides the Constitution or any accepted ADR.** This handbook sits directly
+beneath LV-000 and above the platform-strategy/discovery layer, precisely because its role is to
+explain how the layers below it relate to one another — it does not itself belong in the
+decision-making chain. Where this codebase does not yet have a distinct PRD/TRD artifact type, the
+programme-level Discovery-and-Planning and Business Strategy documents currently serve that role;
+introducing genuinely separate PRD/TRD documents is a future documentation-process decision, not
+one this handbook makes.
+
+**Reconciliation with LV-000's own strategic-layer hierarchy:** LV-000 Article II, Section 2
+states a five-level precedence (LV-000 → Handbook → Accepted ADRs → Programme Documents →
+Engineering Documentation) that governs *conflicts of principle*. The document-artifact-type
+hierarchy immediately above governs *what kind of document to consult for what level of detail* —
+the two compose exactly as `docs/PLATFORM_STRATEGY.md`'s own earlier reconciliation note already
+described for the strategic-layer hierarchy it introduced, which LV-000's Article II now
+subsumes as the platform's single, authoritative precedence statement.
 
 **Update (2026-07-25) — the Platform Strategy layer is now populated.** `docs/
 PLATFORM_STRATEGY.md` occupies this hierarchy's "Platform Strategy" position, with a set of
@@ -884,7 +900,8 @@ reference it.
 | `docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md` | Part I, II, IV, V, VIII | Named, not implemented |
 | `docs/MARKETPLACE_DISCOVERY_AND_PLANNING.md` | Part I, VIII | Planning recommendation only |
 | `docs/CONSTITUTIONAL_RECOMMENDATIONS.md` | Part VII | Recorded, not adopted; LV-000 does not exist — now 2 entries |
-| `docs/PLATFORM_STRATEGY.md` | Handbook header note, Part VII/VIII | Planning only — vision, positioning, five-layer model, strategic-layer hierarchy |
+| `docs/LV-000-constitution.md` | Handbook header, Part VII | **Adopted 2026-07-26 — the platform's supreme governing document** |
+| `docs/PLATFORM_STRATEGY.md` | Handbook header note, Part VII/VIII | Planning only — vision, positioning, five-layer model, strategic-layer hierarchy (its own precedence diagram now subsumed by LV-000 Article II) |
 | `docs/PARTNER_PROGRAMME_STRATEGY.md` | Part VIII | Planning recommendation only |
 | `docs/ENTERPRISE_PROGRAMME_STRATEGY.md` | Part VIII | Planning recommendation only |
 | `docs/GOVERNMENT_PROGRAMME_STRATEGY.md` | Part VIII | Planning recommendation only |
@@ -918,10 +935,13 @@ the following triggers:
    Platform Intelligence sections should be updated to move that capability from "not designed" to
    its actual status, mirroring how this version already distinguishes ADR-021 (proposed) from the
    other five named engines (not designed).
-5. **On LV-000's eventual drafting.** Part VII's documentation hierarchy currently shows LV-000 as
-   not existing; once drafted, this handbook's own "not the Constitution" framing in its header
-   should be revisited to confirm consistency, and every entry in `docs/
-   CONSTITUTIONAL_RECOMMENDATIONS.md` should be reconciled into LV-000 or explicitly declined.
+5. **~~On LV-000's eventual drafting.~~ Fired 2026-07-26.** LV-000 v1.0 was adopted
+   (`docs/LV-000-constitution.md`); this handbook's header, Part VII diagram, and Appendix A were
+   updated accordingly (v1.0 → v1.1, this trigger's own action). Both entries in `docs/
+   CONSTITUTIONAL_RECOMMENDATIONS.md` were reconciled into LV-000 (Article IX, Sections 1 and 4)
+   and that file's own entries updated to record where. This trigger will not fire again unless
+   LV-000 itself is amended (LV-000 Article XX) — a future LV-000 amendment is a new, distinct
+   trigger, not a repeat of this one.
 6. **On any Marketplace/Enterprise/Government/Developer-Platform/API-Ecosystem/Compliance/
    Analytics programme's own Phase 0 acceptance.** Move that programme's Part VIII entry from
    "summarized without implementation" to a real cross-reference against its own Discovery

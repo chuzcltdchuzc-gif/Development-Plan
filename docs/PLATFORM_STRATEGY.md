@@ -35,8 +35,8 @@ selects.
 ## The governing hierarchy
 
 ```
-LandVault Constitution (LV-000)          (does not exist yet — docs/CONSTITUTIONAL_RECOMMENDATIONS.md)
-   ↓
+LandVault Constitution (LV-000)          (docs/LV-000-constitution.md, adopted 2026-07-26 —
+   ↓                                       supreme governing document, per its own Article II)
 Architecture Handbook                     (docs/ARCHITECTURE_HANDBOOK.md — navigation/interpretation)
    ↓
 Platform Strategy                         (this document — vision, ecosystem, positioning)
@@ -55,12 +55,16 @@ Programme Implementation                  (ADR → Review → Approval → Imple
                                             → Freeze, per docs/ARCHITECTURE_HANDBOOK.md Part VI)
 ```
 
-**Reconciliation with the Architecture Handbook's own Part VII:** the Handbook's existing
-documentation hierarchy (LV-000 → Handbook → Platform Strategy → PRD → TRD → ADRs → Engineering
-Specifications → Threat Models → Verification Checklists → Release Notes → Implementation) is a
-**document-artifact-type** hierarchy — it says what kind of document exists at each level of
-specificity. The hierarchy above is a **strategic-layer** hierarchy — it says which planning
-concern governs which other planning concern. They compose rather than compete: "Business
+**Reconciliation with LV-000 and the Architecture Handbook's own Part VII:** LV-000 (`docs/
+LV-000-constitution.md`, adopted 2026-07-26) Article II, Section 2 now states the platform's
+single, authoritative precedence order for conflicts of principle (LV-000 → Handbook → Accepted
+ADRs → Programme Documents → Engineering Documentation) — this supersedes this section's own,
+earlier precedence framing as the *governing* statement, while the Handbook's Part VII
+document-artifact-type hierarchy (LV-000 → Handbook → Platform Strategy → PRD → TRD → ADRs →
+Engineering Specifications → Threat Models → Verification Checklists → Release Notes →
+Implementation) remains what it always was: a statement of *what kind of document* exists at each
+level of specificity, not a competing precedence order. The strategic-layer hierarchy above
+remains this document's own planning-concern breakdown, nested within both: "Business
 Strategy"/"Marketplace Strategy"/"Government Strategy" above map onto the Handbook's "PRD" layer
 (product intent, expressed per-programme rather than in one document), and "Engineering Roadmap"
 maps onto the Handbook's "TRD" layer (technical intent, expressed as each programme's own
@@ -72,8 +76,10 @@ explicit so a future reader does not mistake two complementary hierarchies for a
 
 > **LandVault is a Trust Platform before it is a Software Platform.**
 
-Recorded as a constitutional recommendation (`docs/CONSTITUTIONAL_RECOMMENDATIONS.md` entry 2),
-pending LV-000. Every section below applies this lens: the question asked of every future
+Adopted as constitutional doctrine in **LV-000 Article IX, Section 1** (`docs/
+LV-000-constitution.md`, 2026-07-26), having first been recorded as a recommendation
+(`docs/CONSTITUTIONAL_RECOMMENDATIONS.md` entry 2). Every section below applies this lens: the
+question asked of every future
 programme is not only "does this ship a useful feature" but "does this strengthen the trust
 ecosystem this platform's entire architecture — validate-then-store, creator-or-governance
 authorization, append-only history, hash-chained audit — already exists to make provable, not
