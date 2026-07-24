@@ -911,6 +911,7 @@ reference it.
 | `docs/TRUST_FRAMEWORK.md` | Part V (business-facing companion) | Planning only — ties engineering mechanisms to ecosystem trust claims |
 | `docs/NETWORK_GROWTH_STRATEGY.md` | Part VIII | Planning only — no growth target or infrastructure change committed |
 | `docs/LANDVAULT_BIBLE_VOLUME_I_EXECUTIVE_OVERVIEW.md` | — (non-normative) | Executive narrative synthesizing this Handbook, LV-000, and Platform Strategy for external audiences; explanatory only, decides nothing, cited by nothing above it |
+| `docs/LANDVAULT_BIBLE_VOLUME_II_PRODUCT_STRATEGY_AND_ENTERPRISE_DEFINITION.md` | — (non-normative) | Expanded market analysis, five-layer/Trust Network/Marketplace/Commercial/Competitive/Roadmap treatment; explanatory only, decides nothing, cited by nothing above it |
 | `docs/audits/` (Base44/Emergent forensic audits) | Part I, IV | Historical — every engineering rule traces here |
 | `docs/audits/B2_RELEASE_NOTES.md` | Part VII | Historical |
 | `docs/audits/B3_RELEASE_NOTES.md` | Part VII | Historical |
