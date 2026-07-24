@@ -106,6 +106,32 @@ its first deliverable — an explicit bounded-context map, reviewed and approved
 roadmap is drafted — mirroring exactly how `docs/B4_DISCOVERY_AND_PLANNING.md` §2 (Architectural
 Scope) preceded §3 (ADR Roadmap) for Spatial Intelligence.
 
+## Candidate domain concepts (illustrative, entity-level — not a domain model)
+
+The Enterprise Programme Transition planning exercise (`docs/PLATFORM_STRATEGY.md`) named eleven
+concepts at the entity level that a real Marketplace domain model would need to define. **Naming
+them here is not modeling them** — no field, invariant, aggregate boundary, or lifecycle is
+decided; each is listed with only the questions its eventual domain-model ADR would need to
+answer, mirroring how ADR-013 first had to answer these same categories of question for `Parcel`:
+
+| Candidate concept | What it would need to answer (not answered here) |
+|---|---|
+| **Survey Request** | Who may create one — any registrant, or only against their own parcel? Does it require an existing `Parcel` (Registry) to reference, per this platform's "Registry owns identity" rule? |
+| **Job** | Is a Job the same thing as a Survey Request once accepted, or a distinct entity with its own lifecycle? Does "Job" duplicate "Survey Request," a question worth resolving before both are built. |
+| **Assignment** | The link between a Job/Survey Request and a specific surveyor/firm — does assignment imply exclusivity (one surveyor at a time) or does it support competitive bidding before assignment? |
+| **Match** | Is matching automated (a future Platform Intelligence-shaped capability, `docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md`) or manual (a registrant or governance role selects)? If automated, it inherits that layer's four-part test and needs its own Controlled Platform Authority review if it reads across tenants to find candidate surveyors. |
+| **Escrow** | Already named above — its own lifecycle, cross-tenant/governance-conditional release. |
+| **Wallet** | Already named above — overlaps `docs/REBUILD_PLAN.md` context #10. |
+| **Payment** | Single-event vs. Wallet-mediated — does every Payment pass through a Wallet, or can some bypass it (e.g., a direct Paystack/Stripe charge for a one-off service)? |
+| **Rating** | Already named above — Marketplace-owned vs. Community-Trust extension is the open question. Whichever it becomes, `docs/ENGINEERING_RULES.md` rule 3 (fail-safe scoring) applies without exception: a rating system with no data must report "insufficient data," never a default/neutral-looking score that could be mistaken for an actual rating. |
+| **Dispute** | Does a Dispute require a prior Rating, Payment, or Job to exist, or can it be raised independently? Does dispute resolution require a new authorization tier beyond `GOVERNANCE_ROLES`, or does it reuse the existing governance model? |
+| **Surveyor Profile** | Is this Identity's `User`/`Tenant` extended with Marketplace-specific fields (accreditation, specialty, coverage area), or a distinct Marketplace-owned entity referencing `User`/`Tenant` by identifier — the identical "extend vs. reference" question ADR-018 already resolved once for `ParcelGeometry` vs. `Parcel`, and the same discipline should apply here rather than growing `User` with Marketplace-specific fields it has no other reason to carry. |
+| **Availability** | A surveyor's schedule/capacity — does this belong to Marketplace (it exists to inform matching/dispatch) or to the Partner Programme (it is partner lifecycle data, `docs/PARTNER_PROGRAMME_STRATEGY.md`)? Named here as an open boundary question between the two future programmes, not resolved by either. |
+
+**This table's purpose is to demonstrate that a real Phase 0 has real, answerable-but-unanswered
+questions to resolve** — it is evidence this recommendation has been thought through at the
+concept level, not a substitute for the domain-modeling work itself.
+
 ## ADR roadmap (illustrative — the programme's own Phase 0 drafts the real one)
 
 Named here only to demonstrate the kind of roadmap a real Phase 0 would produce, mirroring

@@ -581,6 +581,20 @@ have a distinct PRD/TRD artifact type, the programme-level Discovery-and-Plannin
 currently serve that role; introducing genuinely separate PRD/TRD documents is a future
 documentation-process decision, not one this handbook makes.
 
+**Update (2026-07-25) — the Platform Strategy layer is now populated.** `docs/
+PLATFORM_STRATEGY.md` occupies this hierarchy's "Platform Strategy" position, with a set of
+per-programme "Business Strategy" documents beneath it: `docs/PARTNER_PROGRAMME_STRATEGY.md`,
+`docs/ENTERPRISE_PROGRAMME_STRATEGY.md`, `docs/GOVERNMENT_PROGRAMME_STRATEGY.md`, `docs/
+DEVELOPER_PLATFORM_STRATEGY.md`, `docs/COMMERCIAL_ARCHITECTURE.md`, `docs/OPERATING_MODEL.md`,
+`docs/TRUST_FRAMEWORK.md`, and `docs/NETWORK_GROWTH_STRATEGY.md`, alongside the already-existing
+`docs/MARKETPLACE_DISCOVERY_AND_PLANNING.md`. `docs/PLATFORM_STRATEGY.md` itself reconciles a
+second, strategic-layer hierarchy (LV-000 → Handbook → Platform Strategy → Business Strategy →
+Marketplace Strategy → Government Strategy → Engineering Roadmap → Programme Implementation)
+against this section's own document-artifact-type hierarchy — see that document's own
+"Reconciliation" note for how the two compose rather than conflict. None of these documents
+authorizes any implementation; each ends in its own Approval Gate, mirroring `docs/
+B4_DISCOVERY_AND_PLANNING.md`'s own pattern.
+
 ---
 
 # PART VIII — FUTURE PROGRAMMES
@@ -588,6 +602,23 @@ documentation-process decision, not one this handbook makes.
 **Summarized without implementation.** Each entry names purpose, expected bounded contexts, a
 likely ADR roadmap, integration points, and dependencies — none of this authorizes any code,
 migration, or API.
+
+**Update (2026-07-25) — dedicated planning documents now exist for most entries below**, produced
+under the Enterprise Programme Transition planning exercise: Marketplace →
+`docs/MARKETPLACE_DISCOVERY_AND_PLANNING.md`; Enterprise → `docs/
+ENTERPRISE_PROGRAMME_STRATEGY.md`; Government → `docs/GOVERNMENT_PROGRAMME_STRATEGY.md`;
+Developer Platform/API Ecosystem → `docs/DEVELOPER_PLATFORM_STRATEGY.md` (treated as one planning
+exercise, per that document's own opening note); Platform Intelligence →
+`docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md` (already existed, referenced in Part II above);
+Compliance/Analytics remain named only below and in `docs/
+PLATFORM_INTELLIGENCE_ARCHITECTURE.md`'s Compliance/Analytics Engine entries, with no dedicated
+document of their own yet — `docs/OPERATING_MODEL.md` names Compliance as an organizational
+function, distinct from (but related to) a future Compliance Engine. A new Partner Programme entry
+also now exists (`docs/PARTNER_PROGRAMME_STRATEGY.md`), not originally named in this Part's first
+version, since the Enterprise Programme Transition's own review distinguished Partner from
+Marketplace explicitly (see that document's own "Why a distinct programme" section). The entries
+below are preserved as this Handbook's own summary; the dedicated documents are authoritative for
+anything beyond that summary.
 
 ### Marketplace
 
@@ -852,7 +883,16 @@ reference it.
 | `docs/B4_SLICE3_PREIMPLEMENTATION_REVIEW.md` | Part VI (implicitly, as the review-step record) | Complete — no amendment to ADR-021 required |
 | `docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md` | Part I, II, IV, V, VIII | Named, not implemented |
 | `docs/MARKETPLACE_DISCOVERY_AND_PLANNING.md` | Part I, VIII | Planning recommendation only |
-| `docs/CONSTITUTIONAL_RECOMMENDATIONS.md` | Part VII | Recorded, not adopted; LV-000 does not exist |
+| `docs/CONSTITUTIONAL_RECOMMENDATIONS.md` | Part VII | Recorded, not adopted; LV-000 does not exist — now 2 entries |
+| `docs/PLATFORM_STRATEGY.md` | Handbook header note, Part VII/VIII | Planning only — vision, positioning, five-layer model, strategic-layer hierarchy |
+| `docs/PARTNER_PROGRAMME_STRATEGY.md` | Part VIII | Planning recommendation only |
+| `docs/ENTERPRISE_PROGRAMME_STRATEGY.md` | Part VIII | Planning recommendation only |
+| `docs/GOVERNMENT_PROGRAMME_STRATEGY.md` | Part VIII | Planning recommendation only |
+| `docs/DEVELOPER_PLATFORM_STRATEGY.md` | Part VIII | Planning recommendation only (Developer Platform + API Ecosystem, treated as one) |
+| `docs/COMMERCIAL_ARCHITECTURE.md` | Part VIII | Planning only — revenue lines named, no pricing decided |
+| `docs/OPERATING_MODEL.md` | Part VIII | Planning only — organizational functions named, none staffed |
+| `docs/TRUST_FRAMEWORK.md` | Part V (business-facing companion) | Planning only — ties engineering mechanisms to ecosystem trust claims |
+| `docs/NETWORK_GROWTH_STRATEGY.md` | Part VIII | Planning only — no growth target or infrastructure change committed |
 | `docs/audits/` (Base44/Emergent forensic audits) | Part I, IV | Historical — every engineering rule traces here |
 | `docs/audits/B2_RELEASE_NOTES.md` | Part VII | Historical |
 | `docs/audits/B3_RELEASE_NOTES.md` | Part VII | Historical |
@@ -891,6 +931,14 @@ the following triggers:
 7. **Version numbering:** this document is v1.0. Increment the minor version (v1.1, v1.2, ...) for
    additive updates triggered by the events above; reserve a major version increment (v2.0) for a
    restructuring of the Parts themselves, not for routine content updates.
+8. **This trigger list already fired once, 2026-07-25.** The Enterprise Programme Transition
+   planning exercise populated the Platform Strategy layer (`docs/PLATFORM_STRATEGY.md`) and eight
+   further planning-only documents in a single pass — this handbook's own header note and Part
+   VIII were updated accordingly (see both sections' "Update (2026-07-25)" notes), without a minor
+   version bump, since the updates were additive cross-references, not a restructuring of any
+   Part. Future updates of similar shape (several related documents landing together) should
+   follow this same pattern: update the affected Parts' own text with a dated note, update
+   Appendix A, and reserve an actual version increment for when the *Handbook's own Parts* change.
 
 **This handbook does not update itself automatically.** Each trigger above should be treated as
 its own small documentation task at the point the triggering event occurs — bundled into that
