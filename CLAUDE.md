@@ -231,6 +231,30 @@ duplicate detection, fraud detection, conflict scoring, AI analysis, spatial sea
 engine exists anywhere in this codebase yet, and none begins until ADR-021 is reviewed and
 explicitly accepted, the same discipline every prior escalation in this codebase has followed.
 
+**Pre-Slice-3 governance package complete** (2026-07-24, `docs/
+B4_SLICE3_PREIMPLEMENTATION_REVIEW.md`): a full architectural review of ADR-021 found no
+amendment required and no contradiction against ADR-017/018/019/022 or any frozen B1–B3 ADR.
+**SCDS-001 — Spatial Conflict Detection Specification** (`docs/
+SCDS-001-spatial-conflict-detection-specification.md`, an engineering specification beneath
+ADR-021, not an ADR) converts ADR-021's architecture into implementation guidance — an 11-item
+conflict taxonomy, 4-level severity scale, risk-scoring extension points (unimplemented), a full
+disclosure matrix per participant tier, and a refined Controlled Platform Authority mechanism
+shape — with no algorithm, index, or code. **Platform Intelligence** is now named as a standing
+architectural layer, not a bounded context (`docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md`) — a
+four-part test for "is this capability Platform Intelligence" (cross-context/cross-tenant read,
+produces a finding never a domain mutation, one named Controlled Platform Authority exception,
+narrow signal-only downstream consumption), with the Conflict Engine (ADR-021) as its first
+proposed instance and the Trust Engine (B7, unbuilt) recognized retroactively as its shape's first
+example. A Marketplace Programme Phase 0 recommendation is recorded (`docs/
+MARKETPLACE_DISCOVERY_AND_PLANNING.md`, planning only — no code) — the scoping question of
+whether "Marketplace" (Wallet/Payments/Escrow/Ratings/Enterprise Dispatch) is an expansion of
+`docs/REBUILD_PLAN.md` context #10 or one or more new contexts is left open for that programme's
+own discovery, not decided here. A constitutional recommendation for the eventual LV-000 is logged
+(`docs/CONSTITUTIONAL_RECOMMENDATIONS.md`) — Platform Intelligence's cross-context observation
+boundary, restating `docs/ENGINEERING_RULES.md` rule 9 at constitutional altitude — recorded, not
+adopted; LV-000 does not exist yet. **None of this authorizes B4 Slice 3.** It remains gated on
+ADR-021's explicit acceptance.
+
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
 ## The 6 non-negotiable rules (full detail: `docs/ENGINEERING_RULES.md`)
