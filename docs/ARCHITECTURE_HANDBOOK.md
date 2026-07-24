@@ -910,6 +910,7 @@ reference it.
 | `docs/OPERATING_MODEL.md` | Part VIII | Planning only — organizational functions named, none staffed |
 | `docs/TRUST_FRAMEWORK.md` | Part V (business-facing companion) | Planning only — ties engineering mechanisms to ecosystem trust claims |
 | `docs/NETWORK_GROWTH_STRATEGY.md` | Part VIII | Planning only — no growth target or infrastructure change committed |
+| `docs/LANDVAULT_BIBLE_VOLUME_I_EXECUTIVE_OVERVIEW.md` | — (non-normative) | Executive narrative synthesizing this Handbook, LV-000, and Platform Strategy for external audiences; explanatory only, decides nothing, cited by nothing above it |
 | `docs/audits/` (Base44/Emergent forensic audits) | Part I, IV | Historical — every engineering rule traces here |
 | `docs/audits/B2_RELEASE_NOTES.md` | Part VII | Historical |
 | `docs/audits/B3_RELEASE_NOTES.md` | Part VII | Historical |

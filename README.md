@@ -47,6 +47,7 @@ Every rule in `docs/ENGINEERING_RULES.md` and every non-negotiable in `docs/DOD.
 | [`docs/TRUST_FRAMEWORK.md`](./docs/TRUST_FRAMEWORK.md) | Business-facing companion to the Handbook's Security Model — ties engineering trust mechanisms to ecosystem-facing claims |
 | [`docs/NETWORK_GROWTH_STRATEGY.md`](./docs/NETWORK_GROWTH_STRATEGY.md) | Planning-only scaling narrative (100 → millions of surveyors/parcels) and the architectural prerequisites at each stage |
 | [`docs/CONSTITUTIONAL_RECOMMENDATIONS.md`](./docs/CONSTITUTIONAL_RECOMMENDATIONS.md) | Historical register of principles proposed for LV-000 — both current entries now incorporated into LV-000 v1.0 |
+| [`docs/LANDVAULT_BIBLE_VOLUME_I_EXECUTIVE_OVERVIEW.md`](./docs/LANDVAULT_BIBLE_VOLUME_I_EXECUTIVE_OVERVIEW.md) | **LandVault Bible™ Volume I** — 15–25 page executive narrative for governments, investors, enterprise clients, and procurement teams. Explanatory only, non-normative — decides nothing, supersedes nothing |
 | [`docs/audits/`](./docs/audits/) | The full audit reports behind every decision above |
 | [`docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf`](./docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf) | Single-file PDF export of this whole planning package, plus the superseded v3 snapshot preserved for provenance — see the PDF's own preface for which parts are current |
 
