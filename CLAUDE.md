@@ -4,6 +4,8 @@ AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebui
 
 Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
 
+**`docs/ARCHITECTURE_HANDBOOK.md` (v1.0)** is the consolidated engineering reference — platform philosophy, full architecture diagram, DDD vocabulary, engineering rules index, security model, programme governance lifecycle, documentation hierarchy, future-programme surveys, architectural evolution, and engineering culture, each pointing to its authoritative source document. It is not an ADR and decides nothing new; read it first to orient, then follow its links for the actual decision.
+
 ## B1 status (Identity & Authorization) — frozen
 
 Complete and verified against live infrastructure (real Docker/Postgres/Keycloak, not in-memory fakes) — see `docs/adr/ADR-009-b1-platform-freeze.md` for the full frozen architecture description (auth flow, JWT/refresh lifecycle, RLS model, audit-chain architecture, Unit-of-Work, rate limiting, etc.) and `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the evidence. **Any change to what ADR-009 describes requires a new ADR referencing it — do not silently modify frozen B1 behavior while building B2+.**

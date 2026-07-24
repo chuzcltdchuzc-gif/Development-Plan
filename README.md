@@ -22,6 +22,7 @@ Every rule in `docs/ENGINEERING_RULES.md` and every non-negotiable in `docs/DOD.
 | Document | What it's for |
 |---|---|
 | [`CLAUDE.md`](./CLAUDE.md) | How Claude Code should operate in this repo — read this first |
+| [`docs/ARCHITECTURE_HANDBOOK.md`](./docs/ARCHITECTURE_HANDBOOK.md) | v1.0 — the consolidated engineering reference: platform philosophy, architecture, DDD, engineering rules, security model, programme governance, documentation hierarchy, future programmes, architectural evolution, engineering culture. Not an ADR, not the Constitution — a navigation/interpretation document only |
 | [`docs/REBUILD_PLAN.md`](./docs/REBUILD_PLAN.md) | The technical plan: target stack, 13 bounded contexts, backend/frontend build stages, feature-rollout milestones |
 | [`docs/PHASE_GATES.md`](./docs/PHASE_GATES.md) | The process/quality-gate model (Phase 0–12), the Claude Code Loop, and the 10 standing review questions |
 | [`docs/DOD.md`](./docs/DOD.md) | Definition of Done — Feature / Sprint / Product (MVP) tiers |
