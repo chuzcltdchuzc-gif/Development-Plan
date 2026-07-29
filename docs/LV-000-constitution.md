@@ -1,678 +1,410 @@
 # LV-000 — The LandVault Constitution
 
-**Version 1.0**
+## Edition v1.8 — Working Edition, Revision H (Ratified)
 
-**Type:** Constitutional document — the supreme governing authority of the LandVault platform for
-matters of enduring principle and doctrine. **Not an ADR. Not an engineering specification. Not a
-production artefact.** LV-000 establishes principles; it does not itself decide a single technical
-implementation. Where this Constitution and any other document differ, the order of precedence in
-Article II governs — and per that Article's own terms, a genuine conflict should be rare, because
-LV-000 speaks only at the level of enduring principle, never at the level of a specific technical
-decision already validly made under the ADR process (Article XX).
+*The supreme governing instrument of the LandVault platform and of The Official LandVault Bible™ · Constitutional Library. This Edition is in force. It is not held, not conditional, and not pending.*
 
-**Date of adoption:** 2026-07-26
+## Document Control
 
-**Supersedes:** nothing. **Modifies:** no accepted ADR, no frozen programme, no bounded context.
-This Constitution is the formal ratification, at the platform's highest documented level, of
-doctrine this platform's own engineering discipline has already been operating under since B1 —
-it names what was implicit, it does not invent what was absent.
+| Field | Entry |
+|---|---|
+| **Document ID** | LV-000 |
+| **Title** | The LandVault Constitution |
+| **Edition** | v1.8 — Working Edition, Revision H |
+| **Status** | RATIFIED — in force. A working legal document of the LandVault governance framework |
+| **Ratified** | 29 July 2026, by the Governance Authority, on the record set out at Article XVII |
+| **Ratification instrument** | GD-003 (Article XVI) |
+| **Conditions on force** | None. This Edition carries no hold, no suspensive condition, and no "pending transcription" qualification |
+| **Supersedes** | The authored LV-000 v1.7 in its entirety, as a governing instrument. v1.7 is retained as a historical source (Schedule 2) |
+| **Consolidates** | The adopted LV-000 v1.0 (architecture lineage) and the authored LV-000 v1.7 (values lineage). After this Edition there is one constitution and one lineage |
+| **Relationship to the adopted v1.0** | v1.0's named principles are incorporated and remain in force verbatim (Article II §4, Schedule 1). Incorporation is permanent and does not expire |
+| **Repository of record** | `aquasavannah-landvault` |
+| **Canonical path** | `docs/LV-000-constitution.md` |
+| **Governing decisions in force** | GD-001, GD-002 (as amended by GD-004), GD-003, GD-004 |
+| **Prime Directive** | LandVault preserves and verifies land evidence. It does not decide who owns land. |
+| **Classification** | Public (Governance) |
+| **Owner** | Office of the LandVault Constitution (Governance Authority) |
+| **Language** | English (UK) |
 
----
+> **What changed at Revision H, in one sentence.** The reconciliation stopped waiting. Where the earlier editions held themselves in suspense until seven adopted principles could be transcribed word for word, this Edition incorporates those principles by reference in their adopted form — so they lose none of their force — and then takes force itself, giving the platform a single governing authority today rather than a promised one later.
 
 ## Preamble
 
-We, the stewards of the LandVault platform, having built — through the Platform Kernel, Registry,
-and Spatial Foundation programmes — a working demonstration that land verification can be made
-provably trustworthy rather than merely asserted, and having governed that construction through a
-disciplined sequence of discovery, threat modeling, architectural decision, review, and freeze,
-now establish this Constitution as the enduring foundation from which all future evolution of the
-platform draws its authority.
+LandVault exists because land evidence in the jurisdictions it serves is fragmented, contested, and frequently unverifiable — and because the harm of that condition falls hardest on those least able to litigate their way out of it.
 
-We do this because a platform intended to serve as national digital infrastructure — trusted by
-citizens, licensed professionals, enterprises, financial institutions, and government alike —
-cannot rest its trustworthiness on the discipline of any single engineering team, in any single
-season of its development. Discipline exercised once must be made into principle that endures.
-This Constitution is that principle, written down.
+The platform's answer is deliberately narrow. It preserves evidence so that it cannot be quietly altered, and it verifies evidence so that its provenance can be shown. It does not resolve competing claims, and it does not tell anyone who owns anything. That restraint is not a limitation of ambition; it is the source of the platform's credibility, and it is constitutionally entrenched at Article IV.
 
-We further affirm what four completed programmes have already demonstrated in practice: that
-architecture disciplined by explicit decision-making, security engineered in from the first
-migration rather than added at the end, and evidence produced structurally rather than claimed
-by assertion, are not slower paths to a trustworthy platform — they are the only paths that
-arrive anywhere at all. Two prior attempts at this exact product failed for want of exactly this
-discipline (`docs/audits/`). This Constitution exists so a third attempt does not.
+This Edition closes a divergence. Two constitutions were in circulation — one adopted and architecture-oriented, one authored and values-oriented — and they differed in ways that reached shipped code. Closing that divergence by choosing one and deleting the other would have destroyed real governance. Closing it by leaving both in force would have left the platform ungoverned in practice. This Edition takes the third path: it consolidates, records every displacement, and erases nothing.
+
+**Amend, never erase.**
 
 ---
 
-## Article I — Vision
+## Part I — Foundation
 
-LandVault's vision is to become Nigeria's trusted digital infrastructure for land verification —
-and, in time, a template for trusted digital land infrastructure wherever it is needed — built
-upon a nationwide network of licensed land professionals, and governed by a constitutional
-discipline that makes its every claim provable rather than merely stated.
+### Article I — Name, purpose and the Prime Directive
 
-A platform is judged, over the long term, not by the features it ships but by whether the claims
-it makes about the world — that a parcel exists, that its boundary is real, that its ownership
-history is intact, that a professional's credential is genuine — can be relied upon by someone who
-was not present when the claim was made. This is the standard LandVault holds itself to.
+**§1. Name.** This instrument is *The LandVault Constitution*, Edition v1.8, Working Edition, Revision H. It is Volume LV-000 of The Official LandVault Bible™ · Constitutional Library.
 
----
+**§2. Purpose.** It establishes the governing authority for the LandVault platform: what the platform may do, what it may never do, how it is built, and how this instrument itself may be changed.
 
-## Article II — Mission and Order of Precedence
+**§3. The Prime Directive.** *LandVault preserves and verifies land evidence. It does not decide who owns land.*
 
-### Section 1 — Mission
+**§4. Entrenchment of the Prime Directive.** §3 is the most protected clause in this Constitution. No amendment, ADR, engineering rule, product decision, contract, or line of code may qualify it, create an exception to it, or achieve indirectly what it forbids directly. An instrument that would do so is void to the extent of the conflict, whether or not anyone notices at the time.
 
-LandVault's mission is to operationalize trust in land administration: to provide the identity,
-governance, evidence, verification, audit, and professional-network infrastructure through which
-citizens, licensed professionals, enterprises, financial institutions, and government can transact
-and collaborate over land with confidence that did not previously exist in this market.
+### Article II — Supremacy, incorporation, and the savings clause
 
-### Section 2 — Order of Precedence
+**§1. Supremacy.** This Constitution is the supreme governing instrument of the platform. Every other document, decision, and artefact is subordinate to it, and no subordinate instrument may contradict it.
 
-Where a genuine conflict is identified between governing documents, the following order of
-precedence resolves it:
+**§2. Sole governing authority.** From the moment of ratification there is **one** constitution. The authored v1.7 ceases to govern anything. The adopted v1.0 ceases to be a *separate* governing instrument and continues instead **through this Edition**, on the terms of §4. Any assertion that two constitutions govern the platform is, after this date, simply wrong.
 
-1. **This Constitution (LV-000)** — enduring constitutional principle.
-2. **The Architecture Handbook** (`docs/ARCHITECTURE_HANDBOOK.md`) — consolidated navigation and
-   interpretation of accepted architecture.
-3. **Accepted Architecture Decision Records** (`docs/adr/`) — binding technical and authorization
-   decisions, each independently reviewed and accepted.
-4. **Programme Documents** (Discovery-and-Planning documents, Platform Strategy and its
-   subordinate strategy documents, threat models, verification checklists) — the planning and
-   evidentiary record of how accepted decisions came to be, and how future programmes propose to
-   extend them.
-5. **Engineering Documentation** (`docs/ENGINEERING_RULES.md`, `docs/DOD.md`,
-   `docs/PHASE_GATES.md`, and the codebase's own inline documentation) — the operational detail
-   that implements everything above it.
+**§3. Continuity of authority.** Nothing in the consolidation diminishes any authority that existed before it. Every rule, doctrine, restriction, and obligation in force under the adopted v1.0 immediately before ratification remains in force immediately after it, in the same terms and with the same effect.
 
-### Section 3 — The Nature of This Precedence
+**§4. Incorporation by reference — the operative clause.** The named constitutional principles of the adopted LV-000 v1.0 are **incorporated into this Constitution by reference, in their adopted form, and remain in force verbatim**. This Edition **restates** those principles it can state accurately (Schedule 1, Part A) and **does not restate** the remainder (Schedule 1, Part B).
 
-This precedence governs **conflicts of principle and doctrine**, not technical implementation
-choices already validly reached through the ADR process. This Constitution does not, by its own
-adoption, reopen, reinterpret, or weaken any accepted ADR's specific technical content (Article
-XX, Section 2). A future ADR that would contradict a principle established here is invalid at the
-moment of drafting, not merely disfavored — the same discipline this platform already applies to
-a future ADR that would contradict a *frozen* prior ADR without a formal amendment (`docs/
-ARCHITECTURE_HANDBOOK.md` Part IX) is hereby extended one level higher, to this Constitution
-itself.
+**§5. Non-restatement is not repeal.** A principle that this Edition does not restate is not thereby weakened, narrowed, suspended, or repealed. It governs exactly as it did before, by force of §4. **Silence in this document is silence, not abolition.**
 
----
+**§6. Savings clause — the adopted text prevails.** Where any provision of this Edition, any restatement in Schedule 1 Part A, any commentary, or any gloss is inconsistent with the adopted wording of an incorporated principle, **the adopted wording prevails**, this Edition is read subject to it, and this Edition is amended at the next opportunity to conform. The error is corrected against the adopted text; the adopted text is never corrected against this document.
 
-## Article III — Foundational Values
+**§7. No hold.** The operation of §4 through §6 is **immediate, unconditional and permanent**. It does not await transcription, verification, or any further act. Schedule 1 Part B is an **administrative register of restatement work outstanding** — a housekeeping list. It is **not** a condition on the force of this Constitution, and no reader, agent, reviewer, or automated check may treat it as one.
 
-1. **Truth over assertion.** A claim this platform makes is true because it can be shown to be
-   true, not because it was typed into a form and stored.
-2. **Discipline over speed.** Every completed programme's own history (Article VIII) is evidence
-   that disciplined sequencing has not, in practice, been slower than shortcuts would have been —
-   shortcuts merely move the cost of correction later, at greater expense.
-3. **Transparency over convenience.** Every known limitation, every deferred verification item,
-   and every historical defect this platform has found in its own or its predecessors' work is
-   documented, not concealed (`docs/audits/`, every programme's own verification checklist).
-4. **Partnership over extraction.** Licensed professionals, enterprises, and government are
-   constitutional participants in this platform's trust network (Article XVI), not merely
-   consumers of a product built without them in mind.
-5. **Endurance over expedience.** A decision made under this Constitution is made to still be
-   correct in ten years, not merely to satisfy this quarter's roadmap.
+**§8. No authorship into the gap.** No one may fill a Schedule 1 Part B entry by inventing a principle, inferring one, or reconstructing one from context. An entry is closed only by copying the adopted text unchanged and recording its adopted article number. **Restating a principle wrongly is a graver fault than not restating it at all**, because an incorporated principle that is never restated still governs correctly, while one restated wrongly governs wrongly.
 
----
+### Article III — Closure of the lineages, and citation discipline
 
-## Article IV — Constitutional Principles
+**§1. The divergence, recorded.** Before this Edition, two lineages used the same article numbers for different content. Most consequentially, **Article IX** meant *Controlled Platform Authority* in the adopted lineage and *Engineering Principles* in the authored one — a collision at the precise article on which shipped code depends.
 
-The following ten principles are the platform's foundational doctrines. Each is elaborated in the
-Articles that follow; this Article states them as a single, complete list for ready reference.
+**§2. How this Edition resolves it.** The numbering of this Edition is **not new**. It is chosen deliberately so that the citations already in circulation continue to resolve correctly:
 
-1. **LandVault is a Trust Platform before it is a Software Platform** (Article IX).
-2. **LandVault is a Platform, not an Aggregate** (Article V, Section 1).
-3. **Bounded Context Sovereignty** (Article V, Section 2).
-4. **Documentation Before Implementation** (Article VII).
-5. **Architecture Before Code** (Article VI).
-6. **Security by Design** (Article IX, Section 2).
-7. **Controlled Platform Authority** (Article IX, Section 3).
-8. **Government Readiness** (Article XV).
-9. **Professional Partnership** (Article XVI, Section 1).
-10. **Trust Network Doctrine** (Article XVI, Section 2).
-
-No future programme, ADR, or engineering decision may proceed in a manner that contradicts any of
-the ten principles above.
-
----
-
-## Article V — Platform Governance
-
-### Section 1 — LandVault Is a Platform, Not an Aggregate
-
-LandVault is not, and shall never become, a single domain aggregate, a single monolithic
-application, or a single all-encompassing data model. LandVault is the umbrella platform composed
-of independently governed bounded contexts, each owning one coherent domain responsibility. This
-principle is already demonstrated in practice: `Parcel` (Registry) and `ParcelGeometry` (Spatial)
-are, by deliberate architectural decision (`docs/adr/ADR-018-spatial-domain-model.md`), two
-separate aggregates in two separate bounded contexts describing what a product manager might
-casually call "the same parcel" — this Constitution ratifies that decision as a permanent
-governing principle, not merely a defensible engineering choice made once.
-
-No future development, however commercially urgent, may collapse two or more bounded contexts
-into a single "LandVault" domain model for convenience. A request to do so is, by this
-Constitution, a request to amend this Article — not an implementation detail a future engineer
-may decide alone.
-
-### Section 2 — Bounded Context Sovereignty
-
-Every bounded context possesses architectural autonomy, data ownership, domain ownership, and
-implementation independence. Concretely and without exception:
-
-- A bounded context's aggregates are constructed, validated, and mutated only by that context's
-  own application services.
-- A bounded context's persistence (its tables, its migrations, its Row-Level Security policies)
-  is owned and evolved only by that context.
-- Cross-context dependencies occur only through approved interfaces and ports — a named,
-  `Protocol`-typed contract the consuming context defines and the supplying context implements
-  (`docs/ARCHITECTURE_HANDBOOK.md` Part III). No bounded context may query, join against, or
-  directly read another context's tables.
-- Wiring between contexts occurs only at the composition root (`docs/
-  ARCHITECTURE_HANDBOOK.md` Part II) — the one location in the codebase permitted to know about
-  more than one bounded context at a time.
-
-This sovereignty is not a courtesy extended between contexts that happen to coexist in one
-codebase — it is a constitutional guarantee. A future context that needs data another context
-owns receives it through a narrow, purpose-built port returning the minimum necessary information
-(the exact discipline `ParcelExistencePort` already demonstrates), never through relaxed isolation.
-
-### Section 3 — Platform Composition
-
-The platform is composed of the layers named in `docs/PLATFORM_STRATEGY.md`'s five-layer model
-(Digital Identity & Trust; Land Intelligence; Marketplace; Enterprise Services; Government
-Integration) and the cross-cutting Platform Intelligence services layer
-(`docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md`). This Constitution does not restate that model's
-detail — it ratifies the model's own governing distinction: a bounded context owns a domain;
-Platform Intelligence observes across domains under Controlled Platform Authority (Article IX,
-Section 3) and owns none of them; a future programme (Marketplace, Enterprise, Government,
-Developer Platform) is itself expected to introduce further bounded contexts or extend existing
-ones, never to weaken the sovereignty this Section establishes for whichever contexts already
-exist.
-
----
-
-## Article VI — Architecture Governance
-
-### Section 1 — Architecture Before Code
-
-Architecture governs implementation; engineering exists to realize architecture, not to define it
-retrospectively. Every accepted Architecture Decision Record in this platform's history precedes
-its corresponding code, without exception, across every completed programme
-(`docs/ARCHITECTURE_HANDBOOK.md` Part X). This Constitution elevates that historical record to a
-binding constitutional requirement: no future capability of any consequence — a new bounded
-context, a new cross-tenant read, a new authorization model — may be implemented before its
-governing architecture is decided and, where the governance lifecycle (Article VII) requires it,
-formally accepted.
-
-### Section 2 — Amendment, Not Rewriting
-
-A frozen or accepted architectural decision is extended by a new decision that references it,
-never silently rewritten. This platform's own history is the demonstration: the `GeometryPort`
-interface amendment (`docs/adr/ADR-019-geometry-port-interface-amendment.md`) changed a frozen
-B3-era contract through a formal, reviewed amendment that broke zero existing behavior and changed
-zero test files — not a rewrite. This Constitution requires that every future extension of frozen
-architecture follow this same discipline: a new ADR, referencing the ADR it extends, never an
-edit to the original's own text.
-
-### Section 3 — Architectural Authority
-
-The Architecture Handbook (`docs/ARCHITECTURE_HANDBOOK.md`) is this platform's authoritative
-navigation and interpretation of its accepted architecture. It is subordinate to this
-Constitution (Article II) and superior, for interpretive purposes, to any individual programme
-document — but it does not itself decide architecture; it explains decisions already made
-elsewhere. Where the Handbook and an ADR differ on a technical point, the ADR governs
-(`docs/ARCHITECTURE_HANDBOOK.md`'s own header has always said so; this Constitution ratifies it).
-
----
-
-## Article VII — Documentation Governance
-
-### Section 1 — The Governance Lifecycle
-
-Every significant capability shall follow the platform's established governance lifecycle before
-implementation begins:
-
-```
-Discovery → Objectives → Scope → Threat Model → Architecture → ADR → Approval
-    → Implementation → Verification → Freeze → Publication
-```
-
-No implementation may bypass this sequence. This lifecycle is a refinement, not a replacement, of
-the Discover→Freeze lifecycle already governing this platform's completed programmes (`docs/
-ARCHITECTURE_HANDBOOK.md` Part VI) — **Publication** is named here as this lifecycle's explicit
-terminal step because every completed programme has, in practice, already produced one (a release
-notes document, `docs/audits/B2_RELEASE_NOTES.md`/`B3_RELEASE_NOTES.md`, or an updated status
-section in `CLAUDE.md`/`README.md`) without that step previously being named as constitutionally
-required. This Constitution now requires it explicitly: **a capability is not complete merely
-because it has been verified and frozen — it must also be published**, so that the platform's own
-documented state remains, at all times, an accurate record a future reader can rely upon without
-needing to inspect the codebase directly.
-
-A **Threat Model** step is required specifically where a capability plausibly touches cross-tenant
-or platform-wide reach, mirroring `docs/B4_THREAT_MODEL.md`'s own precedent — not every capability
-requires a dedicated threat-modeling document, but every capability's governing ADR must state,
-explicitly, whether that requirement applies and why.
-
-### Section 2 — Documentation Hierarchy
-
-The documentation hierarchy `docs/ARCHITECTURE_HANDBOOK.md` Part VII already establishes (LV-000
-→ Architecture Handbook → Platform Strategy → PRD/TRD-equivalent Discovery documents → ADRs →
-Engineering Specifications → Threat Models → Verification Checklists → Release Notes →
-Implementation) is ratified by this Constitution as the platform's standing documentation
-architecture. This Constitution occupies that hierarchy's own summit, consistent with Article II.
-
-### Section 3 — No Duplication
-
-No future document — Constitution, Handbook, ADR, specification, or programme plan — may restate
-another governing document's own decided content as if deciding it anew. Each document references
-the document that is authoritative for its subject and adds only what that document does not
-already say. This Constitution itself follows this rule throughout: it does not restate a single
-ADR's technical content, a single engineering rule's own reasoning, or a single programme
-document's own scope — it establishes the principles those documents already operate under, and
-points to them for their detail.
-
----
-
-## Article VIII — Programme Governance
-
-### Section 1 — Programme Sequencing
-
-A programme (B1, B2, B3, B4, and every future numbered or named programme) proceeds through
-Discovery, is governed by its own ADR sequence, is implemented in reviewed slices, is
-live-verified against real infrastructure, and is formally frozen — at which point no further
-change to its scope occurs without a new ADR referencing its freeze declaration
-(`docs/ARCHITECTURE_HANDBOOK.md` Part VI). This Constitution ratifies this sequencing as a
-constitutional requirement for every future programme, including every programme named in
-`docs/PLATFORM_STRATEGY.md`'s five-layer model and its subordinate strategy documents
-(Marketplace, Partner, Enterprise, Government, Developer Platform).
-
-### Section 2 — Completed Programmes
-
-As of this Constitution's adoption, the following programmes are complete, verified, and frozen,
-and their own governing ADRs remain the authoritative record of their scope:
-
-- **B1 — Platform Kernel** (`docs/adr/ADR-009-b1-platform-freeze.md`).
-- **B2 — Multi-Tenant Governance & Delegated Administration** (`docs/adr/
-  ADR-012-b2-platform-freeze.md`).
-- **B3 — Registry** (`docs/adr/ADR-017-b3-platform-freeze.md`).
-- **B4 — Spatial Foundation, through its currently-accepted slices** (Slices 1–2, frozen under
-  `docs/adr/ADR-022-spatial-authorization-model.md`; B4 as a whole programme remains open pending
-  Slice 3/`docs/adr/ADR-021-...md`, per that ADR's own stop condition, unaffected by this
-  Constitution).
-
-This Constitution modifies none of the above.
-
-### Section 3 — Future Programmes
-
-Every future programme named in this platform's current planning corpus — Marketplace (`docs/
-MARKETPLACE_DISCOVERY_AND_PLANNING.md`), Partner (`docs/PARTNER_PROGRAMME_STRATEGY.md`),
-Enterprise (`docs/ENTERPRISE_PROGRAMME_STRATEGY.md`), Government (`docs/
-GOVERNMENT_PROGRAMME_STRATEGY.md`), Developer Platform (`docs/DEVELOPER_PLATFORM_STRATEGY.md`) —
-remains exactly as scoped in its own planning document: a recommendation, not an authorization.
-This Constitution does not authorize any of them to begin; it only requires that, whenever any of
-them is authorized, it follows Section 1's sequencing.
-
----
-
-## Article IX — Trust and Security Principles
-
-### Section 1 — LandVault Is a Trust Platform Before It Is a Software Platform
-
-The platform's primary product is trust. Software exists to operationalize that trust — it is the
-mechanism, not the end. Trust is established through identity, governance, evidence, verification,
-audit, certificates, transparency, accountability, standards, and Controlled Platform Authority,
-each of which is elaborated in the Articles and Sections that follow, and each of which already
-has a working, live-verified engineering counterpart in this platform's completed programmes
-(`docs/TRUST_FRAMEWORK.md`'s own mechanism-to-claim table is the detailed record; this Article is
-its constitutional ratification).
-
-This principle governs every future commercial or engineering decision at the same standard: a
-decision is evaluated first against whether it strengthens or weakens the trust ecosystem this
-principle names, not only against whether it ships a useful feature (`docs/
-CONSTITUTIONAL_RECOMMENDATIONS.md` entry 2, hereby incorporated into this Constitution and no
-longer merely recorded pending adoption).
-
-### Section 2 — Security by Design
-
-Security is constitutional, not a phase or a checklist applied after a feature is built. Identity,
-authorization, auditing, evidence integrity, and least privilege are mandatory platform
-characteristics, present from a capability's first migration, never retrofitted. This principle is
-not aspirational — it is the direct, binding generalization of `docs/ENGINEERING_RULES.md`'s own
-rules 1 (authorization ships in the same commit as the entity it protects), 2 (no permissive
-security-relevant default), and 9 (Controlled Platform Authority) — this Constitution requires
-that every future engineering rule, of any kind, be consistent with this principle, and that any
-apparent tension between a proposed convenience and this principle be resolved in this principle's
-favor.
-
-### Section 3 — Controlled Platform Authority
-
-Controlled Platform Authority exists only where constitutionally justified, and every instance of
-it must be minimal, explicitly documented, auditable, reviewable, and must preserve the trust
-boundaries it operates alongside. This is the platform-wide generalization of `docs/
-ENGINEERING_RULES.md` rule 9, first demonstrated in the `super_admin` RLS bypass and the
-context-hydration service-account's fixed lookup, and most recently extended — under this exact
-constitutional discipline, though drafted before this Constitution formally existed — by `docs/
-adr/ADR-021-spatial-conflict-detection-and-controlled-cross-tenant-intelligence.md` (proposed,
-not yet accepted) for Spatial Conflict Detection.
-
-**No exception to tenant isolation inherits another exception's justification.** Each new
-instance of Controlled Platform Authority requires its own named exception and, where it
-introduces genuinely new reach, its own ADR — this is restated here as a constitutional
-requirement, not merely an engineering convention, because it is the single mechanism standing
-between "a platform with a small number of narrow, audited, justified exceptions" and "a platform
-with an unaudited general-purpose bypass," the exact failure mode this doctrine exists to prevent
-permanently.
-
-### Section 4 — Platform Intelligence Is Bound by the Same Discipline
-
-Any capability operating under the Platform Intelligence layer (`docs/
-PLATFORM_INTELLIGENCE_ARCHITECTURE.md`) — a conflict engine, a fraud engine, a risk engine, an AI
-engine, an analytics engine, a compliance engine, whether already proposed or not yet designed —
-is bound by Section 3 without exception. Platform Intelligence may observe across bounded contexts
-only through Controlled Platform Authority, using the minimum information necessary to fulfil an
-approved platform responsibility. Operational workflows remain tenant-isolated by default (`docs/
-CONSTITUTIONAL_RECOMMENDATIONS.md` entry 1, hereby incorporated into this Constitution and no
-longer merely recorded pending adoption).
-
----
-
-## Article X — Identity Principles
-
-Every principal this platform recognizes — human or, in time, non-human (`docs/
-DEVELOPER_PLATFORM_STRATEGY.md`) — is authenticated through exactly one identity mechanism and
-authorized through exactly one authorization path: the PDP/PEP/PIP engine (`docs/adr/
-ADR-004-authentication-authorisation-model.md`). No parallel or legacy authentication or
-authorization system may ever be introduced, for any reason, even temporarily — this is the
-platform's most historically load-bearing constitutional principle, since its absence is precisely
-what produced the most severe finding in this platform's own predecessor-audit history (`docs/
-audits/`, the Emergent build's undocumented parallel auth system and unauthenticated admin
-bypass). Delegation of authority (`docs/adr/ADR-011-delegated-administration.md`) is re-resolved
-fresh on every request, never cached — a principal's effective authority reflects their
-currently-valid grants at the moment of every action, not a stale snapshot.
-
----
-
-## Article XI — Data Principles
-
-### Section 1 — Tenant Isolation Is Absolute by Default
-
-Every tenant-scoped table in this platform enforces Row-Level Security, and every tenant-scoped
-read or write is confirmed in scope at a second, independent application layer
-(`docs/ARCHITECTURE_HANDBOOK.md` Part V) — this two-layer discipline is constitutional, not a
-convention a future context may quietly omit. The sole named exception is `super_admin`'s
-platform-operations reach, itself an instance of Controlled Platform Authority (Article IX,
-Section 3), never an unaudited default.
-
-### Section 2 — Data Ownership Follows Bounded Context Sovereignty
-
-A bounded context's data belongs to that context (Article V, Section 2). No future capability,
-however commercially valuable, justifies a direct cross-context database read as a shortcut around
-an explicit port. Where a genuine need for broader access exists (analytics, compliance
-reporting, government integration), it is met through Platform Intelligence under Controlled
-Platform Authority (Article IX), never through relaxed data ownership.
-
-### Section 3 — Evidence Is Structural, Not Asserted
-
-See Article XII.
-
----
-
-## Article XII — Evidence Principles
-
-A claim this platform makes about a parcel, a professional's credential, or a transaction's
-history is trustworthy because it is structurally produced and independently verifiable — not
-because it was submitted and stored. This principle is already demonstrated, live and verified, in
-this platform's completed programmes: `ParcelGeometry.new()` is the sole constructor for a
-geometry, and it performs full structural validation before an instance can exist at all — there
-is no code path by which an invalid geometry can reach persistence (`docs/adr/
-ADR-018-spatial-domain-model.md`'s Validate-Then-Store doctrine). Every mutation, permitted or
-denied, is recorded in an append-only, hash-chained audit log whose integrity is verifiable by
-recomputation, not by trusting a stored status flag (`docs/adr/
-ADR-007-audit-trail-evidence-model.md`).
-
-Future Evidence-context capability (`docs/REBUILD_PLAN.md` context #4, unbuilt) — document
-hashing, WORM sealing, Merkle anchoring, chain of custody — and future digital-certificate issuance
-(`docs/GOVERNMENT_PROGRAMME_STRATEGY.md`) are both, by this Article, required to meet this same
-structural-evidence standard: a certificate a bank or court can independently verify, not merely a
-claim LandVault asks to be believed on its own authority.
-
----
-
-## Article XIII — Marketplace Principles
-
-Where a future Marketplace programme is authorized (`docs/
-MARKETPLACE_DISCOVERY_AND_PLANNING.md`), it is bound by every principle in this Constitution
-without exception or dilution. In particular:
-
-1. **Authorization is planned before implementation**, not escalated to later after a coarse gate
-   ships — the discipline this platform's own history demonstrates was necessary twice already
-   (ADR-005→ADR-015 for Registry; the coarse-gate→ADR-022 escalation for Spatial), and which this
-   Constitution now requires be designed correctly the first time for Marketplace.
-2. **Every scoring or rating mechanism fails safe** — absence of data yields an explicit
-   insufficient-data result, never a default score indistinguishable from an earned one (`docs/
-   ENGINEERING_RULES.md` rule 3, restated here as a constitutional requirement for any future
-   Rating, Risk Score, or Trust Engine signal Marketplace produces or consumes).
-3. **Escrow, Wallet, and Payment are distinct lifecycles** (`docs/
-   MARKETPLACE_DISCOVERY_AND_PLANNING.md`'s own candidate-concept table) and shall not be
-   conflated into one undifferentiated ledger merely for implementation convenience.
-4. **Enterprise-scale dispatch is a first-class requirement**, not a scaling afterthought (`docs/
-   PLATFORM_STRATEGY.md`'s "Enterprise dispatch" section, `docs/
-   ENTERPRISE_PROGRAMME_STRATEGY.md`).
-
----
-
-## Article XIV — Enterprise Principles
-
-Where a future Enterprise programme is authorized (`docs/ENTERPRISE_PROGRAMME_STRATEGY.md`), any
-cross-tenant read it requires (a bank's due-diligence query, an enterprise analytics view) is
-Controlled Platform Authority (Article IX, Section 3), governed by its own ADR — it does not
-inherit reach from any other programme's exception, including Spatial Conflict Detection's
-proposed exception (`docs/adr/ADR-021-...md`) or any Government-programme exception. Enterprise
-participation in this platform is commercial (`docs/COMMERCIAL_ARCHITECTURE.md`); it is never a
-basis for weakening any citizen's or professional's own tenant-isolation guarantee.
-
----
-
-## Article XV — Government Principles
-
-### Section 1 — Government Readiness as a Standing Requirement
-
-Every future programme, without exception, shall be built capable of supporting government
-procurement, regulatory compliance, public-sector integration, ISO 27001 preparation, SOC 2
-preparation, and external audit — not as a late-stage retrofit, but as a standing design
-constraint from that programme's own Discovery phase onward. This requirement is already
-demonstrated in this platform's own engineering discipline (`docs/
-ARCHITECTURE_HANDBOOK.md` Part I's "Government-grade architecture"); this Article makes it
-constitutionally binding on every future programme without exception, not only on those already
-built.
-
-### Section 2 — Public Verification Without Compromising Isolation
-
-Where a future Government programme (`docs/GOVERNMENT_PROGRAMME_STRATEGY.md`) provides public or
-third-party verification of a digital certificate or claim, that verification capability shall be
-narrow, read-only, and shall not disclose tenant-identifying information beyond what the specific
-verification legitimately requires — the same minimal-disclosure discipline Article IX, Section 3
-and `docs/adr/ADR-021-...md` §3 already establish for cross-tenant conflict disclosure, applied
-here to public-facing government verification.
-
----
-
-## Article XVI — Professional Partnership and Trust Network Doctrine
-
-### Section 1 — Professional Partnership
-
-Licensed surveyors, survey firms, engineering consultancies, GIS companies, and valuation firms are
-strategic platform partners, not ordinary users. This Constitution recognizes five distinct
-constitutional participant groups, each entitled to its own portal and its own relationship with
-the platform (`docs/PLATFORM_STRATEGY.md`):
-
-1. **Citizens** — registrants and beneficiaries of a trustworthy land record.
-2. **Partners** — licensed professionals and firms whose accredited work is the mechanism by
-   which this platform's verification claims become real-world-grounded (`docs/
-   PARTNER_PROGRAMME_STRATEGY.md`).
-3. **Enterprises** — banks, law firms, developers, insurers, and other institutional consumers of
-   verified land data (`docs/ENTERPRISE_PROGRAMME_STRATEGY.md`).
-4. **Government** — the regulatory and institutional counterpart whose endorsement gives this
-   platform's claims their fullest meaning (`docs/GOVERNMENT_PROGRAMME_STRATEGY.md`).
-5. **Developers** — third-party integrators building upon the platform's own API surface (`docs/
-   DEVELOPER_PLATFORM_STRATEGY.md`).
-
-No future programme may treat these five groups as a single undifferentiated "user" — each has a
-distinct relationship, a distinct trust obligation the platform owes it, and, per `docs/
-PLATFORM_STRATEGY.md`, a distinct portal.
-
-### Section 2 — Trust Network Doctrine
-
-The long-term value of LandVault is not its software, and not its professional network alone — it
-is the trusted ecosystem those, together with this platform's governance, evidence, and audit
-infrastructure, make possible among citizens, licensed surveyors, survey firms, banks, law firms,
-developers, insurers, regulators, and government agencies. LandVault provides the standards,
-identity, evidence, verification, audit, certificates, payments, workflows, APIs, and governance
-that let these participants collaborate with confidence they could not otherwise extend to one
-another. This is this platform's actual product and its enduring competitive position (`docs/
-PLATFORM_STRATEGY.md`'s "Core strategic insight" and "network effects, flywheel, and competitive
-moat" sections, hereby ratified as constitutional doctrine, not merely commercial strategy).
-
----
-
-## Article XVII — Innovation Principles
-
-1. **No speculative abstraction.** A capability is built when it is needed and authorized, never
-   in anticipation of a need not yet scoped (`docs/ENGINEERING_RULES.md`'s "no speculative
-   abstractions" principle, `docs/ARCHITECTURE_HANDBOOK.md` Part IV).
-2. **Innovation operates inside this Constitution, not around it.** A novel capability — an AI
-   engine, a new Platform Intelligence service, a new commercial mechanism — earns no exemption
-   from Article IX's security discipline, Article V's bounded-context sovereignty, or Article
-   VII's governance lifecycle merely by being novel.
-3. **Every automated inference fails safe and defers judgment to humans.** Any future AI, machine
-   learning, or automated scoring capability produces a finding or signal, never an automated
-   adjudication of fraud, suspicion, or wrongdoing with real consequence — a human governance
-   function makes that determination (`docs/adr/ADR-021-...md` §2/§6; `docs/OPERATING_MODEL.md`'s
-   Fraud Operations and Trust & Safety functions; `docs/TRUST_FRAMEWORK.md`'s AI-governance
-   consolidation, hereby ratified as constitutional doctrine).
-4. **Experimentation is welcome; unaudited experimentation on production trust guarantees is
-   not.** A future team may prototype freely in isolation; nothing touching a real tenant's real
-   data, real authorization decision, or real audit record does so outside this Constitution's
-   discipline, ever.
-
----
-
-## Article XVIII — Commercial and Operating Alignment
-
-This Constitution does not set prices, revenue splits, or organizational headcount — those remain
-`docs/COMMERCIAL_ARCHITECTURE.md`'s and `docs/OPERATING_MODEL.md`'s own planning domains. It binds
-both to two constitutional constraints already stated in those documents and ratified here:
-
-1. **No pricing or commercial decision may weaken this platform's trust guarantees** — a cheaper
-   commercial tier never means a less-audited, less-validated, or less-authorized code path
-   (`docs/COMMERCIAL_ARCHITECTURE.md`'s own binding principle 1).
-2. **Every operating function this platform establishes acts through this platform's existing
-   governance roles and authorization model** — a Fraud Operations analyst, a Compliance officer,
-   or a Government Relations representative is granted access through the same PDP/PEP/PIP engine
-   (Article X) every other principal uses, never a side-channel administrative mechanism.
-
----
-
-## Article XIX — Network Growth Alignment
-
-As the platform's professional network and parcel volume grow (`docs/
-NETWORK_GROWTH_STRATEGY.md`), every trust mechanism this Constitution establishes must scale
-without degradation, not merely without failure. A claim that this platform can serve a given
-scale is not constitutionally credible until it has been live-verified at or realistically
-approaching that scale, consistent with `docs/ENGINEERING_RULES.md` rule 7's "never mark something
-complete without observing it pass," applied here to scale claims specifically (`docs/
-NETWORK_GROWTH_STRATEGY.md`'s own cross-cutting principle, ratified as constitutional doctrine).
-
----
-
-## Article XX — Amendment Process and Constitutional Authority
-
-### Section 1 — Amendment Process
-
-This Constitution may be amended only by a new, explicitly numbered constitutional amendment,
-reviewed and formally accepted with the same rigor this platform already applies to a frozen
-ADR's own amendment (Article VI, Section 2) — never by editing this document's own adopted text
-in place. An amendment must state which Article or Section it amends, why, and must itself be
-reviewed against every other Article for consistency before adoption (mirroring `docs/
-B4_SLICE3_PREIMPLEMENTATION_REVIEW.md`'s own coherence-review discipline, applied here at
-constitutional scale).
-
-### Section 2 — Constitutional Authority Does Not Retroactively Reopen Accepted ADRs
-
-This Constitution's adoption does not, by itself, reopen, invalidate, or require re-review of any
-ADR already accepted before this date. Every ADR listed in `docs/
-ARCHITECTURE_HANDBOOK.md` Appendix A remains valid and binding exactly as accepted. This
-Constitution's principles apply prospectively to future decisions, and are satisfied
-retrospectively by every accepted ADR's own demonstrated consistency with the doctrine this
-Constitution merely formalizes (Article VI, Section 1's own historical record is the evidence of
-that consistency, not an assumption of it).
-
-### Section 3 — Interpretive Authority
-
-Where this Constitution's text is genuinely ambiguous as applied to a specific future decision, the
-Foundational Values (Article III) and the Preamble's own stated purpose govern interpretation,
-not a literal reading detached from either. This Constitution is a charter for a trust
-institution, not a contract to be construed against its own spirit.
-
-### Section 4 — Scope of Authority
-
-This Constitution governs the LandVault platform's own architecture, engineering, governance, and
-documentation discipline. It does not purport to create legal obligations enforceable outside the
-platform's own governance process, and it does not substitute for actual legal, regulatory, or
-corporate-governance instruments a real deployment of this platform may separately require —
-where this Constitution uses the language of a national constitution, it does so to convey the
-seriousness and permanence of its own governing intent within this platform's engineering and
-architectural discipline, not to claim an authority beyond that scope.
-
----
-
-## Article XXI — Definitions
-
-- **Bounded context** — a self-contained vertical slice of domain, application, adapter, and API
-  code owning one coherent business responsibility, per `docs/ARCHITECTURE_HANDBOOK.md` Part III.
-- **Controlled Platform Authority** — the doctrine governing any platform-wide or cross-tenant
-  read/write exception, per `docs/ENGINEERING_RULES.md` rule 9 and Article IX, Section 3.
-- **Platform Intelligence** — the cross-cutting services layer observing across bounded contexts
-  under Controlled Platform Authority, per `docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md`.
-- **Programme** — a numbered or named body of work (B1, B2, B3, B4, Marketplace, Partner,
-  Enterprise, Government, Developer Platform) governed by the lifecycle in Article VII, Section 1.
-- **Freeze** — the formal declaration, via its own ADR, that a programme's scope is immutable
-  without a new ADR referencing that freeze, per `docs/ARCHITECTURE_HANDBOOK.md` Part VI.
-- **Trust ecosystem / trust network** — the set of citizens, licensed professionals, enterprises,
-  government agencies, and developers whose confident collaboration this platform's
-  infrastructure exists to enable, per Article XVI, Section 2.
-- **Constitutional participant group** — one of the five groups named in Article XVI, Section 1.
-
----
-
-## Article XXII — Cross-Reference Index
-
-| Subject | Governing Article(s) | Detailed authority |
+| Citation in circulation | Origin lineage | Under this Edition |
 |---|---|---|
-| Platform vs. aggregate; bounded context sovereignty | Article V | `docs/ARCHITECTURE_HANDBOOK.md` Parts II–III |
-| Architecture before code; amendment discipline | Article VI | `docs/ARCHITECTURE_HANDBOOK.md` Parts VI, IX; `docs/adr/ADR-019-...md` |
-| Governance lifecycle; documentation hierarchy | Article VII | `docs/ARCHITECTURE_HANDBOOK.md` Parts VI–VII |
-| Programme sequencing; completed/future programmes | Article VIII | `docs/ARCHITECTURE_HANDBOOK.md` Part VI; every programme's own Discovery document |
-| Trust-platform doctrine; security by design; Controlled Platform Authority | Article IX | `docs/TRUST_FRAMEWORK.md`; `docs/ENGINEERING_RULES.md` rules 1/2/3/9; `docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md` |
-| Identity and authorization | Article X | `docs/adr/ADR-004-...md`, ADR-009, ADR-011 |
-| Data ownership; tenant isolation | Article XI | `docs/ARCHITECTURE_HANDBOOK.md` Part V |
-| Evidence and structural validation | Article XII | `docs/adr/ADR-007-...md`, ADR-018 |
-| Marketplace | Article XIII | `docs/MARKETPLACE_DISCOVERY_AND_PLANNING.md` |
-| Enterprise | Article XIV | `docs/ENTERPRISE_PROGRAMME_STRATEGY.md` |
-| Government | Article XV | `docs/GOVERNMENT_PROGRAMME_STRATEGY.md` |
-| Professional partnership; trust network | Article XVI | `docs/PLATFORM_STRATEGY.md`; `docs/PARTNER_PROGRAMME_STRATEGY.md` |
-| Innovation and AI governance | Article XVII | `docs/TRUST_FRAMEWORK.md`; `docs/adr/ADR-021-...md` |
-| Commercial and operating alignment | Article XVIII | `docs/COMMERCIAL_ARCHITECTURE.md`; `docs/OPERATING_MODEL.md` |
-| Network growth | Article XIX | `docs/NETWORK_GROWTH_STRATEGY.md` |
-| Amendment and interpretive authority | Article XX | This Constitution, Section 1–4 |
+| Article IX §3 — Controlled Platform Authority | Adopted v1.0 | **Article IX §3 — unchanged.** The protected citation chain resolves without amendment |
+| Article X.3 — single PDP/PEP authorisation path | Authored v1.7 | **Article X §3 — unchanged** |
+| Article X.4 — kernel-first sequencing | Authored v1.7 | **Article X §4 — unchanged** |
+| Article X — integration by contract | Authored v1.7 | **Article X §2** — sited within the same Article |
+| Article XV.1 — Trust Neutrality Firewall | Authored v1.7 | **Article XV §1 — unchanged** |
+| Article XV.2 — Delegated Authority | Authored v1.7 | **Article XV §2 — unchanged** |
+| Article IX — Engineering Principles | Authored v1.7 | **Moved to Article XI.** This is the single deliberate displacement in the consolidation |
+
+**§3. The one displacement, and why.** Article IX resolves **in favour of the adopted lineage**, because `ENGINEERING_RULES.md` rule 9, ADR-021, ADR-022, `PLATFORM_INTELLIGENCE_ARCHITECTURE.md`, the B4 Threat Model and SCDS-001 depend on it in that sense, and ADR-022 governs code that has already shipped. The authored engineering principles lose nothing but their number: they are re-sited whole to Article XI, and the move is recorded here rather than performed silently.
+
+**§4. The protected citation chain.** The chain
+
+> LV-000 Article IX §3 → `ENGINEERING_RULES.md` rule 9 → ADR-021 → ADR-022 → `PLATFORM_INTELLIGENCE_ARCHITECTURE.md` → B4 Threat Model → SCDS-001
+
+survives this Edition **intact and unamended**. No step in it is broken, re-pointed, or left dangling. Preserving it was a governing constraint on the drafting of this Edition, not an incidental outcome.
+
+**§5. Citation discipline.** Every citation of this Constitution shall carry its edition — "LV-000 v1.8, Article X §3", not "Article X.3". A citation without an edition is ambiguous across the historical lineages and shall be treated as an error to be corrected, not as a citation to be guessed at.
+
+**§6. Renumbering prohibited.** Article IX §3, Article X §3, Article X §4, Article XV §1 and Article XV §2 **may not be renumbered** by any future amendment. Their numbers are load-bearing. Content may be amended; position may not.
 
 ---
 
-## Ratification
+## Part II — Constitutional Principles
 
-This Constitution, LV-000 Version 1.0, is adopted and effective as of its date above as the
-supreme governing document of the LandVault platform's architecture, engineering, and governance
-discipline, per the Deliverable and Objective under which it was authored. It modifies no accepted
-ADR, creates no bounded context, redesigns no completed programme, and introduces no
-implementation detail — consistent with the constraints under which it was drafted. Future
-amendment proceeds only per Article XX.
+### Article IV — Evidence over assertion, and non-adjudication
+
+**§1.** The platform records **assertions with provenance**, never determinations of right. Every ownership-related record is, in law and in the data model alike, *a recorded assertion by an identified actor, resting on a stated basis, at a recorded time*.
+
+**§2.** No schema field, API response, user-interface label, report, export, notification, or marketing statement may assert, imply, or be reasonably read as asserting that LandVault has determined title, ownership, or the outcome of a competing claim.
+
+**§3.** Provenance is not optional metadata. An assertion recorded without its basis, its actor, and its time is an incomplete record and shall be rejected at the boundary rather than stored and annotated later.
+
+**§4.** Compliance with this Article shall be **mechanically enforced**, not merely asserted. The platform shall carry an automated check that fails the build on ownership-adjudication wording in API responses and user-facing text. A principle enforced only by good intentions is not enforced.
+
+### Article V — Bounded Context Sovereignty
+
+*Origin: adopted LV-000 v1.0. Incorporated under Article II §4. This Article states the principle's effect for the purposes of this Edition; where the adopted wording differs, the adopted wording prevails (Article II §6).*
+
+**§1.** Each bounded context owns its data and its invariants. No other context may reach past that boundary to read or write what the owning context is responsible for.
+
+**§2.** Contexts integrate **by contract and by event**, never by shared tables, shared transactions, or direct database access across a boundary.
+
+**§3.** Unified or cross-context views are **read-model projections**, built from events. A projection is a convenience for readers; it is never a second source of truth and never a place where writes land.
+
+**§4.** Sovereignty is a design constraint before it is a runtime one: a change that would be easy only by violating a boundary is a change that has not yet been designed.
+
+### Article VI — Trust Network Doctrine
+
+*Origin: adopted LV-000 v1.0. Incorporated under Article II §4. Same reading rule as Article V.*
+
+**§1.** Trust in the LandVault sense is **networked, earned and observable** — a property that accumulates from recorded, attributable behaviour across participants, not a score assigned by fiat.
+
+**§2.** Every trust signal shall be traceable to the evidence and the events that produced it. A trust output that cannot be explained by pointing at its inputs shall not be shown to a user or relied on by a workflow.
+
+**§3.** Trust computation **fails safe**. On missing, stale, or unverifiable data the platform withholds the signal or degrades it explicitly; it never substitutes a default that reads as confidence.
+
+**§4.** This Doctrine is the constitutional foundation on which `PLATFORM_INTELLIGENCE_ARCHITECTURE.md` is built. Subordinate trust mechanisms — including the Trust Neutrality Firewall at Article XV §1 — serve this Doctrine and are read beneath it.
+
+### Article VII — Data, evidence and custody
+
+**§1.** Sealed evidence is **write-once**. Once sealed, an artefact may be read, verified, and legally held, but never altered or silently replaced.
+
+**§2.** Every adapter that stores sealed evidence shall **declare its WORM grade** — `compliance` (irrevocable retention with legal hold) or `governance` (retention revocable by a privileged administrator). The grade in force shall be recorded, and shall be visible to those relying on it.
+
+**§3.** A governance-grade backend is permissible where the deployment's obligations allow it, and shall be **escalated to a compliance-grade backend without code change** where they do not. The provider is a deployment decision; the guarantee is a constitutional one.
+
+**§4.** Integrity shall be **demonstrable on demand**: hashes computed on write, verified on read-back, and re-verifiable later by a party who was not present when the artefact was sealed.
+
+**§5.** Chain of custody is recorded for every sealed artefact, and every access to it is audited.
+
+**§6.** Corrections **append**. Superseded records are retained and marked as superseded. Erasure obligations arising from data-protection law are met through a recorded, counsel-approved procedure — never through silent deletion, and never invented by an implementer at the keyboard.
+
+### Article VIII — Identity, access and audit
+
+**§1.** Every action that changes state shall be attributable to an **authenticated actor**. Anonymous mutation does not exist on this platform.
+
+**§2.** Tenant isolation is enforced **in the database** as well as in the application. Row-level security ships in the same migration as the entity it protects; a migration that adds an entity without its policy is incomplete and shall not merge.
+
+**§3.** Every state change writes to the **audit chain**, and every record that a change occurred carries a resolvable reference to its audit entry.
+
+**§4.** Break-glass and administrative override paths are permitted, are **narrow**, are audited more heavily than ordinary access, and are reviewed on a schedule. An override path that is not reviewed is an unrecorded grant of authority.
+
+### Article IX — Controlled Platform Authority
+
+*Origin: adopted LV-000 v1.0, Article IX §3. Incorporated under Article II §4. This Article's numbering is fixed by Article III §6 and may not be changed.*
+
+**§1. The authority is real.** LandVault is not a passive store. It exercises genuine authority over the evidence and workflows it governs: it decides what is admitted, what is sealed, what is verified, who may act, and what a workflow's state is at any moment. Pretending otherwise would be a false modesty that leaves real power unexamined.
+
+**§2. The authority is controlled.** That authority exists **only to the extent it has been granted**, by this Constitution, by a ratified ADR, or by an explicit agreement with a participant. Authority is never assumed from capability: that the platform *could* do a thing is not a reason it *may*.
+
+**§3. The boundary — the operative clause.** **The platform's authority extends to the custody, verification, and workflow of evidence. It does not extend to adjudicating title, ownership, or competing claims, and it may not be extended there by any subordinate instrument.** Every grant of platform authority is read subject to this section, and a grant that would cross this boundary is void to the extent that it does.
+
+> This section is the anchor of the protected citation chain (Article III §4). `ENGINEERING_RULES.md` rule 9, ADR-021, ADR-022 and the documents beneath them cite LV-000 Article IX §3. Those citations resolve here and require no amendment.
+
+**§4. Accountability follows authority.** Wherever the platform exercises authority under §1, it shall be able to show **who** exercised it, **under what grant**, **on what evidence**, and **when**. An exercise of authority that cannot be reconstructed after the fact was not controlled.
+
+---
+
+## Part III — Architecture and Engineering
+
+### Article X — Architectural Principles
+
+*Sections 2, 3 and 4 carry the numbering of the authored v1.7 lineage so that citations already in circulation continue to resolve. Their numbering is fixed by Article III §6.*
+
+**§1. Architecture is constitutional.** The structural decisions in this Article are not preferences. They are the form in which Articles IV to IX are actually kept, and a design that abandons them abandons the principles they carry.
+
+**§2. Integration by contract.** Contexts own their data; they communicate by published contracts and domain events; there are no cross-context transactions; unified views are read-model projections. *(Article V is the principle; this section is its architectural expression.)*
+
+**§3. The single authorisation path.** **Every** authorisation decision resolves through **one** policy decision point and its enforcement points. There is no second path, no table-level bypass, no "internal" caller exempted, and no service that authorises itself. Portals, APIs, background workers, administrative tools and read models all traverse the same path.
+
+> A second authorisation path is not a shortcut; it is a second constitution, written in code, that nobody ratified.
+
+**§4. Kernel first.** The kernel — identity, registry, spatial, evidence — is built and hardened **before** marketplace, enterprise, and growth features. Features that depend on the kernel may not be shipped ahead of the kernel capability they assume. Sequencing is a constitutional matter because building in the wrong order is how unverified foundations end up in production.
+
+**§5. Ports and provider neutrality.** External capabilities are reached through **ports** with swappable adapters — `StoragePort`, `GeometryPort`, and their successors. No bounded context calls a provider SDK directly. A provider is a deployment choice; a port is a constitutional commitment, and the difference is what makes the choice reversible.
+
+**§6. Seams are declared, not discovered.** Where a component is knowingly provisional — an adapter that accepts every input pending a real implementation, for example — that fact is **recorded at the seam**, and the domain contract it sits behind is written so the real implementation can replace it without changing the contract.
+
+**§7. Grades and guarantees are declared.** Any adapter whose guarantee is weaker than the constitutional requirement declares the gap explicitly (see Article VII §2). Silent degradation of a guarantee is a constitutional violation regardless of whether anything breaks.
+
+### Article XI — Engineering Principles
+
+*Origin: authored LV-000 v1.7, Article IX, re-sited whole under Article III §3. Substance unchanged; number changed.*
+
+**§1. Fail safe.** On missing, ambiguous, or unverifiable data the system withholds, degrades explicitly, or refuses. It never guesses and presents the guess as fact.
+
+**§2. Observed, not assumed.** Nothing is "done" until its tests have been **observed** to pass on the actual tree. Inherited claims of green are re-observed before they are relied on.
+
+**§3. Reversible by default.** Every migration ships a tested `down`. Rollback is rehearsed on a staging-like environment before it is needed in anger.
+
+**§4. Governed dependencies.** Adding a runtime or build dependency is a governed act with a recorded approval, not a convenience taken mid-task.
+
+**§5. One bounded context per change.** Changes are scoped to a single context wherever the work admits it, so that review, revert and blame all remain tractable.
+
+**§6. Tests encode the constitution.** Where a constitutional requirement can be expressed as an automated check, it shall be — cross-tenant isolation, append-only enforcement, non-adjudication wording, authorisation-path coverage. Enforcement beats exhortation.
+
+**§7. Security defects outrank features.** No open critical or high-severity finding is carried past a phase gate in exchange for scope.
+
+**§8. Documentation moves with the code.** A change that alters governed behaviour updates its governing document in the same change, or it is incomplete.
+
+### Article XII — Intelligence, scoring and automation
+
+**§1.** Automated scoring and inference are **subordinate instruments**. They inform decisions; they do not make constitutional ones, and they never make adjudicative ones (Article IX §3).
+
+**§2.** Every score is **explainable by its inputs** and carries its confidence and its provenance. A score without an explanation is not shipped to a user.
+
+**§3.** Scoring **fails safe** on missing data (Article VI §3, Article XI §1). Absent input never becomes a confident output.
+
+**§4.** Automated agents operating on this repository are bound by this Constitution exactly as human contributors are. An agent's grant of authority is explicit, recorded, and revocable; **bulk or implicit grants of automation authority are prohibited**.
+
+---
+
+## Part IV — Governance
+
+### Article XIII — Hierarchy of instruments
+
+**§1. The order of authority.**
+
+1. **LV-000** — this Constitution.
+2. **The Bible volumes** — LV-001 to LV-017 (Schedule 3).
+3. **Ratified ADRs** — `docs/adr/`.
+4. **Engineering Rules** — `ENGINEERING_RULES.md`.
+5. **Architecture and intelligence documents** — including `PLATFORM_INTELLIGENCE_ARCHITECTURE.md`.
+6. **Plans, gates and definitions of done** — `REBUILD_PLAN.md`, `EXECUTION_PLAN.md`, `PHASE_GATES.md`, `DOD.md`.
+7. **Implementation and code.**
+
+**§2.** No instrument may contradict one above it. Where it appears to, the higher instrument governs and the lower is corrected — never the reverse.
+
+**§3. Summaries are pointers.** Operational summaries such as `CLAUDE.md` are navigational aids. Where a summary conflicts with the document it summarises, **the document wins**, and the summary is fixed.
+
+**§4. Current state versus governing intent.** On questions of *what is currently true* — what is frozen, what tests pass, what has shipped — the repository and an observed test run govern. On questions of *what shall be built and how*, the instruments in §1 govern. Confusing the two is how stale summaries acquire authority they were never given.
+
+### Article XIV — Amendment, and the Six Tests
+
+**§1. Amendment procedure.** An amendment is proposed in writing against a specific Article and section; it is checked against the Six Tests at §2; it records what it displaces; and it is ratified by the Governance Authority. Ratification is recorded in the Governance Decision Log (Article XVI).
+
+**§2. The Six Tests of Constitutional Authorship.** No clause enters this Constitution unless it is:
+
+1. **Traceable** — attributable to an identified source.
+2. **Non-inventive** — never fabricating a principle, an article number, or an authority.
+3. **Consistent** — compatible with every clause above it.
+4. **Testable or enforceable** — capable of being checked, ideally mechanically.
+5. **Necessary** — doing work no existing clause already does.
+6. **History-preserving** — amending rather than erasing.
+
+**§3. Entrenched provisions.** Article I §3 and §4 (the Prime Directive), Article II §4 to §8 (incorporation and savings), Article III §6 (renumbering prohibition), and Article IX §3 (the boundary of platform authority) may be amended only by an instrument that expressly identifies each of them and states its reasons. They may never be amended by implication, by general revision, or by a change whose effect on them is not stated on its face.
+
+**§4. Nothing is discarded silently.** A proposal that fails the Six Tests is recorded as **considered and refused, with the reason**. The record of what was rejected is part of the constitutional history and is not deleted.
+
+### Article XV — Governance principles
+
+*Sections 1 and 2 carry the numbering of the authored v1.7 lineage. Their numbering is fixed by Article III §6.*
+
+**§1. Trust Neutrality Firewall.** The platform's commercial interests are **structurally separated** from its trust and verification outputs. No pricing tier, partnership, promotional arrangement, or revenue consideration may influence a trust signal, a verification outcome, or the ordering of evidence. The separation is enforced by design — the code paths that compute trust do not receive commercial inputs — and not merely promised by policy. *This mechanism serves the Trust Network Doctrine at Article VI and is read beneath it.*
+
+**§2. Delegated Authority.** Authority exercised on behalf of another party — a tenant acting for a client, an agent acting for a user, a partner acting under licence — is **explicit, scoped, time-bounded, recorded and revocable**. Delegation never enlarges the delegator's own authority, and it never crosses the boundary at Article IX §3.
+
+**§3. Governed change.** Changes to governed artefacts follow a recorded path: proposal, review, decision, record. The record survives the people who made it.
+
+**§4. Transparency and auditability.** What the platform did, who caused it, and under what authority shall be reconstructible after the fact by someone who was not there.
+
+**§5. Supremacy of the hierarchy.** The order at Article XIII §1 is itself constitutional. Working around it — by putting substantive governance into a summary, a script, a comment, or a habit — is a constitutional violation regardless of the merits of the change.
+
+### Article XVI — The Governance Decision Log
+
+**§1.** Governance decisions are recorded, numbered, and permanent. The following are in force at ratification.
+
+**GD-001 — Preservation of adopted Bible Volumes I and II.** *(Approved 28 July 2026.)* The adopted `docs/LANDVAULT_BIBLE_VOLUME_I_EXECUTIVE_OVERVIEW.md` and `docs/LANDVAULT_BIBLE_VOLUME_II_PRODUCT_STRATEGY_AND_ENTERPRISE_DEFINITION.md` are preserved. Any staged deletion of them is restored. Authored volumes do not displace adopted ones by occupying a similar subject.
+
+**GD-002 — The plan of record.** *(Approved 28 July 2026; amended by GD-004.)* `docs/REBUILD_PLAN.md` is the repository's plan of record. `commit-development-plan.sh` is retired unrun.
+
+**GD-003 — Ratification of Edition v1.8, Revision H.** *(Approved 29 July 2026.)* This Constitution is ratified as a working legal document, in force without condition. The "HELD pending verbatim transcription" status is lifted and shall not be reinstated; the outstanding restatement work continues as an administrative register under Article II §7 and Schedule 1 Part B. The Governance Authority has considered and accepted that seven adopted principles are incorporated without being restated here, and has determined that incorporation preserves their force in full.
+
+**GD-004 — The execution instrument.** *(Approved 29 July 2026.)* *LandVault — Development Plan (Execution), Revision H* is ratified as a working legal document and is the platform's execution instrument. It is issued at `docs/EXECUTION_PLAN.md`. GD-002 is amended only to this extent: `REBUILD_PLAN.md` remains the plan of record for phase definitions and gates, and the execution instrument governs the ordering and content of delivery work beneath those gates. Neither displaces the other; where they speak to the same gate, `REBUILD_PLAN.md` governs and the divergence is raised as an amendment rather than resolved in place. The prohibition on creating `docs/DEVELOPMENT_PLAN.md` and on running `commit-development-plan.sh` stands undisturbed.
+
+**§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
+
+### Article XVII — Enactment, transition and continuity
+
+**§1. Enactment.** This Constitution takes effect on 29 July 2026 upon the ratification recorded at GD-003. It requires no further act to be in force.
+
+**§2. Continuity of subordinate instruments.** Every ADR, engineering rule, architecture document, gate, and definition of done in force immediately before enactment **remains in force**, and every citation to LV-000 Article IX §3 continues to resolve (Article III §4). Subordinate instruments are re-anchored to this Edition administratively, as a change of citation form rather than of substance.
+
+**§3. Status of the authored v1.7.** v1.7 ceases to govern. It is retained as a historical source, its contributions are recorded at Schedule 2 with their disposition, and it is neither deleted nor treated as if it had never existed.
+
+**§4. Status of the adopted v1.0.** v1.0 ceases to be a separately-governing instrument and continues through Article II §4. Its file remains as the source of the incorporated text, and it is neither superseded in substance nor deleted.
+
+**§5. Standing obligation.** The Governance Authority shall continue to close the register at Schedule 1 Part B as adopted text becomes available. That obligation binds the Authority. It does not bind the Constitution's force, and no failure to complete it invalidates anything done under this Edition.
+
+**§6. The rule of construction.** Where this Edition is ambiguous, it is read so as to preserve the Prime Directive, preserve incorporated authority, and preserve the protected citation chain — in that order.
+
+---
+
+## Schedule 1 — Register of adopted-v1.0 constitutional principles
+
+*Made under Article II §4. This Schedule is a register, not a condition (Article II §7).*
+
+### Part A — Principles restated in this Edition
+
+| # | Principle | Adopted source | Restated at | Force |
+|---|---|---|---|---|
+| 1 | **Controlled Platform Authority** | Adopted v1.0, Article IX §3 | Article IX of this Edition | In force. Adopted wording prevails over the restatement (Article II §6) |
+| 2 | **Bounded Context Sovereignty** | Adopted v1.0, article number not yet recorded | Article V | In force, on the same terms |
+| 3 | **Trust Network Doctrine** | Adopted v1.0, article number not yet recorded | Article VI | In force, on the same terms |
+
+*Note to Part A.* The restatements at Articles V, VI and IX are this Edition's statements of effect. They were drafted from the principles' names, their adopted article number where known, and the subordinate instruments that depend on them. **They are not transcriptions**, and Article II §6 governs any divergence.
+
+### Part B — Principles incorporated but not restated
+
+| # | Slot | Status | Force |
+|---|---|---|---|
+| 4 | Adopted-v1.0 principle [4] | Name and text not yet recorded here | In force by Article II §4 |
+| 5 | Adopted-v1.0 principle [5] | Name and text not yet recorded here | In force by Article II §4 |
+| 6 | Adopted-v1.0 principle [6] | Name and text not yet recorded here | In force by Article II §4 |
+| 7 | Adopted-v1.0 principle [7] | Name and text not yet recorded here | In force by Article II §4 |
+| 8 | Adopted-v1.0 principle [8] | Name and text not yet recorded here | In force by Article II §4 |
+| 9 | Adopted-v1.0 principle [9] | Name and text not yet recorded here | In force by Article II §4 |
+| 10 | Adopted-v1.0 principle [10] | Name and text not yet recorded here | In force by Article II §4 |
+
+*Note 1 — the count.* The figure *ten* is carried from the Governance Authority's own record of the adopted instrument. It is not independently verified here. If the adopted file states a different number, this Schedule is corrected to the real number. **Seven empty rows are not a claim that seven principles exist**; they are the shape of a question only the adopted file can answer, and they are shown rather than hidden.
+
+*Note 2 — how an entry closes.* By copying the adopted text unchanged and recording its adopted article number. By nothing else (Article II §8).
+
+*Note 3 — what an open entry does not do.* It does not suspend this Constitution, qualify any Article, or license anyone to act as though the principle is absent.
+
+## Schedule 2 — Disposition of the authored v1.7 lineage
+
+| v1.7 contribution | Disposition under this Edition |
+|---|---|
+| Trust Neutrality Firewall (XV.1) | Adopted by amendment at Article XV §1, subordinated to Article VI. Number preserved |
+| Delegated Authority (XV.2) | Adopted by amendment at Article XV §2. Number preserved |
+| Governed change (XV.3) | Adopted at Article XV §3 |
+| Transparency and auditability (XV.4) | Adopted at Article XV §4 |
+| Supremacy of the hierarchy (XV.5) | Adopted at Article XV §5 |
+| Single PDP/PEP authorisation path (X.3) | Adopted at Article X §3. Number preserved |
+| Kernel-first sequencing (X.4) | Adopted at Article X §4. Number preserved |
+| Integration by contract (Article X) | Adopted at Article X §2, expressed as the architectural form of Article V |
+| Platform, not Aggregate | Merged into Article V (Bounded Context Sovereignty), which is the adopted principle it restated in different words |
+| Evidence over assertion | Adopted at Article IV, joined to the Prime Directive and given mechanical enforcement at Article IV §4 |
+| Engineering Principles (Article IX, eight fail-safe rules) | Re-sited whole to Article XI. Substance unchanged; number displaced by Article III §3 |
+| Parts I–V structure, Articles I–XX | Not carried. The structure of this Edition is its own. The v1.7 map is retained as a historical finding aid |
+| The claim to be "RATIFIED v1.7, Amendments 1–7" | Withdrawn. v1.7 was never the platform's adopted constitution; the claim is recorded here rather than erased, because the record of an error is part of the history |
+
+## Schedule 3 — The Constitutional Library
+
+| ID | Volume | Status |
+|---|---|---|
+| **LV-000** | The LandVault Constitution — Edition v1.8, Revision H | **RATIFIED — in force** |
+| LV-001 | Executive Overview | Bible volume |
+| LV-002 | Vision, Mission and Principles | Bible volume |
+| LV-003 | Product and Platform Strategy | Bible volume |
+| LV-004 | Market Analysis | Bible volume |
+| LV-005 | Product Requirements (PRD) | Bible volume |
+| LV-006 | Technical Requirements (TRD) | Bible volume |
+| LV-007 | Security Architecture | Bible volume |
+| LV-008 | Enterprise Architecture | Bible volume |
+| LV-009 | Database and Data Governance | Bible volume |
+| LV-010 | Design System | Bible volume |
+| LV-011 | UX Standards | Bible volume |
+| LV-012 | Monetization Strategy | Bible volume |
+| **LV-013** | **Market Intelligence Report** — the repository's adopted document | **Protected.** Not to be overwritten or renamed |
+| LV-014 | Growth Strategy | Bible volume |
+| LV-015 | Operational Excellence | Bible volume |
+| LV-016 | Governance and Compliance | Bible volume |
+| **LV-017** | **Go-to-Market Strategy** | Renumbered from LV-013 to resolve the collision. The candidate moved; the adopted document did not |
+
+## Schedule 4 — Administrative register of findings to confirm
+
+*These are findings of fact to be confirmed by observation. None is a condition on this Constitution.*
+
+| # | Finding to confirm | Bears on |
+|---|---|---|
+| **S4.1** | Is B4 begun? The root `CLAUDE.md` records B4 as not started with the highest ADR at 017; the extraction record shows B4 Slice 2 shipped under ADR-022. Both cannot be current | The ADR numbering floor, and the lower reaches of the protected citation chain |
+| **S4.2** | `docs/LV-000-constitution.md` is absent from `CLAUDE.md`'s pointer index | Article XIII §3. The supreme document should be reachable from the always-loaded summary. Add it |
+| **S4.3** | Which `CLAUDE.md` cites LV-013, and which LV-013 does it mean? | Schedule 3, and any residual citation to the renumbered volume |
+| **S4.4** | The five rules in `CLAUDE.md` versus nine-plus in `ENGINEERING_RULES.md` | Not a conflict — a summary and a full set. Citations must name the file they mean |
+
+> **Confirmed by observation, 29 July 2026 (recorded administratively, changes no substantive provision above):** S4.1 — the ADR floor is 022 (files 001–019, 021, 022 exist; 020 is deliberately vacant per Article XII §4); B4 has begun and Slice 2 has shipped under ADR-022; `CLAUDE.md`'s opening summary line was stale relative to its own later sections and the ADR directory. S4.2 — `docs/LV-000-constitution.md` was already present in `CLAUDE.md`'s pointer index (as the second entry, after the Architecture Handbook), not absent; the correction needed is ordering, not addition. S4.3 — `CLAUDE.md`'s existing LV-013 citation already resolves to the protected Market Intelligence Report; no repair needed. S4.4 — `CLAUDE.md` in fact states six non-negotiable rules, not five. These findings are recorded here as an administrative note; they do not themselves amend `CLAUDE.md`, which is corrected separately under `docs/GOVERNANCE_BASELINE.md` Part D.
+
+## Enactment
+
+This Constitution is enacted on 29 July 2026 and is in force from that date.
+
+From this date the LandVault platform has **one** governing authority. The ambiguity between the adopted v1.0 and the authored v1.7 is closed — not by choosing a winner and deleting a loser, but by consolidating both into a single instrument that keeps every adopted authority intact, records every displacement on its face, and leaves nothing governing in the dark.
+
+What remains outstanding is restatement work, and restatement work is housekeeping. It is written down, it is assigned, and it does not hold the platform still while it waits.
+
+**Amend, never erase.**
+
+*LandVault preserves and verifies land evidence. It does not decide who owns land.*
