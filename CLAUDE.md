@@ -1,12 +1,25 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) is the current production architectural baseline: the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), and a geometry port boundary for future spatial capability — see "B3 status" below. B4 (Spatial Intelligence) is an entirely new programme, currently in Phase 0 discovery only (`docs/B4_DISCOVERY_AND_PLANNING.md`) — no B4 code exists; implementation awaits explicit approval of that plan.**
+## One constitution
+
+As of 29 July 2026 there is exactly one governing constitution: **LV-000 Edition v1.8, Working
+Edition, Revision H**, at `docs/LV-000-constitution.md`. The authored v1.7 no longer governs
+anything. The adopted v1.0 continues *through* v1.8 by incorporation (v1.8 Article II §4) and its
+principles remain in force verbatim; it is preserved unmodified at
+`docs/LV-000-constitution-v1.0-adopted.md`.
+
+Cite the Constitution **with its edition** — `LV-000 v1.8, Article X §3` — never by bare article
+number. Bare article numbers are ambiguous across the historical lineages, and that ambiguity is
+what reached shipped code in the first place. See `docs/GOVERNANCE_BASELINE.md` for the full
+reconciliation record.
+
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) is the current production architectural baseline: the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), and a geometry port boundary for future spatial capability — see "B3 status" below. B4 (Spatial Intelligence) has begun and progressed past discovery: Slices 1 and 2 are accepted and frozen under ADR-022, ADR-021 (Spatial Conflict Detection) is drafted and awaiting acceptance, and Slice 3 remains unauthorized — see "B4 status" below.**
 
 Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
 
-**`docs/ARCHITECTURE_HANDBOOK.md` (v1.0)** is the consolidated engineering reference — platform philosophy, full architecture diagram, DDD vocabulary, engineering rules index, security model, programme governance lifecycle, documentation hierarchy, future-programme surveys, architectural evolution, and engineering culture, each pointing to its authoritative source document. It is not an ADR and decides nothing new; read it first to orient, then follow its links for the actual decision.
+**`docs/LV-000-constitution.md`** — **The LandVault Constitution, Edition v1.8, Working Edition, Revision H. RATIFIED and in force. Supreme.** Every other document in this index is subordinate to it. Read it before proposing any change to governed behaviour. The Prime Directive is Article I §3: *LandVault preserves and verifies land evidence. It does not decide who owns land.* This Edition consolidates the previously-adopted v1.0 (architecture lineage — Controlled Platform Authority at Article IX §3, Bounded Context Sovereignty at Article V, Trust Network Doctrine at Article VI; preserved unmodified at `docs/LV-000-constitution-v1.0-adopted.md`) and the authored v1.7 (values lineage; retired, historical only) into one instrument. See `docs/GOVERNANCE_BASELINE.md` for how the two were reconciled, and the Constitution's own Schedule 1 for which adopted principles are restated versus incorporated by reference only.
 
-**`docs/LV-000-constitution.md`** (adopted 2026-07-26) is **the platform's supreme governing document** — above the Handbook in the precedence order its own Article II states (LV-000 → Handbook → Accepted ADRs → Programme Documents → Engineering Documentation). It establishes ten constitutional principles (Trust Platform before Software Platform; Platform-not-Aggregate; Bounded Context Sovereignty; Documentation Before Implementation; Architecture Before Code; Security by Design; Controlled Platform Authority; Government Readiness; Professional Partnership; Trust Network Doctrine) across 22 Articles, incorporates both entries previously logged in `docs/CONSTITUTIONAL_RECOMMENDATIONS.md`, and modifies no accepted ADR, creates no bounded context, and contains no implementation detail — it ratifies doctrine this platform's engineering already operates under, per its own Article VI/Article XX, Section 2.
+**`docs/ARCHITECTURE_HANDBOOK.md` (v1.0)** is the consolidated engineering reference — platform philosophy, full architecture diagram, DDD vocabulary, engineering rules index, security model, programme governance lifecycle, documentation hierarchy, future-programme surveys, architectural evolution, and engineering culture, each pointing to its authoritative source document. It is not an ADR and decides nothing new, and it is subordinate to LV-000 (LV-000 v1.8, Article XIII §1); read it after the Constitution to orient, then follow its links for the actual decision.
 
 **`docs/PLATFORM_STRATEGY.md`** (2026-07-25) sits one layer below the Handbook — vision, official positioning, the five-layer platform model (Identity/Land Intelligence/Marketplace/Enterprise/Government), the "Trust Platform before Software Platform" principle (now constitutional — LV-000 Article IX, Section 1), and network-effects/flywheel reasoning. Eight further planning-only documents sit beneath it, each ending in its own Approval Gate with no implementation authorized: `docs/PARTNER_PROGRAMME_STRATEGY.md`, `docs/ENTERPRISE_PROGRAMME_STRATEGY.md`, `docs/GOVERNMENT_PROGRAMME_STRATEGY.md`, `docs/DEVELOPER_PLATFORM_STRATEGY.md`, `docs/COMMERCIAL_ARCHITECTURE.md`, `docs/OPERATING_MODEL.md`, `docs/TRUST_FRAMEWORK.md`, `docs/NETWORK_GROWTH_STRATEGY.md` — plus an extension to the existing `docs/MARKETPLACE_DISCOVERY_AND_PLANNING.md` naming candidate domain concepts (Job, Assignment, Escrow, Wallet, Rating, Dispute, etc.). **None of this authorizes any new bounded context, ADR change, or code** — B1–B4 remain exactly as documented below, and B4 Slice 3 remains unauthorized.
 
@@ -15,6 +28,20 @@ Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to
 **`docs/LANDVAULT_BIBLE_VOLUME_II_PRODUCT_STRATEGY_AND_ENTERPRISE_DEFINITION.md`** (2026-07-28) expands Volume I into full market analysis (Nigeria/Africa/global, deliberately hedged — no fabricated market-size figures, per LV-000's "truth over assertion" value), Product Philosophy, a fully expanded Five-Layer Model (Purpose/Capabilities/Stakeholders/Revenue/Dependencies/Evolution per layer), a complete Trust Network framework (11 participant categories), Marketplace as enterprise strategy, every commercial revenue stream, competitive positioning against 7 categories of alternative, a long-term roadmap through continental expansion (explicitly not authorized), and strategic conclusions. **Explanatory and non-normative**, same standing as Volume I.
 
 **`docs/LV-013-market-intelligence-report.md`** (2026-07-29) is a genuine quantitative research report, not synthesized narrative — every figure was checked via live web search/fetch on 2026-07-29 and tagged VERIFIED (with source)/ESTIMATE/NOT VERIFIED. Real, sourced findings include: Nigeria's National Land Digital System (signed with the World Bank 11 Sept 2024, 90%+ of land reported unregistered, ~$300B potential capital locked); ~65% of Nigerian civil court cases are land-related (NIALS 2023, via secondary citation); population/urbanization/GDP/remittance figures; SURCON's structure (59 Council members — but its total registered-surveyor count could **not** be found and is flagged as a research gap, not guessed at); and 7 international benchmarks (Rwanda, Estonia, UK, Singapore, India, Kenya, Brazil) with specific verified statistics each. Part IX (TAM/SAM/SOM) explicitly declines to invent a market-size figure where no defensible input exists, recommending commissioned primary research instead. **Supplements, does not replace, LV-000/Handbook/Platform Strategy/Bible I–II — introduces no architecture, ADR, or governance.**
+
+## Precedence
+
+1. `docs/LV-000-constitution.md` — the Constitution, Edition v1.8 Revision H. Supreme.
+2. The Bible volumes, LV-001 – LV-017 (see the Constitution's Schedule 3 for the full register — only the LV-013 slot, the protected Market Intelligence Report, exists as a file in this repository today).
+3. Ratified ADRs in `docs/adr/`.
+4. `ENGINEERING_RULES.md`.
+5. `PLATFORM_INTELLIGENCE_ARCHITECTURE.md` and the architecture documents.
+6. `REBUILD_PLAN.md`, `EXECUTION_PLAN.md`, `PHASE_GATES.md`, `DOD.md`.
+7. Implementation and code.
+
+This file is a **pointer, not the source of truth**. Where it conflicts with a document it points to, that document wins and this file is corrected.
+
+On *current state* — what is frozen, what tests pass, what has shipped — the repository and an observed test run govern. On *what to build and how*, the hierarchy above governs. Do not confuse the two.
 
 ## B1 status (Identity & Authorization) — frozen
 
@@ -283,6 +310,7 @@ This file is the always-loaded operational summary. It is a pointer, not the sou
 | Need | Go to |
 |---|---|
 | The technical build plan (stack, 13 bounded contexts, stages, milestones) | `docs/REBUILD_PLAN.md` |
+| The execution instrument — ordering and content of delivery work beneath REBUILD_PLAN's gates (Revision H, GD-004) | `docs/EXECUTION_PLAN.md` |
 | Process/quality gates per phase, the Claude Code Loop, standing review questions | `docs/PHASE_GATES.md` |
 | Definition of Done (Feature / Sprint / Product tiers) | `docs/DOD.md` |
 | Full engineering rules, incl. when to stop and ask a human | `docs/ENGINEERING_RULES.md` |
