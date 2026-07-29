@@ -131,7 +131,7 @@ The order is constitutional (**Article X §4 — kernel first**), not a matter o
 5. **Local Docker** workflow verified end to end by someone who has not run it before.
 6. **Keycloak** realm exported as code and committed; secrets moved to a manager; dev mode off.
 7. **`StoragePort` skeleton and R2 adapter** (§7.2), so Evidence has a seam from the first day rather than a retrofit on the last.
-8. **Compute provider** chosen at deploy time — storage is already decoupled, so this decision is not urgent and should not be rushed.
+8. **Compute provider** chosen at deploy time — storage is already decoupled, so this decision is not urgent and should not be rushed. *Resolved administratively, 2026-07-30: **AWS**. `infra/terraform/versions.tf` declares the provider (region only, no resources). Formal capture belongs in ADR-024 (§11.1) when raised; this note is the interim record.*
 
 **Gate:** clean tree · CI green · repeatable local environment · staging design approved → Phase 1.
 
