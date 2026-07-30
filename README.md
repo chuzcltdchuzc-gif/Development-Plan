@@ -53,6 +53,12 @@ Every rule in `docs/ENGINEERING_RULES.md` and every non-negotiable in `docs/DOD.
 | [`docs/audits/`](./docs/audits/) | The full audit reports behind every decision above |
 | [`docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf`](./docs/exports/AquaSavannah_LandVault_Combined_Plan.pdf) | Single-file PDF export of this whole planning package, plus the superseded v3 snapshot preserved for provenance — see the PDF's own preface for which parts are current |
 
+**Session history (`docs/session-logs/`):** plain narrative records of individual working
+conversations, kept for context on why a document exists and in what order — **not governance
+documents.** They are never cited by an ADR, by the Architecture Handbook, or by LV-000, and carry
+no authority over any of them; where a session log and a governing document disagree, the governing
+document is correct and the log is simply out of date.
+
 ---
 
 ## Stack
