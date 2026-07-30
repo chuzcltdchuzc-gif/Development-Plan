@@ -122,7 +122,7 @@ These are the citations that had no resolvable home before ratification. They no
 
 **Numbering floor — confirm before raising.** The numbers above assume the highest existing ADR is 022. That is **unconfirmed** in this instrument's own text: the root `CLAUDE.md` reports 017 while the extraction record shows ADR-022 governing shipped code. This is finding **S4.1**. Read `docs/adr/` and renumber upward if the floor differs. Never renumber downward into an occupied range.
 
-> **Resolved administratively, 29 July 2026** (see LV-000 v1.8 Schedule 4, confirmed-by-observation note): the floor is **022**. ADR-023/024/025 as proposed require no renumbering.
+> **Resolved administratively, 29 July 2026, regularised under GD-006** (see LV-000 v1.8 Schedule 4, confirmed-by-observation note): the floor is **022**. ADR-023/024/025 as proposed require no renumbering.
 
 ## B.5 ADR-020
 
@@ -175,7 +175,7 @@ Two constitutional obligations are not yet expressed as engineering rules and sh
 
 `CLAUDE.md` is the always-loaded operational summary. Its pointer index names `REBUILD_PLAN.md`, `PHASE_GATES.md`, `DOD.md`, `ENGINEERING_RULES.md`, `docs/adr/` and `docs/audits/`.
 
-> **Confirmed by inspection, 29 July 2026:** `docs/LV-000-constitution.md` is **not** absent from this index as originally assumed — it is present, described as "the platform's supreme governing document," but as the *second* entry (after the Architecture Handbook), not the first. The correction below is therefore reordering plus the new patch content, not a bare addition.
+> **Confirmed by inspection, 29 July 2026 (regularised under GD-006):** `docs/LV-000-constitution.md` is **not** absent from this index as originally assumed — it is present, described as "the platform's supreme governing document," but as the *second* entry (after the Architecture Handbook), not the first. The correction below is therefore reordering plus the new patch content, not a bare addition.
 
 ## D.2 Patch — add the Constitution to the pointer index
 
@@ -244,7 +244,7 @@ Three variants exist in the candidate packs. They are **not** the repository's f
 
 ## D.7 Confirm, do not assume
 
-Finding **S4.3** — which `CLAUDE.md` cites LV-013, and which LV-013 it means — is resolved: `CLAUDE.md` already cites `docs/LV-013-market-intelligence-report.md`, the protected document. No repair needed on this point.
+Finding **S4.3** — which `CLAUDE.md` cites LV-013, and which LV-013 it means — is resolved (regularised under GD-006): `CLAUDE.md` already cites `docs/LV-013-market-intelligence-report.md`, the protected document. No repair needed on this point.
 
 ---
 

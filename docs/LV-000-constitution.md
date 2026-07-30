@@ -20,7 +20,7 @@
 | **Relationship to the adopted v1.0** | v1.0's named principles are incorporated and remain in force verbatim (Article II §4, Schedule 1). Incorporation is permanent and does not expire |
 | **Repository of record** | `aquasavannah-landvault` |
 | **Canonical path** | `docs/LV-000-constitution.md` |
-| **Governing decisions in force** | GD-001, GD-002 (as amended by GD-004), GD-003, GD-004 |
+| **Governing decisions in force** | GD-001, GD-002 (as amended by GD-004), GD-003, GD-004, GD-005, GD-006 |
 | **Prime Directive** | LandVault preserves and verifies land evidence. It does not decide who owns land. |
 | **Classification** | Public (Governance) |
 | **Owner** | Office of the LandVault Constitution (Governance Authority) |
@@ -293,6 +293,26 @@ survives this Edition **intact and unamended**. No step in it is broken, re-poin
 
 **GD-004 — The execution instrument.** *(Approved 29 July 2026.)* *LandVault — Development Plan (Execution), Revision H* is ratified as a working legal document and is the platform's execution instrument. It is issued at `docs/EXECUTION_PLAN.md`. GD-002 is amended only to this extent: `REBUILD_PLAN.md` remains the plan of record for phase definitions and gates, and the execution instrument governs the ordering and content of delivery work beneath those gates. Neither displaces the other; where they speak to the same gate, `REBUILD_PLAN.md` governs and the divergence is raised as an amendment rather than resolved in place. The prohibition on creating `docs/DEVELOPMENT_PLAN.md` and on running `commit-development-plan.sh` stands undisturbed.
 
+**GD-005 — Ratification of the Governance Baseline, Revision H.** *(Approved 29 July 2026, recorded at `docs/GOVERNANCE_BASELINE.md` Part E.1.)* The Governance Baseline (Bible numbering register, ADR citation treatment, and the `ENGINEERING_RULES.md`/`CLAUDE.md` patch specifications) is ratified. Referenced here for completeness of this Log; its full text remains at its own instrument, not duplicated into this Constitution.
+
+**GD-006 — Regularisation of post-ratification factual observations.** *(Approved 30 July 2026.)*
+Between the ratification of Edition v1.8 (GD-003), the execution instrument (GD-004), and the
+Governance Baseline (GD-005), and this decision, factual observations confirmed by direct
+inspection of the repository were recorded as administrative notes directly within those three
+already-ratified instruments: the Schedule 4 confirmation note in this Constitution (the ADR floor
+at 022; B4 confirmed begun; `CLAUDE.md`'s LV-000 and LV-013 citations confirmed already correct);
+the compute-provider and ADR-numbering-floor notes in `docs/EXECUTION_PLAN.md` §6 and §11.2; and
+the corresponding findings notes in `docs/GOVERNANCE_BASELINE.md` Parts B.4 and D. Each such note
+records a fact confirmed by observation, not a new principle, not a change to any Article, and not
+a change to any decision already in this Log. **This decision regularises their presence**: they
+are treated, consistently with the administrative-register principle already established at
+Article II §7 for Schedule 1 Part B, as administrative annotations that do not require the full
+amendment procedure at Article XIV, and their addition to already-ratified instruments is hereby
+recorded as a properly-governed act rather than an unrecorded edit. **This decision does not
+itself authorise, ratify, or regularise any infrastructure change, ADR approval, or implementation
+activity** — those are governed, where applicable, by their own instruments (ADR status fields,
+the Execution Plan's phase gates), not by this entry.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
@@ -395,7 +415,7 @@ survives this Edition **intact and unamended**. No step in it is broken, re-poin
 | **S4.3** | Which `CLAUDE.md` cites LV-013, and which LV-013 does it mean? | Schedule 3, and any residual citation to the renumbered volume |
 | **S4.4** | The five rules in `CLAUDE.md` versus nine-plus in `ENGINEERING_RULES.md` | Not a conflict — a summary and a full set. Citations must name the file they mean |
 
-> **Confirmed by observation, 29 July 2026 (recorded administratively, changes no substantive provision above):** S4.1 — the ADR floor is 022 (files 001–019, 021, 022 exist; 020 is deliberately vacant per Article XII §4); B4 has begun and Slice 2 has shipped under ADR-022; `CLAUDE.md`'s opening summary line was stale relative to its own later sections and the ADR directory. S4.2 — `docs/LV-000-constitution.md` was already present in `CLAUDE.md`'s pointer index (as the second entry, after the Architecture Handbook), not absent; the correction needed is ordering, not addition. S4.3 — `CLAUDE.md`'s existing LV-013 citation already resolves to the protected Market Intelligence Report; no repair needed. S4.4 — `CLAUDE.md` in fact states six non-negotiable rules, not five. These findings are recorded here as an administrative note; they do not themselves amend `CLAUDE.md`, which is corrected separately under `docs/GOVERNANCE_BASELINE.md` Part D.
+> **Confirmed by observation, 29 July 2026 (recorded administratively, changes no substantive provision above; regularised under GD-006):** S4.1 — the ADR floor is 022 (files 001–019, 021, 022 exist; 020 is deliberately vacant per Article XII §4); B4 has begun and Slice 2 has shipped under ADR-022; `CLAUDE.md`'s opening summary line was stale relative to its own later sections and the ADR directory. S4.2 — `docs/LV-000-constitution.md` was already present in `CLAUDE.md`'s pointer index (as the second entry, after the Architecture Handbook), not absent; the correction needed is ordering, not addition. S4.3 — `CLAUDE.md`'s existing LV-013 citation already resolves to the protected Market Intelligence Report; no repair needed. S4.4 — `CLAUDE.md` in fact states six non-negotiable rules, not five. These findings are recorded here as an administrative note; they do not themselves amend `CLAUDE.md`, which is corrected separately under `docs/GOVERNANCE_BASELINE.md` Part D.
 
 ## Enactment
 

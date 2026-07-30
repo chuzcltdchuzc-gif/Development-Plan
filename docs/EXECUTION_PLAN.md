@@ -131,7 +131,7 @@ The order is constitutional (**Article X §4 — kernel first**), not a matter o
 5. **Local Docker** workflow verified end to end by someone who has not run it before.
 6. **Keycloak** realm exported as code and committed; secrets moved to a manager; dev mode off.
 7. **`StoragePort` skeleton and R2 adapter** (§7.2), so Evidence has a seam from the first day rather than a retrofit on the last.
-8. **Compute provider** chosen at deploy time — storage is already decoupled, so this decision is not urgent and should not be rushed. *Resolved administratively, 2026-07-30: **AWS**. `infra/terraform/versions.tf` declares the provider (region only, no resources). Formal capture belongs in ADR-024 (§11.1) when raised; this note is the interim record.*
+8. **Compute provider** chosen at deploy time — storage is already decoupled, so this decision is not urgent and should not be rushed. *Resolved administratively, 2026-07-30 (regularised under GD-006): **AWS**. `infra/terraform/versions.tf` declares the provider (region only, no resources). Formal capture belongs in ADR-024 (§11.1) when raised; this note is the interim record.*
 
 **Gate:** clean tree · CI green · repeatable local environment · staging design approved → Phase 1.
 
@@ -219,7 +219,7 @@ These are decisions, not code. **The build proceeds around them and stops only a
 
 The proposed numbers **assume the highest existing ADR is 022**. LV-000 v1.8 Schedule 4 §S4.1 records that this is unconfirmed: the root `CLAUDE.md` reports the highest at 017, while the extraction record shows ADR-022 governing shipped B4 Slice 2 code. **Confirm by reading `docs/adr/` before raising these**, and renumber upward if the floor is different. Do not renumber downward into an occupied range.
 
-> **Resolved administratively, 29 July 2026** (per LV-000 v1.8 Schedule 4, confirmed-by-observation note): the floor is **022** (`docs/adr/` contains ADR-001 through ADR-019, ADR-021, and ADR-022; ADR-020 is deliberately vacant). ADR-023/024/025 as proposed above are therefore the correct next numbers and require no renumbering.
+> **Resolved administratively, 29 July 2026, regularised under GD-006** (per LV-000 v1.8 Schedule 4, confirmed-by-observation note): the floor is **022** (`docs/adr/` contains ADR-001 through ADR-019, ADR-021, and ADR-022; ADR-020 is deliberately vacant). ADR-023/024/025 as proposed above are therefore the correct next numbers and require no renumbering.
 
 ### 11.3 ADR-020 stays vacant
 
