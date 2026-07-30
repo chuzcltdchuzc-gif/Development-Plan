@@ -90,6 +90,14 @@ A provider-agnostic **`StoragePort`** with S3-compatible semantics and an object
 
 **Keycloak**, confirmed. Move to production mode: database-backed, TLS, realm exported as code and committed, secrets in a manager. Dev mode does not reach staging.
 
+> **Superseded, 2026-07-30, by `docs/adr/ADR-025-supabase-platform-baseline.md` E1 (Proposed).**
+> Supabase Auth is now the forward identity-provider target; this paragraph is preserved as the
+> historical record of what was confirmed at the time, not edited or erased (Article XI §2 — the
+> observation governs the record; superseding, not silent rewriting, is how a confirmed decision
+> changes). The production-mode requirement stated here is unaffected in principle — dev mode must
+> not reach staging regardless of which identity provider is authoritative — and its migration is
+> tracked separately as infrastructure-hardening work, not decided by this note.
+
 ### 4.4 Payments
 
 **Paystack** only for pilot one. Stripe deferred; deferral is recorded, not assumed.
@@ -131,7 +139,7 @@ The order is constitutional (**Article X §4 — kernel first**), not a matter o
 5. **Local Docker** workflow verified end to end by someone who has not run it before.
 6. **Keycloak** realm exported as code and committed; secrets moved to a manager; dev mode off.
 7. **`StoragePort` skeleton and R2 adapter** (§7.2), so Evidence has a seam from the first day rather than a retrofit on the last.
-8. **Compute provider** chosen at deploy time — storage is already decoupled, so this decision is not urgent and should not be rushed. *Resolved administratively, 2026-07-30 (regularised under GD-006): **AWS**. `infra/terraform/versions.tf` declares the provider (region only, no resources). Formally captured at `docs/adr/ADR-024-delivery-platform-and-infrastructure-decisions.md` (Proposed, 2026-07-30) — see §11.1.*
+8. **Compute provider** chosen at deploy time — storage is already decoupled, so this decision is not urgent and should not be rushed. *Resolved administratively, 2026-07-30 (regularised under GD-006): **AWS**. `infra/terraform/versions.tf` declares the provider (region only, no resources). Formally captured at `docs/adr/ADR-024-delivery-platform-and-infrastructure-decisions.md` (**Accepted**, 2026-07-30) — see §11.1. **Superseded the same day** by `docs/adr/ADR-025-supabase-platform-baseline.md` E4 (Proposed): Supabase (Postgres + Edge Functions) and Vercel are now the forward compute target; the AWS provider block is preserved as a historical artifact, not deleted.*
 
 **Gate:** clean tree · CI green · repeatable local environment · staging design approved → Phase 1.
 
@@ -212,8 +220,9 @@ These are decisions, not code. **The build proceeds around them and stops only a
 | Working title | Content | Proposed number |
 |---|---|---|
 | Registry Ownership and Status History | §4.1 and §7 | ADR-023 — raised, Accepted 2026-07-30 |
-| Delivery Platform & Infrastructure Decisions | §4.2 to §4.4 — StoragePort, R2, WORM grades, Keycloak, Paystack, the AWS compute decision, and the secrets manager (undecided) | ADR-024 — raised, Proposed 2026-07-30 |
-| Pilot Non-Functional Targets | §4.5, including the N and X recording obligation | ADR-025 — not yet raised |
+| Delivery Platform & Infrastructure Decisions | §4.2 to §4.4 — StoragePort, R2, WORM grades, Keycloak, Paystack, the AWS compute decision, and the secrets manager (undecided) | ADR-024 — raised, **Accepted** 2026-07-30 (identity and compute sections superseded same day — see next row) |
+| Supabase Platform Baseline (Identity, Storage & Compute) | Supersedes ADR-004 §1 and ADR-024 D2/D4: Supabase Auth, Supabase-hosted Postgres/RLS, Supabase Storage (R2 as WORM-grade escalation adapter), Supabase Edge Functions (additive only — ADR-002 unaffected) | ADR-025 — raised, Proposed 2026-07-30 |
+| Pilot Non-Functional Targets | §4.5, including the N and X recording obligation | ADR-026 — not yet raised (renumbered from the originally-earmarked ADR-025, which ADR-025 above now occupies, per this session's explicit direction) |
 
 ### 11.2 The numbering floor
 

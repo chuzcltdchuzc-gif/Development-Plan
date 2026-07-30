@@ -1,8 +1,14 @@
 # ADR-024 — Delivery Platform & Infrastructure Decisions
 
-**Status:** Proposed — 2026-07-30. No code has been written under this ADR. It records decisions
-already directed by `docs/EXECUTION_PLAN.md` §4.2–§4.4 and §7.2, plus the AWS compute-provider note
-that has so far lived only inline in `CLAUDE.md` and §6 step 8; it authorises nothing new.
+**Status:** Accepted — 2026-07-30. No code has been written under this ADR; acceptance does not
+itself authorise implementation beyond what already exists. **Acceptance was deliberately held
+back once, earlier the same day**, not because of any defect in D1/D3/D5, but because D2 and D4, as
+first written, were already partially superseded by a same-day platform-baseline decision
+(Supabase). Accepting this ADR unmodified while D2/D4 were already stale would have ratified a
+contradiction. It was corrected first — the Technology Replacement Principle was added below, and
+D1/D2/D4 were each given a superseded-or-refined cross-reference to
+`docs/adr/ADR-025-supabase-platform-baseline.md` (Proposed) — and is accepted now on that corrected
+basis.
 
 **Date:** 2026-07-30
 
@@ -37,7 +43,14 @@ inventory.
 
 ## Decision
 
-### D1 — Object storage: `StoragePort`, Cloudflare R2 pilot adapter, WORM grading
+### D1 — Object storage: `StoragePort`, Cloudflare R2 pilot adapter, WORM grading *(refined 2026-07-30 — see below)*
+
+> **Refined, not superseded, by `docs/adr/ADR-025-supabase-platform-baseline.md` E3 (same day,
+> 2026-07-30).** Supabase Storage becomes the primary/default adapter behind `StoragePort` for
+> ordinary evidence storage; Cloudflare R2 remains the adapter for sealed evidence needing
+> immutable, `governance`-grade retention, exactly the "future immutable archive" role this section
+> already reserved for it. The abstraction below — the port, the WORM-grade table, the
+> without-code-change escalation guarantee — is unchanged; only the primary adapter target changes.
 
 A provider-agnostic **`StoragePort`** (`put` / `get` / `list`, plus `putImmutable(retention)` and
 `wormGrade()`) is the only way any bounded context touches object storage (Article X §5 — **no
@@ -73,7 +86,13 @@ its schema decision before any migration existed.
   §4.2 names R2 as the pilot default, and deciding the compliance-grade backend before the
   data-residency requirement is confirmed would be arguing ahead of the evidence.
 
-### D2 — Identity provider: Keycloak, confirmed
+### D2 — Identity provider: Keycloak, confirmed *(superseded 2026-07-30 — see below)*
+
+> **Superseded by `docs/adr/ADR-025-supabase-platform-baseline.md` E1 (same day, 2026-07-30).**
+> Supabase Auth is now the forward identity-provider target. This section is preserved as the
+> historical record of what was decided and confirmed at the time — not edited or erased — per the
+> standing rule against overwriting the record. Do not treat D2 below as the current forward
+> decision; treat ADR-025 E1 as current.
 
 `docs/adr/ADR-004-authentication-authorisation-model.md` left Keycloak vs. Auth0 as an explicit
 open sub-decision, recommending Keycloak (self-hosted data residency for government/citizen PII;
@@ -123,7 +142,15 @@ precedes its implementation.
 at the architecture level; this ADR only narrows *which one is active for pilot one*, a delivery
 scoping decision, not a re-opening of ADR-006's provider architecture.
 
-### D4 — Compute/cloud provider: AWS, an interim, low-stakes decision
+### D4 — Compute/cloud provider: AWS, an interim, low-stakes decision *(superseded 2026-07-30 — see below)*
+
+> **Superseded by `docs/adr/ADR-025-supabase-platform-baseline.md` E4 (same day, 2026-07-30).**
+> Supabase (Postgres + Edge Functions) and Vercel are now the forward compute-platform target; AWS
+> is no longer part of the forward baseline. This section is preserved as the historical record of
+> what was decided at the time — not edited or erased. Do not treat D4 below as the current forward
+> decision; treat ADR-025 E4 as current. The reasoning below (why this was low-stakes as made) still
+> explains why superseding it costs nothing beyond a Terraform edit — no resource was ever
+> provisioned against it.
 
 `infra/terraform/versions.tf` declares the `hashicorp/aws` provider (region `eu-west-2` default,
 provider block only — **no resources**). Decided 2026-07-30; until this ADR, recorded only as an
@@ -161,6 +188,25 @@ AWS remains the compute provider when this is decided, AWS Secrets Manager is an
 but that is not a decision this ADR makes, and no rationale is manufactured to make this section
 look more finished than the actual state of the decision.
 
+## Technology Replacement Principle
+
+Added 2026-07-30, on governance direction, ahead of this ADR's acceptance decision:
+
+- The technologies named within this ADR — Cloudflare R2, Keycloak, Paystack, AWS — are
+  **implementation choices, not constitutional requirements.**
+- Any of them **may be replaced.** D2 and D4 already demonstrate this principle in effect, the same
+  day this ADR was first drafted: see the superseded-section notices on D2 and D4 above.
+- What must survive a replacement: the **stable contracts** a bounded context depends on (e.g.
+  `StoragePort`'s method signatures), the **architectural intent** behind the original decision
+  (e.g. "no bounded context calls a cloud SDK directly"), and **downstream compatibility** for
+  anything already built against the contract.
+- A migration away from a named technology is **governed by a superseding ADR** — never a silent
+  edit to this document. D2 and D4's superseded-section notices, and `ADR-025` itself, are the
+  precedent this principle now generalises.
+- Where a replacement is adopted, an **approved migration plan is mandatory** before implementation
+  begins; this ADR does not itself constitute one. `ADR-025` explicitly declines to decide migration
+  mechanics for the same reason (see its "Context" section).
+
 ## Alternatives considered (cross-cutting)
 
 A single narrative "cloud architecture" ADR naming every service touched, in the style of a
@@ -171,29 +217,39 @@ obscure exactly the ports-and-adapters distinctions this ADR exists to make expl
 
 ## Relationship to the frozen baseline
 
-- **ADR-004** — the open Keycloak-vs-Auth0 sub-decision is resolved (Keycloak). Every other part
-  of ADR-004 — the PDP/PEP/PIP design, the single-authorization-path guarantee, the role-hierarchy
-  check — is unchanged.
+- **ADR-004** — the open Keycloak-vs-Auth0 sub-decision was resolved here (Keycloak), then
+  superseded the same day by `ADR-025` E1 (Supabase Auth). Every other part of ADR-004 — the
+  PDP/PEP/PIP design, the single-authorization-path guarantee, the role-hierarchy check — is
+  unchanged throughout.
 - **ADR-006** — the Paystack/Stripe decision is narrowed to Paystack-only for pilot one. The
   atomic ledger, idempotency and webhook-verification architecture is unchanged and remains
-  provider-agnostic.
+  provider-agnostic. Unaffected by `ADR-025`.
 - **ADR-009 (B1 Platform Freeze)** — unaffected; this ADR extends the infrastructure surface those
   frozen decisions already run on top of, and touches none of them.
 - **ADR-016** — `StoragePort` follows the same "port before adapter" doctrine ADR-016 established
   for `GeometryPort`. ADR-016 itself is untouched.
-- No frozen decision requires amendment beyond the two narrowings above (ADR-004, ADR-006), both
-  of which `docs/EXECUTION_PLAN.md` already directed (§4.3, §4.4) rather than positions this ADR
-  invents.
+- **ADR-025** — supersedes D2 (identity) and D4 (compute) in full; refines D1 (storage) by
+  designating Supabase Storage the primary adapter, R2 the WORM-grade escalation adapter; leaves D3
+  and D5 unaffected. See ADR-025's own "Relationship to the frozen baseline" for the complete
+  picture, including its explicit confirmation that ADR-002 (FastAPI/DDD-hexagonal architecture)
+  is untouched.
+- No frozen decision requires amendment beyond the narrowings/supersessions named above, all of
+  which either `docs/EXECUTION_PLAN.md` or this session's governance direction already specified
+  rather than positions this ADR invents.
 
 ## Consequences
 
 - The AWS compute decision becomes a citable decision of record instead of an inline note in
-  `CLAUDE.md`/`EXECUTION_PLAN.md` — those documents are updated to point here rather than to carry
-  the substance themselves.
+  `CLAUDE.md`/`EXECUTION_PLAN.md` — those documents are updated to point here (and, for identity
+  and compute specifically, onward to `ADR-025`) rather than to carry the substance themselves.
 - What remains open after this ADR, stated plainly rather than rounded up to resolved: the secrets
   manager (D5, undecided); the required WORM grade and its data-residency driver (Phase 3, per
   `EXECUTION_PLAN.md` §10); the Keycloak `start-dev`-to-production migration (tracked separately,
   as infrastructure hardening, not by this ADR); any Stripe re-enablement timing (deferred, no
-  trigger recorded).
+  trigger recorded); `ADR-025`'s own acceptance, which is separate from and does not follow
+  automatically from this one.
 - No new authorization model, endpoint, or migration is introduced by this ADR. Nothing here
   changes the acceptance criteria of any other Proposed or Accepted ADR.
+- **This ADR being Accepted does not make `ADR-025` Accepted.** D2 and D4 above are historical
+  record, correctly marked superseded; the current forward decision for identity and compute lives
+  in `ADR-025`, which remains Proposed pending its own review.
