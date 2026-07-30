@@ -1,10 +1,18 @@
 # ADR-023 — Registry Ownership and Status History
 
-**Status:** Proposed — architecture only, no code written under this proposal. Requires review and
-explicit acceptance before implementation begins, the same discipline every prior Registry slice
-(ADR-013 through ADR-016) and every B4 ADR (ADR-018, ADR-019, ADR-021, ADR-022) has followed.
+**Status:** Accepted — 2026-07-30, after one revision addressing four governance requirements
+raised on review (migration/backfill strategy; append-only enforcement strengthened to two
+independent layers; explicit Unit-of-Work/transaction confirmation; explicit RLS parity
+confirmation). No code has been written under this ADR yet; acceptance authorizes implementation
+to begin.
 
-**Date:** 2026-07-30
+**Date:** 2026-07-30 (proposed and accepted same day, after revision)
+
+**Revision note:** The version first drafted described append-only enforcement, the transaction
+boundary, and RLS parity in prose, and was silent on backfill entirely. This revision makes all
+four explicit and, for append-only enforcement, adds a genuinely new mechanism (the trigger layer)
+rather than only restating the original privilege-based one more emphatically — see "Append-only,
+enforced at the database" and "Migration and backfill strategy" below.
 
 **Scope:** Registry only. Adds two append-only history tables (`parcel_ownership_history`,
 `parcel_status_history`), each populated as a side effect of the *existing* mutation commands
@@ -89,22 +97,48 @@ tables (per the Execution Plan's own naming), not one polymorphic table — each
 differently-shaped tables with no shared column at all and avoids inventing a discriminator column
 the Execution Plan doesn't ask for.
 
-### Append-only, enforced at the database, not only by convention
+### Append-only, enforced at the database, not only by convention — two independent layers
 
-Same shape as every other tenant-scoped table since migration `0001`: `GRANT SELECT, INSERT` only
-to `landvault_app` — **no UPDATE, no DELETE grant**. A correction is a new row with
-`supersedes_id` pointing at the row it supersedes; the superseded row is never touched. This is
-the same convention `parcels` already uses for "no DELETE, archival is the one-way removal path"
-(migration `0007`), extended here to mean "no UPDATE either" — because unlike `parcels` (whose
-current-state columns must remain mutable), a history table's entire purpose is that a row, once
-written, is a permanent fact about a point in time.
+A `GRANT`-only restriction is a convention that a future migration could silently loosen; this ADR
+does not rely on it alone. Two independent enforcement layers, both required, neither a substitute
+for the other:
 
-### RLS
+1. **Privilege layer** (as in the original draft): `GRANT SELECT, INSERT` only to `landvault_app`
+   — **no UPDATE, no DELETE grant**. Matches `parcels`' existing "no DELETE" convention (migration
+   `0007`), extended here to "no UPDATE either."
+2. **Structural layer (new in this revision):** a `BEFORE UPDATE OR DELETE` trigger on both
+   tables (`parcel_ownership_history_append_only`, `parcel_status_history_append_only`) that
+   unconditionally raises (`RAISE EXCEPTION 'parcel_ownership_history is append-only; use
+   supersedes_id, never UPDATE/DELETE'`), regardless of which role executes the statement. This is
+   the layer that actually answers "enforced at the database, not by convention alone": a
+   privilege grant depends on which role runs the query; a trigger depends on nothing but the table
+   itself, so even a future migration run as the schema-owning role — which necessarily bypasses
+   `landvault_app`'s privilege restriction, since it *is* how migrations alter these tables at all
+   — still cannot silently UPDATE or DELETE a row without first dropping the trigger explicitly, an
+   action that would itself have to appear, reviewable, in a migration diff.
 
-Identical `tenant_id = current_setting('app.tenant_id', true) OR current_setting('app.is_super_admin',
-true) = 'true'` policy, `FORCE`d, ships in the same migration as the `CREATE TABLE` (Article VIII
-§2; `docs/ENGINEERING_RULES.md` rule 1). No new isolation model — the same one every table in this
-codebase has used since migration `0001`.
+A correction is always a new row with `supersedes_id` pointing at the row it supersedes; the
+superseded row is never touched, by construction, not merely by policy.
+
+### RLS — identical in scope and strength to the Parcel aggregate's, confirmed
+
+Both tables carry **exactly** the policy `parcels` has used since migration `0001`, not a
+similar or independently-derived one:
+
+```sql
+tenant_id = current_setting('app.tenant_id', true)
+  OR current_setting('app.is_super_admin', true) = 'true'
+```
+
+Confirmed identical on every dimension that matters: same predicate text (copy-pasted into the new
+migration, not retyped from memory); `ENABLE ROW LEVEL SECURITY` **and** `FORCE ROW LEVEL SECURITY`
+on both new tables, matching `parcels` exactly (`FORCE` is what makes the policy bind even for the
+table-owning role — without it, RLS applies only to non-owning roles, which would be a strictly
+*weaker* guarantee than `parcels` has, and this ADR requires strength parity, not merely "RLS
+exists somewhere"); same session-variable mechanism (`app.tenant_id`, `app.is_super_admin`), set by
+the same request-scoped middleware, not a new one; created in the **same migration** as the
+`CREATE TABLE` statements (Article VIII §2), never as a follow-up. There is no dimension on which
+these tables' RLS is weaker, narrower, or later than the Parcel aggregate's.
 
 ### Basis
 
@@ -131,6 +165,22 @@ parcel's mutations, not part of the parcel's own mutable state, and `Parcel.upda
 `archive()` continue to know nothing about history-recording — that responsibility stays in
 `ParcelService`, which already orchestrates repository calls, exactly as it already orchestrates
 `self.allocator.allocate()` alongside `self.parcels.add()` in `create_parcel` (ADR-014).
+
+### Same Unit of Work, same transaction — confirmed, not implied
+
+History writes are **not** a separate step that could commit independently of the parcel mutation
+they record. `ParcelHistoryRepository`'s Postgres adapter is constructed from the identical
+`AsyncSession` as `PostgresParcelRepository` and `PostgresParcelNumberAllocator` — the same
+per-request Unit of Work (`app.kernel.uow.get_db_session`), wired through
+`app.contexts.registry.dependencies` exactly as those two already are (FastAPI's dependency
+caching resolves `get_db_session` once per request; every provider that depends on it shares one
+session, one transaction). Concretely, in `ParcelService.update_parcel`: the parcel's `UPDATE`,
+the history row's `INSERT`, and the audit entry's `INSERT` all happen against the same session
+before that request's transaction commits. If any one of the three fails, the whole transaction
+rolls back — there is no code path that persists a parcel mutation without its history row, or a
+history row without the mutation that produced it. This is the identical guarantee ADR-014 already
+established for parcel-number allocation ("a rollback undoes the counter increment along with
+everything else"); this ADR extends the same transaction boundary to cover history, not a new one.
 
 ### Events (audit)
 
@@ -168,17 +218,48 @@ implemented by this ADR — it is a cross-cutting CI check, not Registry-specifi
 tracked as follow-up work against `docs/EXECUTION_PLAN.md` §7.6's explicit requirement, to be
 implemented before this feature's test-matrix gate is considered satisfied.
 
+## Migration and backfill strategy
+
+**History begins at the migration epoch. No backfill is performed.** Parcels that already exist
+when migration `0011` runs (in this environment: whatever test/pilot parcels exist in the live
+Docker Postgres at migration time) receive **zero** `parcel_ownership_history` /
+`parcel_status_history` rows retroactively. This is a deliberate decision, not an oversight, stated
+explicitly here per Article II §8's own logic extended from doctrine to data: Registry has no
+reliable record of who asserted an existing parcel's current `current_owner_name` value, on what
+basis, or exactly when — only that it is the value now on the row. Synthesising a backfilled row
+that *looks* like a contemporaneous assertion (a `recorded_at` of "now," a `recorded_by` of
+whichever principal happens to run the migration, a fabricated `basis` like "backfilled") would
+misrepresent a migration-time snapshot as a recorded-at-the-time assertion — exactly the kind of
+manufactured provenance Article IV exists to prevent, applied to this ADR's own data rather than to
+a future feature's.
+
+The practical consequence: a parcel created before this migration shows no ownership/status history
+until its **next** mutation through `update_parcel`/`archive_parcel`, at which point the *first*
+history row is written honestly — describing the new assertion being made *then*, not a
+reconstruction of what was true before. A parcel's history being empty is therefore meaningful and
+readable on its own terms ("no assertion has been recorded under this mechanism since it existed"),
+never confused with "no assertion was ever made" (which the parcel's own `created_at`/
+`current_owner_name` already answer, unchanged, exactly as today). If a future need arises to
+report on pre-migration state, that is answered by querying `parcels` directly (which already
+carries `created_at` and the current reference) — not by this ADR inventing history that was never
+recorded.
+
 ## Migration
 
 One new migration (`0011`), owned entirely by Registry, additive only:
 
 - `CREATE TABLE parcel_ownership_history`, `CREATE TABLE parcel_status_history`.
-- RLS enabled + forced + policy created for both, in the same migration (Article VIII §2).
+- RLS enabled + forced + policy created for both, in the same migration (Article VIII §2), text
+  identical to `parcels`' existing policy (see "RLS" above).
 - `GRANT SELECT, INSERT` only — no `UPDATE`, no `DELETE`.
+- The append-only trigger function and both `BEFORE UPDATE OR DELETE` triggers, created in this
+  same migration (see "Append-only, enforced at the database" above) — not a follow-up migration.
 - Indexes: `(tenant_id)` on both (matching `ix_parcels_tenant`'s existing shape), `(parcel_id)` on
   both (the expected read pattern — "history for this parcel"), `(supersedes_id)` on both.
-- Tested `down`: drops both tables and their policies. No data migration is needed downward
-  because nothing existed in these tables before this migration created them.
+- No backfill statement of any kind (see "Migration and backfill strategy" above).
+- Tested `down`: drops both triggers, both trigger functions, both policies, and both tables. No
+  data migration is needed downward because nothing existed in these tables before this migration
+  created them, and nothing was backfilled into them either.
 
 No change to the `parcels` table itself. No change to `Parcel`'s domain contract, its
 `UPDATABLE_FIELDS`, or any existing endpoint's request/response shape (history is written, not yet
@@ -195,9 +276,11 @@ ADR's implementation is considered complete)
    (`address`, `title`, etc.) writes zero ownership rows.
 3. `archive_parcel` writes exactly one status row, `supersedes_id` pointing at the initial `ACTIVE`
    row.
-4. Append-only enforced at the database: an attempted `UPDATE`/`DELETE` against either table as
-   `landvault_app` fails (permission denied), proving the grant, not just the application code,
-   is what prevents mutation.
+4. Append-only enforced at the database, both layers independently: (a) an attempted
+   `UPDATE`/`DELETE` against either table as `landvault_app` fails on privilege (permission
+   denied); (b) an attempted `UPDATE`/`DELETE` run as the schema-owning migration role — which
+   bypasses (a) entirely — still fails, on the trigger raising its exception. Both must be
+   observed failing independently; passing only one would not prove the other layer exists.
 5. **Cross-tenant isolation, positive and negative:** tenant A cannot read tenant B's history rows
    (RLS); a `super_admin` can, across tenants (unchanged bypass).
 6. Every history row's `audit_ref` resolves to a real `AuditEntry`, and that entry's payload is
