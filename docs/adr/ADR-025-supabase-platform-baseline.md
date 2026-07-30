@@ -1,6 +1,11 @@
 # ADR-025 — Supabase Platform Baseline (Identity, Storage & Compute)
 
-**Status:** Proposed — 2026-07-30.
+**Status:** Accepted — 2026-07-30, on explicit governance direction. **Supabase Auth is the
+production identity provider; Keycloak is a retired evaluation** — recommended in ADR-004, confirmed
+in `EXECUTION_PLAN.md` §4.3 and `ADR-024` D2, implemented and verified through B1–B3, and now
+superseded. No code is authorised or required by this acceptance: it fixes the *target*, not a
+migration timeline, and Keycloak's implementation is not revisited to make this ADR true — it was
+already true when written.
 
 **Supersedes:** `docs/adr/ADR-004-authentication-authorisation-model.md` §1 only (the Keycloak/Auth0
 identity-provider choice); `docs/adr/ADR-024-delivery-platform-and-infrastructure-decisions.md` D2
@@ -56,17 +61,32 @@ Two things this ADR does **not** do, confirmed explicitly before drafting:
 
 ## Decision
 
-### E1 — Identity: Supabase Auth supersedes Keycloak as the forward target
+### E1 — Identity: Supabase Auth is the production identity provider; Keycloak is a retired evaluation
 
-Supabase Auth is now the authoritative identity provider for future work, superseding `ADR-004` §1
-and `ADR-024` D2. Keycloak was not a wrong decision when made — it was recommended in good faith on
-2026-07-13, confirmed on 2026-07-30, and implemented and verified (Docker Compose service, realm
-exported as code, live-infrastructure validation per `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md`).
-That work is **preserved as historical record, not erased.**
+**Supabase Auth is the production identity provider**, superseding `ADR-004` §1 and `ADR-024` D2.
+**Keycloak is a retired evaluation, not a forward-looking dependency of any kind.** Keycloak was not
+a wrong decision when made — it was recommended in good faith on 2026-07-13, confirmed on
+2026-07-30, and implemented and verified (Docker Compose service, realm exported as code,
+live-infrastructure validation per `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md`). That work is
+**preserved as historical record, not erased**, and required no re-litigation to reach this
+decision — retiring it does not mean it was done badly.
+
+**No future implementation is required or expected for Keycloak.** Specifically: the
+`start-dev`-to-production-mode hardening that was tracked as a separate infrastructure task (moving
+Keycloak to database-backed, TLS, explicit-hostname production mode) is **moot, not deferred** —
+production identity is Supabase Auth's job, not a hardened Keycloak's, so there is no future point
+at which Keycloak needs to reach production-grade configuration. **Phase 1** (`ADR-023`, Registry
+Ownership and Status History) has **zero Keycloak dependency already** — it introduces no new
+authorization mechanism and reuses `ADR-015`'s creator-or-governance check verbatim — so there is
+nothing to remove from Phase 1's implementation *plan*; this ADR simply makes explicit that no
+Keycloak-coupled code should be added going forward, in Phase 1 or after.
 
 Existing Keycloak artifacts — the `docker-compose` service, `infra/keycloak/realm-landvault.json`,
 the `KEYCLOAK_*` environment variables, and any backend code wired to Keycloak's JWKS endpoint —
-are preserved until governance decides to archive or remove them. This ADR does not delete or
+are preserved until governance decides to archive or remove them. **Docker itself is retained for
+local development** (Postgres, backend, frontend all continue to run locally via Docker Compose) —
+only Keycloak's role as the *production* identity target is retired, not Docker as a local-dev tool.
+This ADR does not delete or
 archive any of them; it only stops treating Keycloak as the target for *new* identity work.
 
 **What this ADR does not decide:** the migration mechanics — when existing sessions move, whether

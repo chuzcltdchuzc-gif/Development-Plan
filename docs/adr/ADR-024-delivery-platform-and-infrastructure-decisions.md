@@ -86,13 +86,19 @@ its schema decision before any migration existed.
   §4.2 names R2 as the pilot default, and deciding the compliance-grade backend before the
   data-residency requirement is confirmed would be arguing ahead of the evidence.
 
-### D2 — Identity provider: Keycloak, confirmed *(superseded 2026-07-30 — see below)*
+### D2 — Identity provider: Keycloak, confirmed *(superseded 2026-07-30 — now a retired evaluation)*
 
-> **Superseded by `docs/adr/ADR-025-supabase-platform-baseline.md` E1 (same day, 2026-07-30).**
-> Supabase Auth is now the forward identity-provider target. This section is preserved as the
-> historical record of what was decided and confirmed at the time — not edited or erased — per the
-> standing rule against overwriting the record. Do not treat D2 below as the current forward
-> decision; treat ADR-025 E1 as current.
+> **Superseded by `docs/adr/ADR-025-supabase-platform-baseline.md` E1 (Accepted, same day,
+> 2026-07-30).** **Supabase Auth is the production identity provider. Keycloak is a retired
+> evaluation** — its rationale below is preserved in full as the historical record of what was
+> decided and confirmed at the time, not edited or erased, per the standing rule against
+> overwriting the record. **No future implementation is required or expected for Keycloak**: the
+> `start-dev`-to-production hardening this ADR originally flagged as a separate task (see the
+> governance-constraint paragraph below) is now **moot, not deferred** — production identity is
+> Supabase Auth's responsibility. Phase 1 (`ADR-023`) already has zero Keycloak dependency, so
+> nothing changes in its implementation plan. Docker remains the local-development tool regardless
+> (Postgres, backend, frontend); only Keycloak's role as a *production* target is retired. Do not
+> treat D2 below as the current forward decision; treat `ADR-025` E1 as current.
 
 `docs/adr/ADR-004-authentication-authorisation-model.md` left Keycloak vs. Auth0 as an explicit
 open sub-decision, recommending Keycloak (self-hosted data residency for government/citizen PII;
@@ -107,14 +113,13 @@ The realm is exported as code at `infra/keycloak/realm-landvault.json` (first co
 `72dcc85`; correctness of that export is a separate, evidentiary concern being resolved in its own
 commit and is not re-litigated here).
 
-**Governance constraint, stated but not performed here:** `EXECUTION_PLAN.md` §4.3 requires
-production mode — database-backed, TLS, explicit hostname — before staging; dev mode must never
-reach staging. **This ADR records that requirement; it does not carry out the `start-dev`-to-
-production migration.** That migration is tracked as a separate infrastructure-hardening task, by
-this session's explicit direction, so that a platform *decision* (which IdP, on what terms) stays
-separate from an infrastructure *hardening* activity (how the currently-decided IdP is deployed
-safely). Conflating the two would make this ADR a checklist of deployment steps rather than a
-decision record.
+**Governance constraint, historical — since mooted:** `EXECUTION_PLAN.md` §4.3 required production
+mode — database-backed, TLS, explicit hostname — before staging; dev mode was never to reach
+staging. At the time this ADR was first drafted, that migration was tracked as a separate
+infrastructure-hardening task, kept apart from this platform decision. **`ADR-025` E1 moots that
+hardening task entirely**, not merely defers it: since Keycloak is now a retired evaluation rather
+than the production identity provider, there is no future point at which Keycloak needs to reach
+production-grade configuration. Nothing further is owed against this paragraph.
 
 **Alternatives considered:** Auth0 — the fallback ADR-004 already named; not re-argued here since
 ADR-004's reasoning stands and nothing has changed it.
@@ -244,12 +249,11 @@ obscure exactly the ports-and-adapters distinctions this ADR exists to make expl
   and compute specifically, onward to `ADR-025`) rather than to carry the substance themselves.
 - What remains open after this ADR, stated plainly rather than rounded up to resolved: the secrets
   manager (D5, undecided); the required WORM grade and its data-residency driver (Phase 3, per
-  `EXECUTION_PLAN.md` §10); the Keycloak `start-dev`-to-production migration (tracked separately,
-  as infrastructure hardening, not by this ADR); any Stripe re-enablement timing (deferred, no
-  trigger recorded); `ADR-025`'s own acceptance, which is separate from and does not follow
-  automatically from this one.
+  `EXECUTION_PLAN.md` §10); any Stripe re-enablement timing (deferred, no trigger recorded). The
+  Keycloak `start-dev`-to-production migration is **no longer an open item at all** — `ADR-025` E1
+  moots it, since Keycloak will never be the production identity provider.
 - No new authorization model, endpoint, or migration is introduced by this ADR. Nothing here
   changes the acceptance criteria of any other Proposed or Accepted ADR.
-- **This ADR being Accepted does not make `ADR-025` Accepted.** D2 and D4 above are historical
-  record, correctly marked superseded; the current forward decision for identity and compute lives
-  in `ADR-025`, which remains Proposed pending its own review.
+- **`ADR-025` is also now Accepted** (same day, on explicit governance direction). D2 and D4 above
+  are historical record, correctly marked superseded, not the current forward decision; `ADR-025`
+  is current for identity and compute.
