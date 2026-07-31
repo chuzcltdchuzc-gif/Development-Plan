@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.contexts.registry.domain.history import OwnershipAssertion, StatusAssertion
 from app.contexts.registry.domain.parcel import Parcel
 
 
@@ -15,6 +16,23 @@ class ParcelRepository(Protocol):
     async def get(self, parcel_id: str) -> Parcel | None: ...
     async def list_for_tenant(self, tenant_id: str) -> list[Parcel]: ...
     async def update(self, parcel: Parcel) -> Parcel: ...
+
+
+class ParcelHistoryRepository(Protocol):
+    """Append-only ownership/status assertion history (B3, docs/adr/ADR-023).
+    `record_ownership`/`record_status` are the only write path — there is
+    no update/delete method on this Protocol at all, matching the two-layer
+    database enforcement (migrations/versions/0011): the absence of an
+    update/delete method here is a mirror of that guarantee in the port
+    shape, not a substitute for it. `latest_ownership`/`latest_status` exist
+    so ParcelService can resolve `supersedes_id` without ParcelService
+    itself tracking history state — the same "ask the repository, don't
+    duplicate its state" shape ParcelRepository already has."""
+
+    async def record_ownership(self, assertion: OwnershipAssertion) -> OwnershipAssertion: ...
+    async def record_status(self, assertion: StatusAssertion) -> StatusAssertion: ...
+    async def latest_ownership(self, parcel_id: str) -> OwnershipAssertion | None: ...
+    async def latest_status(self, parcel_id: str) -> StatusAssertion | None: ...
 
 
 class ParcelNumberAllocator(Protocol):

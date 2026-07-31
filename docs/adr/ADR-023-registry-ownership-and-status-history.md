@@ -1,10 +1,19 @@
 # ADR-023 — Registry Ownership and Status History
 
-**Status:** Accepted — 2026-07-30, after one revision addressing four governance requirements
-raised on review (migration/backfill strategy; append-only enforcement strengthened to two
-independent layers; explicit Unit-of-Work/transaction confirmation; explicit RLS parity
-confirmation). No code has been written under this ADR yet; acceptance authorizes implementation
-to begin.
+**Status:** Accepted — Implemented, 2026-07-31. Migration `0011`, the domain value objects
+(`OwnershipAssertion`/`StatusAssertion`), the `ParcelHistoryRepository` port with its Postgres
+adapter and in-memory fake, and the history-writing calls inside `create_parcel`/`update_parcel`/
+`archive_parcel` are merged on `feat/adr-023-ownership-status-history`. Verified: 158/158 tests
+passing (148 pre-existing + 10 new), `ruff`/`mypy` clean, and a full live rehearsal against real
+Docker Postgres — migration up/down/up repeatability, RLS cross-tenant isolation, both independent
+append-only layers, FK parent-relationship enforcement, and end-to-end HTTP creation/update/archive
+flows with `audit_ref` resolving to real, payload-consistent audit entries. See the implementation
+report for exact evidence and the one honestly-flagged gap: "no orphan row on failure" is backed by
+a unit test plus the kernel's existing rollback-on-exception behavior, not a live fault-injection
+demonstration. Originally accepted 2026-07-30, after one revision addressing four governance
+requirements raised on review (migration/backfill strategy; append-only enforcement strengthened to
+two independent layers; explicit Unit-of-Work/transaction confirmation; explicit RLS parity
+confirmation).
 
 **Date:** 2026-07-30 (proposed and accepted same day, after revision)
 
@@ -261,12 +270,29 @@ One new migration (`0011`), owned entirely by Registry, additive only:
   data migration is needed downward because nothing existed in these tables before this migration
   created them, and nothing was backfilled into them either.
 
+**Implementation note, 2026-07-31:** live rehearsal against Docker Postgres (upgrade 0010→0011,
+downgrade back, upgrade again) caught a real defect the design text above could not have revealed —
+the first implementation attempt built both tables from one shared tuple of SQLAlchemy `Column`/
+`ForeignKey` objects, which silently dropped every foreign key except the self-referencing
+`supersedes_id` on the second table created (`parcel_status_history`), confirmed via `\d` against
+the live database. Fixed by generating fresh `Column` objects per table. Recorded here per Article
+XI §2 — the observation governs, and this is exactly the class of defect "tested up/down" is
+supposed to catch, not merely assert.
+
 No change to the `parcels` table itself. No change to `Parcel`'s domain contract, its
 `UPDATABLE_FIELDS`, or any existing endpoint's request/response shape (history is written, not yet
 exposed — a read endpoint is explicitly deferred, see "Consequences").
 
 ## Test matrix (per `docs/EXECUTION_PLAN.md` §7.6 — all to be *observed*, not assumed, before this
 ADR's implementation is considered complete)
+
+**Observed, 2026-07-31** — items 1–6 and 8 confirmed both by the automated suite
+(`backend/tests/test_registry_ownership_status_history.py`, 10 new tests, in-memory fakes) and by
+a live rehearsal against real Docker Postgres (RLS, both append-only layers, FK enforcement, and
+real end-to-end HTTP create/update/archive flows with `audit_ref` resolution — see the
+implementation report for the exact evidence). Item 7 observed live: upgrade 0010→0011, downgrade
+back to 0010 with full object removal confirmed, upgrade again, repeatably. Item 9 remains
+genuinely unimplemented, as stated below — not claimed as satisfied.
 
 1. Creating a parcel with an owner reference writes exactly one `parcel_ownership_history` row and
    one `parcel_status_history` row (the initial `ACTIVE` assertion); creating one with no owner
