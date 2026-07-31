@@ -26,6 +26,7 @@ from app.contexts.identity.dependencies import (
 from app.contexts.registry.api import parcel_router
 from app.contexts.registry.dependencies import (
     get_geometry_port,
+    get_parcel_history_repository,
     get_parcel_number_allocator,
     get_parcel_repository,
 )
@@ -52,6 +53,7 @@ from tests.fakes.identity import (
 from tests.fakes.jwks import FakeKeycloak
 from tests.fakes.registry import (
     FakeGeometryPort,
+    InMemoryParcelHistoryRepository,
     InMemoryParcelNumberAllocator,
     InMemoryParcelRepository,
 )
@@ -69,6 +71,7 @@ class AppHarness:
     delegations: InMemoryDelegationRepository
     parcels: InMemoryParcelRepository
     parcel_numbers: InMemoryParcelNumberAllocator
+    parcel_history: InMemoryParcelHistoryRepository
     geometry: FakeGeometryPort
     parcel_geometries: InMemoryParcelGeometryRepository
     identity_provider: FakeIdentityProvider
@@ -84,6 +87,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     delegations = InMemoryDelegationRepository()
     parcels = InMemoryParcelRepository()
     parcel_numbers = InMemoryParcelNumberAllocator()
+    parcel_history = InMemoryParcelHistoryRepository()
     geometry = FakeGeometryPort()
     parcel_geometries = InMemoryParcelGeometryRepository()
     parcel_existence = FakeParcelExistencePort(parcels)
@@ -114,6 +118,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_delegation_repository] = lambda: delegations
     app.dependency_overrides[get_parcel_repository] = lambda: parcels
     app.dependency_overrides[get_parcel_number_allocator] = lambda: parcel_numbers
+    app.dependency_overrides[get_parcel_history_repository] = lambda: parcel_history
     app.dependency_overrides[get_geometry_port] = lambda: geometry
     app.dependency_overrides[get_parcel_geometry_repository] = lambda: parcel_geometries
     app.dependency_overrides[get_parcel_existence_port] = lambda: parcel_existence
@@ -144,6 +149,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         delegations=delegations,
         parcels=parcels,
         parcel_numbers=parcel_numbers,
+        parcel_history=parcel_history,
         geometry=geometry,
         parcel_geometries=parcel_geometries,
         identity_provider=identity_provider,

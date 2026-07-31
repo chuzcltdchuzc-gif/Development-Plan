@@ -1,8 +1,11 @@
 # Phase 1 Implementation Plan — Registry Ownership and Status History
 
-**Status:** Draft, pending acceptance. No code is written under this plan until accepted.
+**Status:** Implemented, 2026-07-31, on branch `feat/adr-023-ownership-status-history`. All 11
+steps in the Implementation Sequence below are complete; full evidence (test results, live
+migration rehearsal, ADR traceability) is in the implementation/acceptance report. Pending: PR
+review and CI, per the governing execution sequence's own gate.
 **Date:** 2026-07-31
-**Implements:** `docs/adr/ADR-023-registry-ownership-and-status-history.md` (Accepted, 2026-07-30) — exactly as written. This plan does not add, narrow, or reinterpret any decision ADR-023 already made; it sequences and operationalises it.
+**Implements:** `docs/adr/ADR-023-registry-ownership-and-status-history.md` (Accepted — Implemented, 2026-07-31) — exactly as written. This plan does not add, narrow, or reinterpret any decision ADR-023 already made; it sequences and operationalises it.
 
 ## Executive Summary
 
@@ -52,7 +55,7 @@ Extend Registry without adding a second authorization path, a second transaction
 | ADR-024 (Delivery Platform) | Accepted | **Zero dependency.** No storage, payment, or compute surface is touched |
 | `ENGINEERING_RULES.md` §10 (non-adjudication check) | Not yet implemented | Tracked separately (see "Definition of Done") — this plan's test matrix does not claim to satisfy it |
 | Migration `0010` (`parcel_geometries`) | Merged | Confirms `0011` is the correct next migration number (verified: `backend/migrations/versions/` highest file is `0010_parcel_geometries.py`) |
-| Test baseline | Verified green, 2026-07-31: 148 passed, 0 failed; `ruff check`: clean; `mypy`: clean, 106 files | The baseline this plan's own gate (148 + N green) is measured against |
+| Test baseline | Verified green, 2026-07-31: 148 passed, 0 failed; `ruff check`: clean; `mypy`: clean, 106 files. **Post-implementation: 158 passed (148 + 10 new), `ruff`/`mypy` clean, 109 files.** | The baseline this plan's own gate (148 + N green) is measured against |
 
 ## Affected Components
 
