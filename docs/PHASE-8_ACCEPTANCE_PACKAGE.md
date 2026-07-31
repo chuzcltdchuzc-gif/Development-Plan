@@ -1,8 +1,12 @@
 # Phase 8 Acceptance Package — ADR-023 (Registry Ownership and Status History)
 
 **Subject:** PR #2, `feat/adr-023-ownership-status-history` → `main`
-**Status:** ACCEPT WITH CONDITIONS — both conditions now GREEN. Held at the merge gate for explicit
-approval; not merged by this package.
+**Status:** ACCEPTED AND MERGED. This package was originally prepared, and both conditions verified
+GREEN, before PR #2 was merged — at that point it correctly held at the merge gate awaiting explicit
+approval, stating "not merged by this package." That approval was given and PR #2 was merged
+2026-07-31T15:38:34Z as squash commit `1601564b554a43dc70846d0e6b61631e8933ffbd`, finalized in the
+separately-recorded ADR-023 Final Acceptance Record. This correction updates that one now-stale
+statement to the actual final state; no other content in this package has changed.
 **Date:** 2026-07-31
 **Governance sequence applied:** Observe → Implement → Test → Verify → Document → Review → CI →
 Acceptance → Explicit Merge
@@ -193,4 +197,7 @@ All required evidence is GREEN:
 - [x] No new architectural decision introduced; ADR-023 unchanged in substance
 - [x] `docs/ENGINEERING_RULES.md` §10 correctly left marked as NOT implemented — not falsely closed
 
-**PR #2 has not been merged.** Per governance rule, this package stops here for explicit approval.
+**PR #2 is merged** (squash commit `1601564b554a43dc70846d0e6b61631e8933ffbd`, 2026-07-31T15:38:34Z),
+following explicit governance approval given after this package was originally presented at the
+merge gate. See the ADR-023 Final Acceptance Record for the post-merge verification (main CI green,
+Alembic head `0011`, ADR-023 code confirmed present on `main`).
