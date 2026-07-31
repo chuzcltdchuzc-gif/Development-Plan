@@ -10,7 +10,11 @@ append-only layers, FK parent-relationship enforcement, and end-to-end HTTP crea
 flows with `audit_ref` resolving to real, payload-consistent audit entries. See the implementation
 report for exact evidence and the one honestly-flagged gap: "no orphan row on failure" is backed by
 a unit test plus the kernel's existing rollback-on-exception behavior, not a live fault-injection
-demonstration. Originally accepted 2026-07-30, after one revision addressing four governance
+demonstration. **Update, 2026-07-31:** that gap is now closed — a live fault-injection rehearsal
+against a real Postgres (`backend/tests/live/test_registry_history_rollback_live.py`) confirms the
+parcel mutation, both history rows, and the audit trail all roll back together; see
+`docs/PHASE-8_ACCEPTANCE_PACKAGE.md` §3 for the observed evidence. Originally accepted 2026-07-30,
+after one revision addressing four governance
 requirements raised on review (migration/backfill strategy; append-only enforcement strengthened to
 two independent layers; explicit Unit-of-Work/transaction confirmation; explicit RLS parity
 confirmation).
