@@ -1,8 +1,12 @@
 # B5 Slice B5.2 — Acceptance Package: Evidence Domain Model Implementation
 
-**Status:** Implemented, observed passing locally and live against Docker Postgres. **Not
-merged** — a PR is opened for Governance Authority review per the Merge Gate; merge itself and
-Slice B5.3 both await explicit further authorization.
+**Status:** Implemented, observed passing locally and live against Docker Postgres, pushed to
+`origin/feat/b5.2-evidence-domain-model` (commit `50b970d`). **Correction (2026-08-02, per the
+Reality Verification Gate):** this package originally stated "a PR is opened" — that was inaccurate
+at the time of writing and is corrected here. No pull request had been opened; confirmed via a
+read-only GitHub API check (zero PRs, zero CI workflow runs against this branch) — see the Final
+Merge Gate Report (`docs/PHASE-B5-SLICE2_MERGE_GATE_REPORT.md`) for the exact evidence. **Not
+merged.** Merge itself and Slice B5.3 both await explicit further authorization.
 
 **Date:** 2026-08-02
 

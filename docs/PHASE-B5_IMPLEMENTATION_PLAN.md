@@ -1,11 +1,15 @@
 # B5 — Evidence Context: Repository Assessment, ADR Determination & Implementation Plan
 
-**Status:** Planning package only. **No code, migration, or PR accompanies this document.** Produced
-under a Governance Authority planning authorization ("Master Implementation Authorization — B5
-Evidence Context"), Phase 1–5 of that authorization. Awaiting Governance Authority review before any
-implementation begins.
+**Status:** Planning package, **superseded in part by implementation progress** (this note is an
+implementation-progress record only — no architectural decision in this document has changed).
+`docs/adr/ADR-026-evidence-domain-model.md` (Slice B5.0's own deliverable, below) is now
+**Accepted**. **Slice B5.1 (`StoragePort`) and Slice B5.2 (`EvidenceRecord` domain model, migration
+`0012`) are implemented and live-verified**, on branch `feat/b5.2-evidence-domain-model` (commit
+`50b970d`), **not yet merged to `main`** — see `docs/PHASE-B5-SLICE1_ACCEPTANCE_PACKAGE.md` and
+`docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` for full evidence. Slices B5.3 onward remain exactly as
+planned below — not authorized, not begun.
 
-**Date:** 2026-08-01
+**Date:** 2026-08-01 (planning); implementation progress recorded 2026-08-02.
 
 **Author's note on scope discipline:** this document follows the same evidentiary standard as
 ADR-023 and `docs/ENGINEERING_RULES.md` §10 — every claim below is either a direct citation of a file
@@ -565,6 +569,9 @@ Slice B5.0.
 
 ### Slice B5.0 — Evidence domain-model ADR (governance only, no code)
 
+**Status (2026-08-02): Complete.** `docs/adr/ADR-026-evidence-domain-model.md` drafted and
+**Accepted** by Governance Authority.
+
 - **Purpose:** satisfy LV-000 v1.8 Article VI §1 ("Architecture Before Code") for the new
   `EvidenceRecord` aggregate, before any migration exists — the same step ADR-013 took for `Parcel`
   and ADR-018 took for `ParcelGeometry`.
@@ -579,6 +586,12 @@ Slice B5.0.
 - **Phase gate:** blocks every subsequent slice, exactly as ADR-013 blocked B3 Slice 1's code.
 
 ### Slice B5.0b — Rule §10 non-adjudication CI check (Finding 2 closure)
+
+**Status (2026-08-02): Moot — already resolved independently.** Engineering Rules §10 was
+implemented as its own governed slice ("Phase 9", PR #7, commit `88448e4`) before this B5 slice
+began, covering the Registry surface — see `docs/PHASE-9_ACCEPTANCE_PACKAGE.md`. Extending its
+blocklist/scan surface to a future Evidence API response is noted as follow-up work for whichever
+slice adds that surface (B5.3), not a prerequisite slice of its own.
 
 - **Purpose:** close the still-outstanding Phase 1 gate item (`EXECUTION_PLAN.md` §7.6 item 9) before
   Evidence — a second, higher-risk adjudication-adjacent surface — ships without it.
@@ -595,6 +608,15 @@ Slice B5.0.
 
 ### Slice B5.1 — `StoragePort` + Supabase Storage + Cloudflare R2 adapters
 
+**Status (2026-08-02): Partially complete — Protocol implemented and live-verified against a
+hermetic fake; real adapters deliberately not built.** `app/contexts/evidence/ports.py`
+(`StoragePort`) and `backend/tests/fakes/storage.py` (`InMemoryStoragePort`) exist, with 11 passing
+tests (`backend/tests/test_storage_port.py`). Real `supabase_storage.py`/`r2_storage.py` adapters
+were **not** built, and this is a deliberate scope decision, not an oversight: both require a new
+external dependency (`docs/ENGINEERING_RULES.md` rule 5 — needs explicit human approval) and real
+credentials for a live rehearsal (rule 7), neither available to this implementation session. See
+`docs/PHASE-B5-SLICE1_ACCEPTANCE_PACKAGE.md` for full evidence.
+
 - **Purpose:** close the R1 gap (§7) — the storage seam `docs/EXECUTION_PLAN.md` §7.2 expected to
   already exist.
 - **Files affected:** new kernel-level or Evidence-owned `ports.py` (`StoragePort` Protocol,
@@ -610,6 +632,14 @@ Slice B5.0.
 - **Rollback:** adapter swap, no code change to callers (none exist yet at this slice).
 
 ### Slice B5.2 — Evidence aggregate, repository, migration `0012`
+
+**Status (2026-08-02): Complete, live-verified, not yet merged.** `EvidenceRecord`,
+`EvidenceRepository` (Postgres + in-memory adapters), `EvidenceService`, DI wiring, and migration
+`0012` are all implemented on branch `feat/b5.2-evidence-domain-model` (commit `50b970d`). Migration
+`0012` was rehearsed live against Docker Postgres: up/down/up repeatability, RLS positive/negative
+isolation, `super_admin` bypass, mutable `UPDATE`, `DELETE` denied at the grant level. 34 new tests,
+`ruff`/`mypy` clean, 215/215 passing. See `docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` for full
+evidence. **Not merged to `main`** — awaiting Governance Authority merge authorization.
 
 - **Purpose:** the `EvidenceRecord` domain object and its persistence, no upload endpoint yet.
 - **Files affected:** `backend/app/contexts/evidence/{domain,ports.py,adapters/orm.py,

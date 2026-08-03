@@ -13,7 +13,7 @@ number. Bare article numbers are ambiguous across the historical lineages, and t
 what reached shipped code in the first place. See `docs/GOVERNANCE_BASELINE.md` for the full
 reconciliation record.
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) is the current production architectural baseline: the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), a geometry port boundary for future spatial capability, and — as of 2026-07-31 — append-only ownership and status assertion history (`docs/adr/ADR-023-registry-ownership-and-status-history.md`, Accepted — Implemented; migration `0011`) — see "B3 status" below. **`docs/ENGINEERING_RULES.md` #10 (the non-adjudication automated check, LV-000 v1.8 Article IV §4) is now implemented** (Phase 9, `docs/PHASE-9_IMPLEMENTATION_PLAN.md` / `docs/PHASE-9_ACCEPTANCE_PACKAGE.md`, PR #7, merged `88448e4`) — two independent scanning layers (static AST source scan, real API-response-content scan) running inside the existing required `pytest` CI job. **170/170 backend tests passing, 1 skipped** (the live-only Postgres rollback rehearsal, `backend/tests/live/`). B4 (Spatial Intelligence) has begun and progressed past discovery: Slices 1 and 2 are accepted and frozen under ADR-022, ADR-021 (Spatial Conflict Detection) is drafted and awaiting acceptance, and Slice 3 remains unauthorized — see "B4 status" below.**
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) is the current production architectural baseline: the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), a geometry port boundary for future spatial capability, and — as of 2026-07-31 — append-only ownership and status assertion history (`docs/adr/ADR-023-registry-ownership-and-status-history.md`, Accepted — Implemented; migration `0011`) — see "B3 status" below. **`docs/ENGINEERING_RULES.md` #10 (the non-adjudication automated check, LV-000 v1.8 Article IV §4) is now implemented** (Phase 9, `docs/PHASE-9_IMPLEMENTATION_PLAN.md` / `docs/PHASE-9_ACCEPTANCE_PACKAGE.md`, PR #7, merged `88448e4`) — two independent scanning layers (static AST source scan, real API-response-content scan) running inside the existing required `pytest` CI job. **170/170 backend tests passing, 1 skipped** (the live-only Postgres rollback rehearsal, `backend/tests/live/`). B4 (Spatial Intelligence) has begun and progressed past discovery: Slices 1 and 2 are accepted and frozen under ADR-022, ADR-021 (Spatial Conflict Detection) is drafted and awaiting acceptance, and Slice 3 remains unauthorized — see "B4 status" below. B5 (Evidence) has begun: `docs/adr/ADR-026-evidence-domain-model.md` is **Accepted**, and Slice B5.1 (`StoragePort`) and Slice B5.2 (`EvidenceRecord` aggregate, migration `0012`) are implemented and live-verified — **on branch `feat/b5.2-evidence-domain-model`, not yet merged to `main`** — see "B5 status" below.**
 
 Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified locally now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks); Docker remains the local-development target regardless of the platform-baseline note below. Cloud (staging/production) environments do not exist yet. Delivery-platform infrastructure decisions (storage, identity, payments, compute at the time, secrets manager) are captured at `docs/adr/ADR-024-delivery-platform-and-infrastructure-decisions.md` (**Accepted**, 2026-07-30). **The identity provider and compute/cloud provider named there (Keycloak, AWS) were superseded the same day** by `docs/adr/ADR-025-supabase-platform-baseline.md` (**Accepted**, 2026-07-30): **Supabase Auth is the production identity provider — Keycloak is a retired evaluation**, with no future implementation owed against it (the previously-tracked `start-dev`-to-production hardening task is moot, not deferred). **Supabase-hosted PostgreSQL**, **Supabase Storage** (primary; Cloudflare R2 remains the WORM-grade escalation adapter), and **Supabase Edge Functions** (additive only — the existing FastAPI backend, ADR-002, is unchanged) are the production platform target, with **Vercel** as frontend hosting and **Docker retained for local development only** (Postgres, backend, frontend). Keycloak and the AWS Terraform provider block are preserved as historical artifacts, not deleted, pending a future archival decision.
 
@@ -293,6 +293,37 @@ own discovery, not decided here. A constitutional recommendation for the eventua
 boundary, restating `docs/ENGINEERING_RULES.md` rule 9 at constitutional altitude — recorded, not
 adopted; LV-000 does not exist yet. **None of this authorizes B4 Slice 3.** It remains gated on
 ADR-021's explicit acceptance.
+
+## B5 status (Evidence) — ADR-026 Accepted; Slices B5.1–B5.2 implemented, live-verified, not yet merged
+
+`docs/adr/ADR-026-evidence-domain-model.md` is **Accepted**. `docs/PHASE-B5_IMPLEMENTATION_PLAN.md`
+is the accepted Phase 1–5 planning package; `docs/PHASE-B5-SLICE1_ACCEPTANCE_PACKAGE.md` and
+`docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` are the per-slice evidence records.
+
+**Slice B5.1 — `StoragePort`** (`app/contexts/evidence/ports.py`): the provider-agnostic
+object-storage Protocol (`put`/`get`/`list_keys`/`put_immutable`/`worm_grade`), governed by
+`docs/adr/ADR-024-delivery-platform-and-infrastructure-decisions.md` D1 and `docs/adr/
+ADR-025-supabase-platform-baseline.md` E3 (both already Accepted — this slice implements, not
+redecides). Only an in-memory fake (`backend/tests/fakes/storage.py`) exists — no real Supabase
+Storage or Cloudflare R2 adapter, since both require a new external dependency
+(`docs/ENGINEERING_RULES.md` rule 5, needs explicit approval) and live credentials this programme
+does not yet have (rule 7).
+
+**Slice B5.2 — `EvidenceRecord` domain model** (`app/contexts/evidence/{domain,adapters,
+application,dependencies.py}`, migration `0012`): the aggregate (`RECEIVED → HASHED → SEALED`
+lifecycle, legal hold, storage/provenance fields), `EvidenceRepository` port + Postgres/in-memory
+adapters, `EvidenceService`, and DI wiring — no upload endpoint, no hash computation, no physical
+WORM sealing, no chain-of-custody or legal-hold *workflow*, all explicitly deferred to later
+slices per ADR-026's own scope. 34 new tests, `ruff`/`mypy` clean, 215/215 passing (1 pre-existing
+skip). Migration `0012` live-rehearsed against Docker Postgres: up/down/up repeatability, RLS
+positive/negative isolation, `super_admin` bypass, mutable `UPDATE` (this table is a guarded
+mutable aggregate root, matching `parcels`' own shape — not append-only like migration `0011`'s
+history tables), `DELETE` denied at the grant level.
+
+**Not yet merged.** Implemented on branch `feat/b5.2-evidence-domain-model` (commit `50b970d`),
+pushed to `origin`. No pull request exists yet as of this note — opening one requires GitHub
+authentication (`gh` CLI or a token) not available in this environment; the branch is ready for a
+PR to be opened manually. **B5.3 (upload endpoint) is not authorized and has not begun.**
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
