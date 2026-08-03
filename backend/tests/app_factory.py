@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
+from app.contexts.evidence.dependencies import get_evidence_repository
 from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_context_hydrator
 from app.contexts.identity.dependencies import (
@@ -42,6 +43,7 @@ from app.kernel.errors import register_error_handlers
 from app.kernel.security.http_hardening import configure_security
 from app.kernel.security.jwt import JwtVerifier
 from tests.fakes.audit_store import InMemoryAuditStore
+from tests.fakes.evidence import InMemoryEvidenceRepository
 from tests.fakes.identity import (
     FakeIdentityProvider,
     InMemoryDelegationRepository,
@@ -76,6 +78,7 @@ class AppHarness:
     parcel_geometries: InMemoryParcelGeometryRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
+    evidence: InMemoryEvidenceRepository
 
 
 def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
@@ -93,6 +96,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     parcel_existence = FakeParcelExistencePort(parcels)
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
+    evidence = InMemoryEvidenceRepository()
 
     configure_audit_store(audit_store)
 
@@ -122,6 +126,11 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_geometry_port] = lambda: geometry
     app.dependency_overrides[get_parcel_geometry_repository] = lambda: parcel_geometries
     app.dependency_overrides[get_parcel_existence_port] = lambda: parcel_existence
+    # No evidence router is included yet (B5 Slice B5.2 — domain/repository/
+    # DI only, no upload endpoint, docs/adr/ADR-026-evidence-domain-model.md).
+    # This override proves the DI seam is ready for whichever router (B5.3)
+    # eventually depends on it.
+    app.dependency_overrides[get_evidence_repository] = lambda: evidence
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -154,4 +163,5 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         parcel_geometries=parcel_geometries,
         identity_provider=identity_provider,
         audit_store=audit_store,
+        evidence=evidence,
     )
