@@ -26,11 +26,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.registry.adapters.geometry import PlaceholderGeometryAdapter
 from app.contexts.registry.adapters.postgres_repositories import (
+    PostgresParcelHistoryRepository,
     PostgresParcelNumberAllocator,
     PostgresParcelRepository,
 )
 from app.contexts.registry.application.parcel_service import ParcelService
-from app.contexts.registry.ports import GeometryPort, ParcelNumberAllocator, ParcelRepository
+from app.contexts.registry.ports import (
+    GeometryPort,
+    ParcelHistoryRepository,
+    ParcelNumberAllocator,
+    ParcelRepository,
+)
 from app.kernel.uow import get_db_session
 
 _geometry_port = PlaceholderGeometryAdapter()
@@ -46,6 +52,12 @@ def get_parcel_number_allocator(
     return PostgresParcelNumberAllocator(session)
 
 
+def get_parcel_history_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> ParcelHistoryRepository:
+    return PostgresParcelHistoryRepository(session)
+
+
 def get_geometry_port() -> GeometryPort:
     return _geometry_port
 
@@ -54,5 +66,6 @@ def get_parcel_service(
     parcels: ParcelRepository = Depends(get_parcel_repository),
     allocator: ParcelNumberAllocator = Depends(get_parcel_number_allocator),
     geometry: GeometryPort = Depends(get_geometry_port),
+    history: ParcelHistoryRepository = Depends(get_parcel_history_repository),
 ) -> ParcelService:
-    return ParcelService(parcels=parcels, allocator=allocator, geometry=geometry)
+    return ParcelService(parcels=parcels, allocator=allocator, geometry=geometry, history=history)

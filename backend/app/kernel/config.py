@@ -14,7 +14,11 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid")
+    # extra="ignore": the root .env is shared with docker-compose and Alembic (POSTGRES_*,
+    # MIGRATIONS_DATABASE_URL, KEYCLOAK_ADMIN*), none of which this app's own Settings consumes.
+    # Required fields below still fail closed on their own if missing — this only stops rejecting
+    # keys that belong to other processes reading the same file.
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     environment: Literal["development", "staging", "production"]
     database_url: PostgresDsn

@@ -1,8 +1,47 @@
 # CLAUDE.md
 
-AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) delivered the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), and a geometry port boundary for future spatial capability — see "B3 status" below. B4 (Spatial Intelligence) is treated as an entirely new programme: discovery, scope definition, and ADR planning come first, with explicit approval required before any implementation begins.**
+## One constitution
 
-Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks). Cloud (staging/production) environments do not exist yet — Terraform has real version pins but no provider/resources (AWS vs. Azure is still open, see `docs/REBUILD_PLAN.md` §6).
+As of 29 July 2026 there is exactly one governing constitution: **LV-000 Edition v1.8, Working
+Edition, Revision H**, at `docs/LV-000-constitution.md`. The authored v1.7 no longer governs
+anything. The adopted v1.0 continues *through* v1.8 by incorporation (v1.8 Article II §4) and its
+principles remain in force verbatim; it is preserved unmodified at
+`docs/LV-000-constitution-v1.0-adopted.md`.
+
+Cite the Constitution **with its edition** — `LV-000 v1.8, Article X §3` — never by bare article
+number. Bare article numbers are ambiguous across the historical lineages, and that ambiguity is
+what reached shipped code in the first place. See `docs/GOVERNANCE_BASELINE.md` for the full
+reconciliation record.
+
+AquaSavannah LandVault — a Nigerian land-registry/verification platform, rebuilt from scratch on Claude Code after full security/architecture audits of two prior implementations (`docs/audits/`). **Current status: B1, B2, and B3 are complete, verified, and frozen (tagged `b2-freeze`, `b3-freeze`) — see `docs/adr/ADR-009-b1-platform-freeze.md`, `docs/adr/ADR-012-b2-platform-freeze.md`, `docs/adr/ADR-017-b3-platform-freeze.md`, `docs/audits/B2_RELEASE_NOTES.md`, `docs/audits/B3_RELEASE_NOTES.md`. B3 (Registry) is the current production architectural baseline: the Parcel aggregate, atomic parcel numbering, creator-aware mutation authorization (closing a confirmed ADR-005 defect), a geometry port boundary for future spatial capability, and — as of 2026-07-31 — append-only ownership and status assertion history (`docs/adr/ADR-023-registry-ownership-and-status-history.md`, Accepted — Implemented; migration `0011`) — see "B3 status" below. **`docs/ENGINEERING_RULES.md` #10 (the non-adjudication automated check, LV-000 v1.8 Article IV §4) is now implemented** (Phase 9, `docs/PHASE-9_IMPLEMENTATION_PLAN.md` / `docs/PHASE-9_ACCEPTANCE_PACKAGE.md`, PR #7, merged `88448e4`) — two independent scanning layers (static AST source scan, real API-response-content scan) running inside the existing required `pytest` CI job. **170/170 backend tests passing, 1 skipped** (the live-only Postgres rollback rehearsal, `backend/tests/live/`). B4 (Spatial Intelligence) has begun and progressed past discovery: Slices 1 and 2 are accepted and frozen under ADR-022, ADR-021 (Spatial Conflict Detection) is drafted and awaiting acceptance, and Slice 3 remains unauthorized — see "B4 status" below. B5 (Evidence) has begun: `docs/adr/ADR-026-evidence-domain-model.md` is **Accepted**, and Slice B5.1 (`StoragePort`) and Slice B5.2 (`EvidenceRecord` aggregate, migration `0012`) are implemented and live-verified — **on branch `feat/b5.2-evidence-domain-model`, not yet merged to `main`** — see "B5 status" below.**
+
+Docker Compose (Postgres + Keycloak + backend + frontend) has been booted end-to-end and is the normal way this repo is verified locally now — see `docs/audits/B1_INFRASTRUCTURE_VERIFICATION.md` for the full live-infrastructure validation this passed (migrations, RLS, JWT, rate limiting, audit chain, adversarial security checks); Docker remains the local-development target regardless of the platform-baseline note below. Cloud (staging/production) environments do not exist yet. Delivery-platform infrastructure decisions (storage, identity, payments, compute at the time, secrets manager) are captured at `docs/adr/ADR-024-delivery-platform-and-infrastructure-decisions.md` (**Accepted**, 2026-07-30). **The identity provider and compute/cloud provider named there (Keycloak, AWS) were superseded the same day** by `docs/adr/ADR-025-supabase-platform-baseline.md` (**Accepted**, 2026-07-30): **Supabase Auth is the production identity provider — Keycloak is a retired evaluation**, with no future implementation owed against it (the previously-tracked `start-dev`-to-production hardening task is moot, not deferred). **Supabase-hosted PostgreSQL**, **Supabase Storage** (primary; Cloudflare R2 remains the WORM-grade escalation adapter), and **Supabase Edge Functions** (additive only — the existing FastAPI backend, ADR-002, is unchanged) are the production platform target, with **Vercel** as frontend hosting and **Docker retained for local development only** (Postgres, backend, frontend). Keycloak and the AWS Terraform provider block are preserved as historical artifacts, not deleted, pending a future archival decision.
+
+**`docs/LV-000-constitution.md`** — **The LandVault Constitution, Edition v1.8, Working Edition, Revision H. RATIFIED and in force. Supreme.** Every other document in this index is subordinate to it. Read it before proposing any change to governed behaviour. The Prime Directive is Article I §3: *LandVault preserves and verifies land evidence. It does not decide who owns land.* This Edition consolidates the previously-adopted v1.0 (architecture lineage — Controlled Platform Authority at Article IX §3, Bounded Context Sovereignty at Article V, Trust Network Doctrine at Article VI; preserved unmodified at `docs/LV-000-constitution-v1.0-adopted.md`) and the authored v1.7 (values lineage; retired, historical only) into one instrument. See `docs/GOVERNANCE_BASELINE.md` for how the two were reconciled, and the Constitution's own Schedule 1 for which adopted principles are restated versus incorporated by reference only.
+
+**`docs/ARCHITECTURE_HANDBOOK.md` (v1.0)** is the consolidated engineering reference — platform philosophy, full architecture diagram, DDD vocabulary, engineering rules index, security model, programme governance lifecycle, documentation hierarchy, future-programme surveys, architectural evolution, and engineering culture, each pointing to its authoritative source document. It is not an ADR and decides nothing new, and it is subordinate to LV-000 (LV-000 v1.8, Article XIII §1); read it after the Constitution to orient, then follow its links for the actual decision.
+
+**`docs/PLATFORM_STRATEGY.md`** (2026-07-25) sits one layer below the Handbook — vision, official positioning, the five-layer platform model (Identity/Land Intelligence/Marketplace/Enterprise/Government), the "Trust Platform before Software Platform" principle (now constitutional — LV-000 Article IX, Section 1), and network-effects/flywheel reasoning. Eight further planning-only documents sit beneath it, each ending in its own Approval Gate with no implementation authorized: `docs/PARTNER_PROGRAMME_STRATEGY.md`, `docs/ENTERPRISE_PROGRAMME_STRATEGY.md`, `docs/GOVERNMENT_PROGRAMME_STRATEGY.md`, `docs/DEVELOPER_PLATFORM_STRATEGY.md`, `docs/COMMERCIAL_ARCHITECTURE.md`, `docs/OPERATING_MODEL.md`, `docs/TRUST_FRAMEWORK.md`, `docs/NETWORK_GROWTH_STRATEGY.md` — plus an extension to the existing `docs/MARKETPLACE_DISCOVERY_AND_PLANNING.md` naming candidate domain concepts (Job, Assignment, Escrow, Wallet, Rating, Dispute, etc.). **None of this authorizes any new bounded context, ADR change, or code** — B1–B4 remain exactly as documented below, and B4 Slice 3 remains unauthorized.
+
+**`docs/LANDVAULT_BIBLE_VOLUME_I_EXECUTIVE_OVERVIEW.md`** (2026-07-27) is the LandVault Bible™ Volume I — a 15–25 page executive narrative (Problem/Vision/Mission/Philosophy/Architecture/Five-Layer Model/Trust Ecosystem/Commercial Vision/Governance/Roadmap/Strategic Position) written for governments, investors, executives, enterprise clients, and procurement teams. **Explanatory and non-normative only** — it synthesizes LV-000, the Handbook, and Platform Strategy in plain executive prose, decides nothing, and is corrected in favor of any document it summarizes if the two ever differ. Deliberately avoids the "Uber for Land Verification" marketplace framing in its external positioning language, per explicit instruction, in favor of the trust/governance/infrastructure framing throughout this file.
+
+**`docs/LANDVAULT_BIBLE_VOLUME_II_PRODUCT_STRATEGY_AND_ENTERPRISE_DEFINITION.md`** (2026-07-28) expands Volume I into full market analysis (Nigeria/Africa/global, deliberately hedged — no fabricated market-size figures, per LV-000's "truth over assertion" value), Product Philosophy, a fully expanded Five-Layer Model (Purpose/Capabilities/Stakeholders/Revenue/Dependencies/Evolution per layer), a complete Trust Network framework (11 participant categories), Marketplace as enterprise strategy, every commercial revenue stream, competitive positioning against 7 categories of alternative, a long-term roadmap through continental expansion (explicitly not authorized), and strategic conclusions. **Explanatory and non-normative**, same standing as Volume I.
+
+**`docs/LV-013-market-intelligence-report.md`** (2026-07-29) is a genuine quantitative research report, not synthesized narrative — every figure was checked via live web search/fetch on 2026-07-29 and tagged VERIFIED (with source)/ESTIMATE/NOT VERIFIED. Real, sourced findings include: Nigeria's National Land Digital System (signed with the World Bank 11 Sept 2024, 90%+ of land reported unregistered, ~$300B potential capital locked); ~65% of Nigerian civil court cases are land-related (NIALS 2023, via secondary citation); population/urbanization/GDP/remittance figures; SURCON's structure (59 Council members — but its total registered-surveyor count could **not** be found and is flagged as a research gap, not guessed at); and 7 international benchmarks (Rwanda, Estonia, UK, Singapore, India, Kenya, Brazil) with specific verified statistics each. Part IX (TAM/SAM/SOM) explicitly declines to invent a market-size figure where no defensible input exists, recommending commissioned primary research instead. **Supplements, does not replace, LV-000/Handbook/Platform Strategy/Bible I–II — introduces no architecture, ADR, or governance.**
+
+## Precedence
+
+1. `docs/LV-000-constitution.md` — the Constitution, Edition v1.8 Revision H. Supreme.
+2. The Bible volumes, LV-001 – LV-017 (see the Constitution's Schedule 3 for the full register — only the LV-013 slot, the protected Market Intelligence Report, exists as a file in this repository today).
+3. Ratified ADRs in `docs/adr/`.
+4. `ENGINEERING_RULES.md`.
+5. `PLATFORM_INTELLIGENCE_ARCHITECTURE.md` and the architecture documents.
+6. `REBUILD_PLAN.md`, `EXECUTION_PLAN.md`, `PHASE_GATES.md`, `DOD.md`.
+7. Implementation and code.
+
+This file is a **pointer, not the source of truth**. Where it conflicts with a document it points to, that document wins and this file is corrected.
+
+On *current state* — what is frozen, what tests pass, what has shipped — the repository and an observed test run govern. On *what to build and how*, the hierarchy above governs. Do not confuse the two.
 
 ## B1 status (Identity & Authorization) — frozen
 
@@ -153,30 +192,174 @@ role, no parallel pipeline. Two new audit actions,
 the Quality Gate. **B3 is frozen** (`docs/adr/ADR-017-b3-platform-freeze.md`, tag `b3-freeze`) —
 full `ruff`/`mypy`/`pytest`, live Postgres/Keycloak/RLS/delegation/audit-chain/cross-tenant/
 ownership-attack/container verification all passed (`docs/B3_FINAL_VERIFICATION_CHECKLIST.md`,
-one pre-existing type-annotation gap found and fixed). **B4 (Spatial Intelligence) is treated as
-an entirely new programme** — its own discovery, scope definition, and ADR planning come first;
-no implementation begins without explicit approval, the same discipline B3 itself started under.
+one pre-existing type-annotation gap found and fixed). **B3 is the current production
+architectural baseline** — every later programme builds on it, and no B3-scope change lands
+without a new ADR referencing ADR-013/014/015/016/017.
+
+## B4 status (Spatial Intelligence) — Slices 1 & 2 accepted and frozen under ADR-022; ADR-021 proposed; Slice 3 not authorized
+
+`docs/B4_DISCOVERY_AND_PLANNING.md` and `docs/B4_THREAT_MODEL.md` are **accepted baselines** —
+the threat model's six trust boundaries (TB1–TB6) are mandatory constraints on all B4 work, and
+its central finding (overlap detection needs a cross-tenant read, unlike every prior RLS boundary
+in this codebase) produced **Controlled Platform Authority** as platform-wide rule 6, above.
+
+**Accepted ADRs:** **ADR-018** (Spatial Domain Model — the `ParcelGeometry` aggregate,
+`app/contexts/spatial/`'s shape, validate-then-store persistence, `geometry(Polygon, 4326)`).
+**ADR-019** (GeometryPort Interface Amendment — `reference_is_valid` now takes
+`tenant_id`/`parcel_id`; implemented and verified, 119/119 tests, zero test-file changes;
+`docs/adr/ADR-016-...md` preserved unmodified as historical record). **ADR-022** (Spatial
+Authorization Model — creator-or-governance mutation authority for `ParcelGeometry`, mirroring
+ADR-015 exactly; accepted and now fully implemented, see below).
+
+**B4 Slice 1 — Spatial Domain Foundation is implemented** (`app/contexts/spatial/`, mirroring
+Registry's shape exactly): `ParcelGeometry`'s append-only `ACTIVE`/`SUPERSEDED` lifecycle,
+validate-then-store persistence, `geometry(Polygon, 4326)` via a small dependency-free `Geometry`
+`TypeEngine` (no `geoalchemy2` added). Migration `0010` applied and verified live via `psql`.
+
+**B4 Slice 2 — Geometry Validation & Real Geometry Adapter is implemented and live-verified**
+(`docs/adr/ADR-022`): real structural WKT `POLYGON` validation
+(`app/contexts/spatial/domain/geometry_validation.py` — ring closure, minimum point count,
+coordinate bounds, OGC winding order via the shoelace formula, EWKT SRID verification — all pure
+Python, no GIS dependency added); ADR-022's creator-or-governance authorization is now enforced
+in `SpatialService` (mirroring `ParcelService._can_mutate`/`_effective_authority` exactly),
+including delegated governance (ADR-011, unchanged) and an unconditional archived-parcel block
+(`409`, no override for any role, mirroring ADR-015); `ParcelExistencePort` extended to
+`get_parcel_authority` returning `ParcelAuthorityInfo` (`tenant_id`/`created_by`/`status`) in one
+round-trip; a real `GeometryPort` implementation (`RealGeometryAdapter`, in
+`app.contexts.spatial.adapters`) is wired into Registry via `app/main.py`'s
+`dependency_overrides` only — Registry's own code was not touched and still imports nothing from
+Spatial. The persist-ordering bug Slice 1 shipped with (superseding the old geometry *before*
+validating the new one, which could strand a parcel with no ACTIVE geometry on a validation
+failure) was fixed: validation now happens before any persistence. 29/29 Spatial tests pass
+(148/148 full suite); `ruff`/`mypy` clean. **Full live verification performed, not deferred**:
+real Postgres/PostGIS/Keycloak/RLS (fail-closed under `landvault_app`, confirmed 0 rows
+cross-tenant, DELETE denied), all four authorization tiers (creator/governance/delegated/
+`super_admin` cross-tenant), archived-parcel `409` for every tier, cross-tenant `404`, malformed/
+clockwise-wound geometry `400`, the real Registry↔Spatial `GeometryPort` seam (a genuine
+`geometry_id` accepted, an unknown one and a foreign parcel's rejected), audit chain integrity
+(`verify_chain()` → `True` over the platform's full history), and a full container rebuild +
+health-check — see `docs/B4_VERIFICATION_CHECKLIST.md` for the complete evidence log. One
+pre-existing infra gap, unrelated to Slice 2's own code, was found and fixed as a live-verification
+blocker: `infra/docker/docker-compose.yml`'s `backend` service overrode `DATABASE_URL` for
+container-to-container networking but not the three `KEYCLOAK_*` URLs, which leaked `.env`'s
+host-oriented `localhost` values — real Keycloak was unreachable from inside the container. Fixed
+by adding the same kind of override already used for `DATABASE_URL`.
+
+**B4 Slice 2 has completed architectural review and is accepted; its architecture is frozen under
+ADR-022** — no further change to Spatial's authorization model, geometry validation, or the
+Registry↔Spatial `GeometryPort` seam lands without a new ADR referencing ADR-018/019/022. The
+real `GeometryPort` production integration (`RealGeometryAdapter`, wired via `app/main.py`'s
+`dependency_overrides`) is recorded as a permanent architectural milestone — the first time this
+platform has connected two bounded contexts' real (non-placeholder) implementations across the
+ports-and-adapters seam established in ADR-002/ADR-016. The Keycloak container-networking
+correction (`infra/docker/docker-compose.yml`) is recorded in `docs/B4_VERIFICATION_CHECKLIST.md`'s
+Slice 2 section as this release's operational fix.
+
+**ADR-021 — Spatial Conflict Detection & Controlled Cross-Tenant Intelligence is now drafted**
+(`docs/adr/ADR-021-spatial-conflict-detection-and-controlled-cross-tenant-intelligence.md`),
+architecture only, no implementation — the constitutional doctrine `docs/B4_THREAT_MODEL.md` TB5
+required before overlap/duplicate-geometry detection could be designed: which single component
+may perform a cross-tenant geometry read (Controlled Platform Authority, `docs/
+ENGINEERING_RULES.md` rule 9), the six-category conflict classification model (no conflict /
+boundary overlap / duplicate / near duplicate / suspicious pattern / confirmed conflict — model
+only, no algorithm), the minimal-disclosure default to an ordinary registrant vs. a governance
+role's narrowly-extended reach, the Registry/Spatial ownership split (conflict detection is a
+Spatial-internal service, not a new bounded context and not something Registry absorbs), and full
+audit requirements. **Not yet accepted. B4 Slice 3 is not authorized** — no overlap detection,
+duplicate detection, fraud detection, conflict scoring, AI analysis, spatial search, or risk
+engine exists anywhere in this codebase yet, and none begins until ADR-021 is reviewed and
+explicitly accepted, the same discipline every prior escalation in this codebase has followed.
+
+**Pre-Slice-3 governance package complete** (2026-07-24, `docs/
+B4_SLICE3_PREIMPLEMENTATION_REVIEW.md`): a full architectural review of ADR-021 found no
+amendment required and no contradiction against ADR-017/018/019/022 or any frozen B1–B3 ADR.
+**SCDS-001 — Spatial Conflict Detection Specification** (`docs/
+SCDS-001-spatial-conflict-detection-specification.md`, an engineering specification beneath
+ADR-021, not an ADR) converts ADR-021's architecture into implementation guidance — an 11-item
+conflict taxonomy, 4-level severity scale, risk-scoring extension points (unimplemented), a full
+disclosure matrix per participant tier, and a refined Controlled Platform Authority mechanism
+shape — with no algorithm, index, or code. **Platform Intelligence** is now named as a standing
+architectural layer, not a bounded context (`docs/PLATFORM_INTELLIGENCE_ARCHITECTURE.md`) — a
+four-part test for "is this capability Platform Intelligence" (cross-context/cross-tenant read,
+produces a finding never a domain mutation, one named Controlled Platform Authority exception,
+narrow signal-only downstream consumption), with the Conflict Engine (ADR-021) as its first
+proposed instance and the Trust Engine (B7, unbuilt) recognized retroactively as its shape's first
+example. A Marketplace Programme Phase 0 recommendation is recorded (`docs/
+MARKETPLACE_DISCOVERY_AND_PLANNING.md`, planning only — no code) — the scoping question of
+whether "Marketplace" (Wallet/Payments/Escrow/Ratings/Enterprise Dispatch) is an expansion of
+`docs/REBUILD_PLAN.md` context #10 or one or more new contexts is left open for that programme's
+own discovery, not decided here. A constitutional recommendation for the eventual LV-000 is logged
+(`docs/CONSTITUTIONAL_RECOMMENDATIONS.md`) — Platform Intelligence's cross-context observation
+boundary, restating `docs/ENGINEERING_RULES.md` rule 9 at constitutional altitude — recorded, not
+adopted; LV-000 does not exist yet. **None of this authorizes B4 Slice 3.** It remains gated on
+ADR-021's explicit acceptance.
+
+## B5 status (Evidence) — ADR-026 Accepted; B5.1–B5.2 merged; B5.3 implemented, not yet merged
+
+`docs/adr/ADR-026-evidence-domain-model.md` is **Accepted**. `docs/PHASE-B5_IMPLEMENTATION_PLAN.md`
+is the accepted Phase 1–5 planning package; `docs/PHASE-B5-SLICE1_ACCEPTANCE_PACKAGE.md`,
+`docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` (+ `docs/PHASE-B5-SLICE2_MERGE_GATE_REPORT.md`), and
+`docs/PHASE-B5-SLICE3_ACCEPTANCE_PACKAGE.md` are the per-slice evidence records.
+
+**Slice B5.1 — `StoragePort`** (`app/contexts/evidence/ports.py`): the provider-agnostic
+object-storage Protocol (`put`/`get`/`list_keys`/`put_immutable`/`worm_grade`), governed by
+`docs/adr/ADR-024-delivery-platform-and-infrastructure-decisions.md` D1 and `docs/adr/
+ADR-025-supabase-platform-baseline.md` E3 (both already Accepted — this slice implements, not
+redecides). Only an in-memory fake (`backend/tests/fakes/storage.py`) exists — no real Supabase
+Storage or Cloudflare R2 adapter, since both require a new external dependency
+(`docs/ENGINEERING_RULES.md` rule 5, needs explicit approval) and live credentials this programme
+does not yet have (rule 7).
+
+**Slice B5.2 — `EvidenceRecord` domain model** (`app/contexts/evidence/{domain,adapters,
+application,dependencies.py}`, migration `0012`): the aggregate (`RECEIVED → HASHED → SEALED`
+lifecycle, legal hold, storage/provenance fields), `EvidenceRepository` port + Postgres/in-memory
+adapters, `EvidenceService`, and DI wiring — no upload endpoint, no hash computation, no physical
+WORM sealing, no chain-of-custody or legal-hold *workflow*, all explicitly deferred to later
+slices per ADR-026's own scope. 34 new tests, `ruff`/`mypy` clean, 215/215 passing (1 pre-existing
+skip). Migration `0012` live-rehearsed against Docker Postgres: up/down/up repeatability, RLS
+positive/negative isolation, `super_admin` bypass, mutable `UPDATE` (this table is a guarded
+mutable aggregate root, matching `parcels`' own shape — not append-only like migration `0011`'s
+history tables), `DELETE` denied at the grant level.
+
+**B5.1/B5.2 are merged to `main`** (PR #11, merge commit `251d000`, 2026-08-03).
+
+**Slice B5.3 — Evidence upload & integrity recording** (`app/contexts/evidence/application/
+evidence_service.py` — `EvidenceService.upload_evidence()`): the real orchestration — server-side
+SHA-256 (never a client-supplied hash claim), `StoragePort.put` before the `EvidenceRecord` row is
+persisted (per ADR-026 "Transaction boundaries"), an independent read-back re-hash
+(`docs/adr/ADR-007-audit-trail-evidence-model.md` decision 4) before the record is ever marked
+`HASHED`. **No HTTP upload endpoint** — this is the application-service seam a future router calls
+into, not the router itself. 15 new hermetic tests plus a live Postgres rollback rehearsal (real
+persistence, real fault-injected rollback, confirmed orphaned-storage residual risk, confirmed
+connection-pool health afterward), `ruff`/`mypy` clean, 230/230 hermetic tests passing.
+
+**Not yet merged.** Implemented on branch `feat/b5.3-evidence-upload-integrity`, pushed to `origin`.
+**B5.4 (WORM sealing) is not authorized and has not begun.**
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
-## The 5 non-negotiable rules (full detail: `docs/ENGINEERING_RULES.md`)
+## The 6 non-negotiable rules (full detail: `docs/ENGINEERING_RULES.md`)
 
 1. **No new entity/table without an RLS/authorization policy in the same commit.** (Base44 shipped wallet/invoice entities with unconditional public update access — this is the exact bug class that rule prevents.)
 2. **No permissive fallback default on any security-relevant env var.** Missing config must fail startup, never silently degrade to an insecure default. (Emergent's CORS wildcard-with-credentials and hardcoded signing-secret fallback.)
 3. **Exactly one authorization path: the PDP/PEP/PIP engine.** No parallel/legacy auth system, no unguarded dev-login, ever — not even temporarily. (Emergent's dual auth system + unauthenticated admin bypass.)
 4. **Every scoring/validation function fails safe:** zero/missing data → low or neutral result, never a passing score. (Base44's trust engine reported 100/A+ with zero real evidence.)
 5. **Never mark something complete without having actually observed it pass.** Static code inspection is not evidence — run the test, see it pass.
+6. **Controlled Platform Authority: any cross-tenant/platform-wide read or write must be a named, narrow exception** — fixed at the call site (never parameterized by caller input), read-only wherever possible, as narrow as the task allows, and audited unless a specific, reviewed reason says otherwise. (Generalizes the existing `super_admin` RLS bypass and the hydration service-account's one fixed lookup into an explicit doctrine — formalized when `docs/B4_THREAT_MODEL.md` found Spatial Intelligence's overlap detection needs a third such exception.)
 
 ## Where to look for more
 
 | Need | Go to |
 |---|---|
 | The technical build plan (stack, 13 bounded contexts, stages, milestones) | `docs/REBUILD_PLAN.md` |
+| The execution instrument — ordering and content of delivery work beneath REBUILD_PLAN's gates (Revision H, GD-004) | `docs/EXECUTION_PLAN.md` |
 | Process/quality gates per phase, the Claude Code Loop, standing review questions | `docs/PHASE_GATES.md` |
 | Definition of Done (Feature / Sprint / Product tiers) | `docs/DOD.md` |
 | Full engineering rules, incl. when to stop and ask a human | `docs/ENGINEERING_RULES.md` |
 | Why a specific architectural decision was made | `docs/adr/` |
 | The audit findings everything above is derived from | `docs/audits/` |
+| ADR-023 live-rollback acceptance evidence; Engineering Rules #10 implementation plan and acceptance evidence | `docs/PHASE-8_ACCEPTANCE_PACKAGE.md`, `docs/PHASE-9_IMPLEMENTATION_PLAN.md`, `docs/PHASE-9_ACCEPTANCE_PACKAGE.md` |
+| Consolidated governance/implementation-maturity snapshot | `docs/REPOSITORY_STATUS_REPORT.md` |
 
 ## Repo layout
 

@@ -1,0 +1,49 @@
+name: Backend CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: pytest / ruff / mypy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect backend changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - "backend/**"
+              - ".github/workflows/backend-ci.yml"
+
+      - name: Set up Python
+        if: steps.filter.outputs.backend == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        if: steps.filter.outputs.backend == 'true'
+        run: python -m pip install -e ".[dev]"
+
+      - name: Ruff (lint)
+        if: steps.filter.outputs.backend == 'true'
+        run: ruff check .
+
+      - name: mypy (type check)
+        if: steps.filter.outputs.backend == 'true'
+        run: mypy app tests
+
+      - name: pytest
+        if: steps.filter.outputs.backend == 'true'
+        run: pytest -q
