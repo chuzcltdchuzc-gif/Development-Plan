@@ -633,13 +633,13 @@ credentials for a live rehearsal (rule 7), neither available to this implementat
 
 ### Slice B5.2 — Evidence aggregate, repository, migration `0012`
 
-**Status (2026-08-02): Complete, live-verified, not yet merged.** `EvidenceRecord`,
+**Status (2026-08-04): Complete, live-verified, merged to `main`.** `EvidenceRecord`,
 `EvidenceRepository` (Postgres + in-memory adapters), `EvidenceService`, DI wiring, and migration
-`0012` are all implemented on branch `feat/b5.2-evidence-domain-model` (commit `50b970d`). Migration
-`0012` was rehearsed live against Docker Postgres: up/down/up repeatability, RLS positive/negative
+`0012` are all implemented and merged to `main` (PR #11, merge commit `251d000`). Migration `0012`
+was rehearsed live against Docker Postgres: up/down/up repeatability, RLS positive/negative
 isolation, `super_admin` bypass, mutable `UPDATE`, `DELETE` denied at the grant level. 34 new tests,
-`ruff`/`mypy` clean, 215/215 passing. See `docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` for full
-evidence. **Not merged to `main`** — awaiting Governance Authority merge authorization.
+`ruff`/`mypy` clean, 215/215 passing. See `docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` and
+`docs/PHASE-B5-SLICE2_MERGE_GATE_REPORT.md` for full evidence.
 
 - **Purpose:** the `EvidenceRecord` domain object and its persistence, no upload endpoint yet.
 - **Files affected:** `backend/app/contexts/evidence/{domain,ports.py,adapters/orm.py,
@@ -651,18 +651,31 @@ evidence. **Not merged to `main`** — awaiting Governance Authority merge autho
 - **Acceptance criteria:** Test Matrix items 3, 8.
 - **Rollback:** standard `downgrade()`.
 
-### Slice B5.3 — Upload endpoint, server-side hashing
+### Slice B5.3 — Evidence Upload & Integrity Recording (application layer, not the HTTP endpoint)
 
-- **Purpose:** the platform's first file-upload API surface.
+**Status (2026-08-04): Complete, live-verified, pushed to `feat/b5.3-evidence-upload-integrity`, not
+yet merged.** Per the Governance Authority's B5.3 authorization, this slice built the real
+application-layer orchestration (`EvidenceService.upload_evidence()`) — hash, `StoragePort` write,
+persist, independent read-back re-hash (ADR-007 decision 4), `mark_hashed`, audit — **not** an HTTP
+upload endpoint or router, which remains explicitly deferred (no `api/evidence_router.py`, no
+`main.py` wiring added). 15 new hermetic tests plus one live Postgres rollback rehearsal (real
+upload+hash+audit persistence, real fault-injected rollback, confirmed orphaned-storage residual
+risk, confirmed connection-pool health afterward), `ruff`/`mypy` clean, 230/230 hermetic tests
+passing. See `docs/PHASE-B5-SLICE3_ACCEPTANCE_PACKAGE.md` for full evidence.
+
+- **Purpose:** the platform's first real (non-placeholder) evidence-hashing/storage orchestration.
 - **Files affected:** `backend/app/contexts/evidence/{application/evidence_service.py,
-  api/evidence_router.py}`; `main.py` router wiring.
-- **Migrations:** none (uses B5.2's schema).
-- **Tests:** Test Matrix items 1, 11.
-- **Risks:** R7 (new upload attack surface) — dedicated OWASP pass required.
-- **Acceptance criteria:** Test Matrix items 1, 11; Rule §10 check (B5.0b) passes against new
-  responses.
-- **Rollback:** router removal; no data impact (uploaded-but-unsealed records may be purged per a
-  retention policy decided at implementation time — not sealed, so no WORM conflict).
+  dependencies.py}`; `backend/tests/{app_factory.py,fakes/storage.py,fakes/evidence.py,
+  test_evidence_upload.py,live/test_evidence_upload_rollback_live.py}`. **No API router** — an HTTP
+  upload endpoint remains a separate, later, explicitly out-of-scope decision.
+- **Migrations:** none (uses B5.2's schema, unchanged).
+- **Tests:** hermetic (upload success/failure, hash correctness, no-dedup-by-design, StoragePort/
+  repository failure at every persist point, audit linkage, integrity-mismatch handling) plus one
+  live Postgres rollback rehearsal.
+- **Risks:** R7 (new upload attack surface) — remains open, deferred to whichever slice adds the
+  actual HTTP endpoint; nothing in this slice's scope introduces an HTTP-facing surface to assess.
+- **Acceptance criteria:** see `docs/PHASE-B5-SLICE3_ACCEPTANCE_PACKAGE.md`.
+- **Rollback:** revert the commit; no migration to roll back (schema unchanged).
 
 ### Slice B5.4 — WORM sealing, integrity verification
 
