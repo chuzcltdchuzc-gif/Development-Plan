@@ -22,6 +22,7 @@ from app.kernel.audit import configure_audit_store
 from app.kernel.context import ExecutionContext
 from tests.fakes.audit_store import InMemoryAuditStore
 from tests.fakes.evidence import InMemoryEvidenceRepository
+from tests.fakes.storage import InMemoryStoragePort
 
 
 @pytest.fixture
@@ -38,7 +39,12 @@ def evidence_repo() -> InMemoryEvidenceRepository:
 
 @pytest.fixture
 def service(evidence_repo: InMemoryEvidenceRepository) -> EvidenceService:
-    return EvidenceService(evidence=evidence_repo)
+    # B5.3 added a required `storage` dependency to EvidenceService; these
+    # B5.2-era tests exercise record_upload/mark_hashed/seal/legal-hold only
+    # (never upload_evidence, which is the only method that touches
+    # storage), so a bare fake with no calls made against it is sufficient
+    # here — see tests/test_evidence_upload.py for storage-path coverage.
+    return EvidenceService(evidence=evidence_repo, storage=InMemoryStoragePort())
 
 
 def _ctx(

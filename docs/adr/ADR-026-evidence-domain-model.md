@@ -6,6 +6,16 @@ application-service/DI wiring — explicitly *not* its API; upload endpoints rem
 B5.2) is authorized to proceed on this basis. `StoragePort` (Slice B5.1) was never gated by this ADR
 — see "Relationship to Slice B5.1" below.
 
+**Implementation status note (2026-08-04):** Slice B5.3 ("Evidence Upload & Integrity Recording")
+implements `EvidenceService.upload_evidence()` — the real orchestration this ADR's "Transaction
+boundaries" and "Domain events" subsections specified but did not build. It faithfully applies the
+required ordering (`StoragePort.put` before the `EvidenceRecord` row is persisted) and the
+independent read-back re-hash `docs/adr/ADR-007-audit-trail-evidence-model.md` decision 4 requires
+— live-verified against real Postgres, including the rollback and orphaned-storage-object scenarios
+this ADR's "Transaction boundaries" subsection already named as accepted, not new. No aggregate
+invariant, port shape, or transaction-order rule was changed to build it. See
+`docs/PHASE-B5-SLICE3_ACCEPTANCE_PACKAGE.md` for full evidence.
+
 **Date:** 2026-08-01
 
 **Revision note:** revised against a narrower Governance Authority charter for this ADR specifically

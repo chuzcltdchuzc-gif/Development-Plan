@@ -294,11 +294,12 @@ boundary, restating `docs/ENGINEERING_RULES.md` rule 9 at constitutional altitud
 adopted; LV-000 does not exist yet. **None of this authorizes B4 Slice 3.** It remains gated on
 ADR-021's explicit acceptance.
 
-## B5 status (Evidence) — ADR-026 Accepted; Slices B5.1–B5.2 implemented, live-verified, not yet merged
+## B5 status (Evidence) — ADR-026 Accepted; B5.1–B5.2 merged; B5.3 implemented, not yet merged
 
 `docs/adr/ADR-026-evidence-domain-model.md` is **Accepted**. `docs/PHASE-B5_IMPLEMENTATION_PLAN.md`
-is the accepted Phase 1–5 planning package; `docs/PHASE-B5-SLICE1_ACCEPTANCE_PACKAGE.md` and
-`docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` are the per-slice evidence records.
+is the accepted Phase 1–5 planning package; `docs/PHASE-B5-SLICE1_ACCEPTANCE_PACKAGE.md`,
+`docs/PHASE-B5-SLICE2_ACCEPTANCE_PACKAGE.md` (+ `docs/PHASE-B5-SLICE2_MERGE_GATE_REPORT.md`), and
+`docs/PHASE-B5-SLICE3_ACCEPTANCE_PACKAGE.md` are the per-slice evidence records.
 
 **Slice B5.1 — `StoragePort`** (`app/contexts/evidence/ports.py`): the provider-agnostic
 object-storage Protocol (`put`/`get`/`list_keys`/`put_immutable`/`worm_grade`), governed by
@@ -320,10 +321,20 @@ positive/negative isolation, `super_admin` bypass, mutable `UPDATE` (this table 
 mutable aggregate root, matching `parcels`' own shape — not append-only like migration `0011`'s
 history tables), `DELETE` denied at the grant level.
 
-**Not yet merged.** Implemented on branch `feat/b5.2-evidence-domain-model` (commit `50b970d`),
-pushed to `origin`. No pull request exists yet as of this note — opening one requires GitHub
-authentication (`gh` CLI or a token) not available in this environment; the branch is ready for a
-PR to be opened manually. **B5.3 (upload endpoint) is not authorized and has not begun.**
+**B5.1/B5.2 are merged to `main`** (PR #11, merge commit `251d000`, 2026-08-03).
+
+**Slice B5.3 — Evidence upload & integrity recording** (`app/contexts/evidence/application/
+evidence_service.py` — `EvidenceService.upload_evidence()`): the real orchestration — server-side
+SHA-256 (never a client-supplied hash claim), `StoragePort.put` before the `EvidenceRecord` row is
+persisted (per ADR-026 "Transaction boundaries"), an independent read-back re-hash
+(`docs/adr/ADR-007-audit-trail-evidence-model.md` decision 4) before the record is ever marked
+`HASHED`. **No HTTP upload endpoint** — this is the application-service seam a future router calls
+into, not the router itself. 15 new hermetic tests plus a live Postgres rollback rehearsal (real
+persistence, real fault-injected rollback, confirmed orphaned-storage residual risk, confirmed
+connection-pool health afterward), `ruff`/`mypy` clean, 230/230 hermetic tests passing.
+
+**Not yet merged.** Implemented on branch `feat/b5.3-evidence-upload-integrity`, pushed to `origin`.
+**B5.4 (WORM sealing) is not authorized and has not begun.**
 
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 

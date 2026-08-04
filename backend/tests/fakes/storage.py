@@ -38,8 +38,18 @@ class InMemoryStoragePort:
     def __init__(self, *, worm_grade: WormGrade = "governance") -> None:
         self._objects: dict[str, _StoredObject] = {}
         self._grade: WormGrade = worm_grade
+        # One-shot failure injection (B5 Slice B5.3 test matrix — "StoragePort
+        # failure"): set, consumed by the next matching call, then cleared —
+        # so a test can prove the caller's own ordering/rollback behavior
+        # without the fake permanently misbehaving for later assertions in
+        # the same test.
+        self.fail_next_put: BaseException | None = None
+        self.fail_next_get: BaseException | None = None
 
     async def put(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
+        if self.fail_next_put is not None:
+            exc, self.fail_next_put = self.fail_next_put, None
+            raise exc
         existing = self._objects.get(key)
         if existing is not None and existing.sealed:
             raise StorageImmutabilityViolationError(key)
@@ -48,6 +58,9 @@ class InMemoryStoragePort:
         )
 
     async def get(self, key: str) -> bytes:
+        if self.fail_next_get is not None:
+            exc, self.fail_next_get = self.fail_next_get, None
+            raise exc
         obj = self._objects.get(key)
         if obj is None:
             raise StorageObjectNotFoundError(key)
