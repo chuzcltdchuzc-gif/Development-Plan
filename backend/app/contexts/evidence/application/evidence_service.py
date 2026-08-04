@@ -1,21 +1,18 @@
-"""EvidenceService — Evidence context's use-cases (B5 Slice B5.2, docs/adr/
-ADR-026-evidence-domain-model.md).
+"""EvidenceService — Evidence context's use-cases (B5 Slices B5.2/B5.3,
+docs/adr/ADR-026-evidence-domain-model.md).
 
-Scope discipline, stated plainly per the Governance Authority's B5.2
-authorization: this service does NOT compute hashes and does NOT call
-StoragePort. `record_upload` accepts an already-written `storage_key` as a
-parameter (as if a caller — B5.3's upload endpoint, not built yet — already
-called StoragePort.put()); `mark_hashed`/`seal` accept an already-computed
-`sha256`/already-reported `worm_grade` the same way. This mirrors exactly
-how ParcelService.create_parcel does not compute `parcel_number` itself —
-that is ParcelNumberAllocator's job, injected as a separate port
-(docs/adr/ADR-014) — orchestration and computation are kept as distinct
-responsibilities here for the identical reason.
+`record_upload` (B5.2) accepts an already-written `storage_key` as a
+parameter — a lower-level primitive for "record metadata for content that
+was already placed in storage by some other, earlier means." `upload_evidence`
+(B5.3) is the real, end-to-end orchestration: it computes the SHA-256 itself
+from the bytes it receives, calls StoragePort, persists, and performs the
+independent read-back re-hash ADR-007 decision 4 requires — no client-supplied
+hash claim is ever trusted, and no hash is ever recorded without having been
+confirmed against what storage actually holds.
 
-No upload endpoint exists yet, so no router calls this service in this
-slice — it exists to prove the repository/domain/DI wiring end-to-end
-(the Governance Authority's explicit B5.2 scope) and to give B5.3 a real
-seam to call into rather than a retrofit.
+No upload HTTP endpoint exists yet in this slice — no router calls
+`upload_evidence` yet. It exists as the real orchestration seam a future
+endpoint calls into.
 
 Role-gating (which roles may upload/hash/seal/hold evidence) is
 deliberately not decided here — docs/adr/ADR-026-evidence-domain-model.md
@@ -30,6 +27,7 @@ every tenant-scoped read/write in this platform uses alongside RLS
 """
 from __future__ import annotations
 
+import hashlib
 import uuid
 
 from fastapi import HTTPException, status
@@ -39,9 +37,19 @@ from app.contexts.evidence.domain.evidence_record import (
     EvidenceRecord,
     EvidenceSealedError,
 )
-from app.contexts.evidence.ports import EvidenceRepository
+from app.contexts.evidence.ports import EvidenceRepository, StoragePort
 from app.kernel.audit import audit
 from app.kernel.context import ExecutionContext
+
+
+class EvidenceIntegrityError(Exception):
+    """Raised when the independent read-back re-hash (ADR-007 decision 4)
+    does not match the hash computed from the bytes this request received.
+    Always a genuine defect (a storage adapter that silently corrupted or
+    substituted data) or an active tampering attempt — never a normal,
+    expected outcome. Callers must not swallow this; the corresponding
+    EvidenceRecord is left at RECEIVED, never marked HASHED, so no reader
+    of the record can mistake it for one whose integrity was confirmed."""
 
 
 def _bad_request(detail: str) -> HTTPException:
@@ -89,8 +97,114 @@ def _evidence_view(record: EvidenceRecord) -> dict:
 
 
 class EvidenceService:
-    def __init__(self, *, evidence: EvidenceRepository) -> None:
+    def __init__(self, *, evidence: EvidenceRepository, storage: StoragePort) -> None:
         self.evidence = evidence
+        self.storage = storage
+
+    async def upload_evidence(
+        self,
+        *,
+        ctx: ExecutionContext,
+        parcel_id: str,
+        filename: str,
+        mime_type: str,
+        data: bytes,
+        basis: str,
+        evidence_type: str,
+    ) -> dict:
+        """The real B5.3 upload path: hash -> store -> persist (RECEIVED) ->
+        audit -> independent read-back re-hash -> mark_hashed -> persist ->
+        audit, in exactly that order (docs/adr/ADR-026-evidence-domain-model.md
+        "Transaction boundaries"). `data` is the complete request body,
+        already resolved to bytes by the caller — true chunked/streamed
+        hashing of a live HTTP multipart body is deferred to whichever slice
+        adds the actual upload endpoint; this method's own hashing is
+        already correct and reusable once that endpoint exists, only its
+        input-acquisition step would change."""
+        if not ctx.tenant_id:
+            raise _bad_request("caller has no tenant to record evidence within")
+        if not data:
+            raise _bad_request("uploaded content is empty")
+
+        # Server-side hash of the bytes this request actually received —
+        # never a client-supplied hash claim (ADR-007 decision 4).
+        upload_sha256 = hashlib.sha256(data).hexdigest()
+        size_bytes = len(data)
+
+        # StoragePort.put takes an opaque, caller-chosen key — it does not
+        # generate or return one (app.contexts.evidence.ports.StoragePort).
+        storage_key = f"evidence/{ctx.tenant_id}/{parcel_id}/{uuid.uuid4().hex}"
+
+        # The storage write must complete BEFORE the EvidenceRecord row is
+        # persisted (ADR-026 "Transaction boundaries") — if this raises, no
+        # row is ever created, so there is nothing to roll back at the
+        # database layer; the failure propagates to the caller unchanged.
+        await self.storage.put(storage_key, data, content_type=mime_type)
+
+        audit_id = uuid.uuid4().hex
+        try:
+            record = EvidenceRecord.new(
+                tenant_id=ctx.tenant_id,
+                parcel_id=parcel_id,
+                uploaded_by=ctx.principal_id,
+                filename=filename,
+                mime_type=mime_type,
+                size_bytes=size_bytes,
+                storage_key=storage_key,
+                basis=basis,
+                evidence_type=evidence_type,
+                audit_ref=audit_id,
+            )
+        except ValueError as exc:
+            raise _bad_request(str(exc)) from exc
+
+        record = await self.evidence.add(record)
+        await audit(
+            "evidence.uploaded",
+            entry_id=audit_id,
+            resource_type="evidence_record",
+            resource_id=record.evidence_id,
+            decision="PERMIT",
+            payload={
+                "tenant_id": record.tenant_id,
+                "parcel_id": record.parcel_id,
+                "evidence_type": record.evidence_type,
+                "size_bytes": record.size_bytes,
+            },
+        )
+
+        # Independent read-back re-hash (ADR-007 decision 4) — re-reads what
+        # storage actually holds; upload_sha256 above is never trusted on
+        # its own as the recorded, authoritative hash.
+        readback = await self.storage.get(storage_key)
+        readback_sha256 = hashlib.sha256(readback).hexdigest()
+        if readback_sha256 != upload_sha256:
+            await audit(
+                "evidence.integrity_check_failed",
+                resource_type="evidence_record",
+                resource_id=record.evidence_id,
+                decision="DENY",
+                payload={
+                    "tenant_id": record.tenant_id,
+                    "upload_sha256": upload_sha256,
+                    "readback_sha256": readback_sha256,
+                },
+            )
+            raise EvidenceIntegrityError(
+                f"read-back hash does not match upload-time hash for evidence "
+                f"{record.evidence_id}"
+            )
+
+        record.mark_hashed(sha256=readback_sha256)
+        record = await self.evidence.mark_hashed(record)
+        await audit(
+            "evidence.hashed",
+            resource_type="evidence_record",
+            resource_id=record.evidence_id,
+            decision="PERMIT",
+            payload={"tenant_id": record.tenant_id, "sha256": record.sha256},
+        )
+        return _evidence_view(record)
 
     async def record_upload(
         self,

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
-from app.contexts.evidence.dependencies import get_evidence_repository
+from app.contexts.evidence.dependencies import get_evidence_repository, get_storage_port
 from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_context_hydrator
 from app.contexts.identity.dependencies import (
@@ -60,6 +60,7 @@ from tests.fakes.registry import (
     InMemoryParcelRepository,
 )
 from tests.fakes.spatial import FakeParcelExistencePort, InMemoryParcelGeometryRepository
+from tests.fakes.storage import InMemoryStoragePort
 
 
 @dataclass
@@ -79,6 +80,7 @@ class AppHarness:
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
     evidence: InMemoryEvidenceRepository
+    storage: InMemoryStoragePort
 
 
 def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
@@ -97,6 +99,7 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
     evidence = InMemoryEvidenceRepository()
+    storage = InMemoryStoragePort()
 
     configure_audit_store(audit_store)
 
@@ -126,11 +129,12 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_geometry_port] = lambda: geometry
     app.dependency_overrides[get_parcel_geometry_repository] = lambda: parcel_geometries
     app.dependency_overrides[get_parcel_existence_port] = lambda: parcel_existence
-    # No evidence router is included yet (B5 Slice B5.2 — domain/repository/
-    # DI only, no upload endpoint, docs/adr/ADR-026-evidence-domain-model.md).
-    # This override proves the DI seam is ready for whichever router (B5.3)
-    # eventually depends on it.
+    # No evidence router is included yet (B5 Slices B5.2/B5.3 — application
+    # layer and DI only, no upload HTTP endpoint,
+    # docs/adr/ADR-026-evidence-domain-model.md). These overrides prove the
+    # DI seam is ready for whichever future router depends on it.
     app.dependency_overrides[get_evidence_repository] = lambda: evidence
+    app.dependency_overrides[get_storage_port] = lambda: storage
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -164,4 +168,5 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         identity_provider=identity_provider,
         audit_store=audit_store,
         evidence=evidence,
+        storage=storage,
     )

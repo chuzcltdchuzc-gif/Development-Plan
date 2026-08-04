@@ -13,8 +13,16 @@ from app.contexts.evidence.domain.evidence_record import EvidenceRecord
 class InMemoryEvidenceRepository:
     def __init__(self) -> None:
         self._by_id: dict[str, EvidenceRecord] = {}
+        # One-shot failure injection (B5 Slice B5.3 test matrix — "repository
+        # failure"), same shape as InMemoryStoragePort's — set, consumed by
+        # the next matching call, then cleared.
+        self.fail_next_add: BaseException | None = None
+        self.fail_next_mark_hashed: BaseException | None = None
 
     async def add(self, record: EvidenceRecord) -> EvidenceRecord:
+        if self.fail_next_add is not None:
+            exc, self.fail_next_add = self.fail_next_add, None
+            raise exc
         self._by_id[record.evidence_id] = deepcopy(record)
         return deepcopy(record)
 
@@ -30,6 +38,9 @@ class InMemoryEvidenceRepository:
         )
 
     async def mark_hashed(self, record: EvidenceRecord) -> EvidenceRecord:
+        if self.fail_next_mark_hashed is not None:
+            exc, self.fail_next_mark_hashed = self.fail_next_mark_hashed, None
+            raise exc
         if record.evidence_id not in self._by_id:
             raise ValueError(f"evidence record {record.evidence_id} not found")
         self._by_id[record.evidence_id] = deepcopy(record)
