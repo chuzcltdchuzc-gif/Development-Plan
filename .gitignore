@@ -47,3 +47,28 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Environment (governed backend/frontend)
+.env
+.env.local
+
+# Backend (Python)
+backend/.venv
+backend/**/__pycache__
+backend/**/*.pyc
+backend/.pytest_cache
+backend/.mypy_cache
+backend/.ruff_cache
+backend/*.egg-info
+
+# Frontend (Node/Next.js) — the governed F0 shell at /frontend, distinct from
+# the pnpm workspace packages under /artifacts
+frontend/node_modules
+frontend/.next
+frontend/next-env.d.ts
+
+# Terraform
+infra/terraform/**/.terraform
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/.terraform.lock.hcl
