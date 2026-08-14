@@ -1,29 +1,49 @@
-# Environment
-.env
-.env.local
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# Backend (Python)
-backend/.venv
-backend/**/__pycache__
-backend/**/*.pyc
-backend/.pytest_cache
-backend/.mypy_cache
-backend/.ruff_cache
-backend/*.egg-info
+# compiled output
+dist
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
 
-# Frontend (Node/Next.js)
-frontend/node_modules
-frontend/.next
-frontend/next-env.d.ts
+# dependencies
+node_modules
 
-# Terraform
-infra/terraform/**/.terraform
-infra/terraform/**/*.tfstate
-infra/terraform/**/*.tfstate.*
-infra/terraform/**/.terraform.lock.hcl
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
-# Editors/OS
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+# Replit
+.cache/
+.local/
