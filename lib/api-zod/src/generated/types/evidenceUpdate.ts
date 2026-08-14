@@ -5,7 +5,9 @@
  * AquaSavannah LandVault API — land-registry and verification platform for Nigeria
  * OpenAPI spec version: 0.1.0
  */
+import type { EvidenceUpdateStatus } from './evidenceUpdateStatus';
 
-export interface HealthStatus {
-  status: string;
+export interface EvidenceUpdate {
+  status?: EvidenceUpdateStatus;
+  notes?: string;
 }
