@@ -9,32 +9,34 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCreateParcel } from "@workspace/api-client-react";
-import { ParcelInputParcelType } from "@workspace/api-client-react";
 import { toast } from "sonner";
 import { Loader2, MapPin, User, FileText } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getListParcelsQueryKey, getGetDashboardStatsQueryKey } from "@workspace/api-client-react";
+import { getListParcelsQueryKey } from "@workspace/api-client-react";
 
 const STATES = [
-  "Lagos", "Abuja (FCT)", "Rivers", "Kano", "Ogun", "Oyo", 
-  "Delta", "Edo", "Kaduna", "Anambra", "Enugu", "Imo", 
+  "Lagos", "Abuja (FCT)", "Rivers", "Kano", "Ogun", "Oyo",
+  "Delta", "Edo", "Kaduna", "Anambra", "Enugu", "Imo",
   "Cross River", "Akwa Ibom", "Plateau"
 ];
 
+// Matches CreateParcelRequest (backend/app/contexts/registry/api/dtos.py) exactly. The backend
+// has a single `current_owner_contact` field, not separate phone/email fields — and accepts no
+// latitude/longitude at all (`extra="forbid"`; geometry is a separate Spatial concern, submitted
+// through a different endpoint entirely — see the Spatial Read Contract Proposal).
 const formSchema = z.object({
-  owner_name: z.string().min(1, "Owner name is required"),
-  owner_phone: z.string().optional(),
-  owner_email: z.string().email("Invalid email").optional().or(z.literal("")),
-  location_address: z.string().min(1, "Address is required"),
+  current_owner_name: z.string().min(1, "Owner name is required"),
+  current_owner_contact: z.string().optional(),
+  address: z.string().min(1, "Address is required"),
   state: z.string().min(1, "State is required"),
   lga: z.string().min(1, "LGA is required"),
-  area_sqm: z.coerce.number().min(1, "Area must be greater than 0"),
-  parcel_type: z.nativeEnum(ParcelInputParcelType),
-  latitude: z.coerce.number().optional().or(z.literal("").transform(() => undefined)),
-  longitude: z.coerce.number().optional().or(z.literal("").transform(() => undefined)),
+  size_sqm: z.coerce.number().min(1, "Area must be greater than 0"),
+  property_type: z.string().min(1, "Land use type is required"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+const PROPERTY_TYPES = ["residential", "commercial", "agricultural", "industrial"];
 
 export function ParcelNew() {
   const [, setLocation] = useLocation();
@@ -44,16 +46,13 @@ export function ParcelNew() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      owner_name: "",
-      owner_phone: "",
-      owner_email: "",
-      location_address: "",
+      current_owner_name: "",
+      current_owner_contact: "",
+      address: "",
       state: "",
       lga: "",
-      area_sqm: 0,
-      parcel_type: "residential",
-      latitude: undefined,
-      longitude: undefined,
+      size_sqm: 0,
+      property_type: "residential",
     },
   });
 
@@ -61,11 +60,12 @@ export function ParcelNew() {
     createParcel.mutate({ data }, {
       onSuccess: (newParcel) => {
         toast.success("Parcel registered successfully", {
-          description: `Title Number: ${newParcel.title_number}`,
+          description: newParcel.parcel_number
+            ? `Parcel Number: ${newParcel.parcel_number}`
+            : undefined,
         });
         queryClient.invalidateQueries({ queryKey: getListParcelsQueryKey() });
-        queryClient.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey() });
-        setLocation(`/parcels/${newParcel.id}`);
+        setLocation(`/parcels/${newParcel.parcel_id}`);
       },
       onError: () => {
         toast.error("Failed to register parcel", {
@@ -96,7 +96,7 @@ export function ParcelNew() {
               <CardContent className="grid gap-6 pt-6 md:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="owner_name"
+                  name="current_owner_name"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
                       <FormLabel>Full Name / Company Name *</FormLabel>
@@ -109,25 +109,12 @@ export function ParcelNew() {
                 />
                 <FormField
                   control={form.control}
-                  name="owner_phone"
+                  name="current_owner_contact"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Contact (Phone or Email)</FormLabel>
                       <FormControl>
-                        <Input placeholder="+234..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="owner_email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="contact@example.com" {...field} />
+                        <Input placeholder="+234... or contact@example.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -147,7 +134,7 @@ export function ParcelNew() {
               <CardContent className="grid gap-6 pt-6 md:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="location_address"
+                  name="address"
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
                       <FormLabel>Street Address *</FormLabel>
@@ -193,33 +180,10 @@ export function ParcelNew() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="latitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Latitude (Optional)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="any" placeholder="6.5244" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="longitude"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Longitude (Optional)</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="any" placeholder="3.3792" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </CardContent>
+              {/* Geometry (boundary) is a separate Spatial bounded-context concern, submitted
+                  through its own endpoint — not part of parcel creation. See the Spatial Read
+                  Contract Proposal for the current state of that integration. */}
             </Card>
 
             <Card>
@@ -233,7 +197,7 @@ export function ParcelNew() {
               <CardContent className="grid gap-6 pt-6 md:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="area_sqm"
+                  name="size_sqm"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Area (Square Meters) *</FormLabel>
@@ -246,7 +210,7 @@ export function ParcelNew() {
                 />
                 <FormField
                   control={form.control}
-                  name="parcel_type"
+                  name="property_type"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Land Use Type *</FormLabel>
@@ -257,7 +221,7 @@ export function ParcelNew() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.values(ParcelInputParcelType).map(t => (
+                          {PROPERTY_TYPES.map(t => (
                             <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
                           ))}
                         </SelectContent>

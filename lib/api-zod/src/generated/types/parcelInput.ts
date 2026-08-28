@@ -5,22 +5,26 @@
  * AquaSavannah LandVault API — land-registry and verification platform for Nigeria
  * OpenAPI spec version: 0.1.0
  */
-import type { ParcelInputParcelType } from './parcelInputParcelType';
 
+/**
+ * Mirrors CreateParcelRequest (backend/app/contexts/registry/api/dtos.py) exactly.
+ */
 export interface ParcelInput {
+  country_code?: string;
+  title?: string;
   /** @minLength 1 */
-  owner_name: string;
-  owner_phone?: string;
-  owner_email?: string;
-  /** @minLength 1 */
-  location_address: string;
+  address: string;
   /** @minLength 1 */
   state: string;
   /** @minLength 1 */
   lga: string;
+  ward?: string;
+  community?: string;
+  property_type: string;
   /** @minimum 1 */
-  area_sqm: number;
-  parcel_type: ParcelInputParcelType;
-  latitude?: number;
-  longitude?: number;
+  size_sqm: number;
+  ownership_type?: string;
+  /** @minLength 1 */
+  current_owner_name: string;
+  current_owner_contact?: string;
 }

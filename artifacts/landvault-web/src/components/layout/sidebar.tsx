@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map, ShieldCheck, FileCheck, FilePlus } from "lucide-react";
+import { LayoutDashboard, Map, ShieldCheck, FileCheck, FilePlus, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -51,13 +51,13 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-sidebar-border p-4">
+        {/* No session exists yet — Supabase Auth integration (IMVP-3) populates this. */}
         <div className="flex items-center gap-3 rounded-md p-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent font-bold text-sidebar-foreground">
-            OA
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-foreground/50">
+            <UserCircle2 className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">Oluwaseun Adebayo</span>
-            <span className="text-xs text-sidebar-foreground/50">Registry Admin</span>
+            <span className="text-sm font-medium text-sidebar-foreground/50">Not signed in</span>
           </div>
         </div>
       </div>

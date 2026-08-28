@@ -9,62 +9,64 @@ export interface HealthStatus {
   status: string;
 }
 
-export interface DashboardStats {
-  total_parcels: number;
-  registered_parcels: number;
-  pending_parcels: number;
-  disputed_parcels: number;
-  avg_trust_score: number;
-  registrations_last_7_days: number;
-  evidence_verified: number;
-  evidence_pending: number;
-}
-
-export type ParcelParcelType = typeof ParcelParcelType[keyof typeof ParcelParcelType];
-
-
-export const ParcelParcelType = {
-  residential: 'residential',
-  commercial: 'commercial',
-  agricultural: 'agricultural',
-  industrial: 'industrial',
-} as const;
-
+/**
+ * One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.
+ */
 export type ParcelStatus = typeof ParcelStatus[keyof typeof ParcelStatus];
 
 
 export const ParcelStatus = {
-  pending: 'pending',
-  registered: 'registered',
-  disputed: 'disputed',
-  cancelled: 'cancelled',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED',
 } as const;
 
+/**
+ * Mirrors the governed backend's actual `_parcel_view` response shape exactly (backend/app/contexts/registry/application/parcel_service.py). No `trust_score` and no `latitude`/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.
+ */
 export interface Parcel {
-  id: string;
-  /** Unique parcel reference, e.g. LV-NG-2024-001234 */
-  title_number: string;
-  owner_name: string;
-  /** @nullable */
-  owner_phone?: string | null;
-  /** @nullable */
-  owner_email?: string | null;
-  location_address: string;
-  /** Nigerian state */
-  state: string;
-  /** Local Government Area */
-  lga: string;
-  area_sqm: number;
-  parcel_type: ParcelParcelType;
+  parcel_id: string;
+  tenant_id: string;
+  country_code: string;
+  origin: string;
+  created_by: string;
+  /** One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation. */
   status: ParcelStatus;
-  /** 0–100 trust score */
-  trust_score: number;
+  /**
+     * Atomically allocated registry number (ADR-014); null until allocation completes.
+     * @nullable
+     */
+  parcel_number?: string | null;
   /** @nullable */
-  latitude?: number | null;
+  title?: string | null;
   /** @nullable */
-  longitude?: number | null;
+  address?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  lga?: string | null;
+  /** @nullable */
+  ward?: string | null;
+  /** @nullable */
+  community?: string | null;
+  /** @nullable */
+  property_type?: string | null;
+  /** @nullable */
+  size_sqm?: number | null;
+  /** @nullable */
+  ownership_type?: string | null;
+  /** @nullable */
+  current_owner_name?: string | null;
+  /** @nullable */
+  current_owner_contact?: string | null;
   created_at: string;
   updated_at: string;
+  /** @nullable */
+  archived_at?: string | null;
+  /**
+     * Opaque pointer into the Spatial bounded context — never interpreted by Registry.
+     * @nullable
+     */
+  geometry_reference?: string | null;
 }
 
 export interface ParcelList {
@@ -72,66 +74,44 @@ export interface ParcelList {
   total: number;
 }
 
-export type ParcelInputParcelType = typeof ParcelInputParcelType[keyof typeof ParcelInputParcelType];
-
-
-export const ParcelInputParcelType = {
-  residential: 'residential',
-  commercial: 'commercial',
-  agricultural: 'agricultural',
-  industrial: 'industrial',
-} as const;
-
+/**
+ * Mirrors CreateParcelRequest (backend/app/contexts/registry/api/dtos.py) exactly.
+ */
 export interface ParcelInput {
+  country_code?: string;
+  title?: string;
   /** @minLength 1 */
-  owner_name: string;
-  owner_phone?: string;
-  owner_email?: string;
-  /** @minLength 1 */
-  location_address: string;
+  address: string;
   /** @minLength 1 */
   state: string;
   /** @minLength 1 */
   lga: string;
+  ward?: string;
+  community?: string;
+  property_type: string;
   /** @minimum 1 */
-  area_sqm: number;
-  parcel_type: ParcelInputParcelType;
-  latitude?: number;
-  longitude?: number;
+  size_sqm: number;
+  ownership_type?: string;
+  /** @minLength 1 */
+  current_owner_name: string;
+  current_owner_contact?: string;
 }
 
-export type ParcelUpdateParcelType = typeof ParcelUpdateParcelType[keyof typeof ParcelUpdateParcelType];
-
-
-export const ParcelUpdateParcelType = {
-  residential: 'residential',
-  commercial: 'commercial',
-  agricultural: 'agricultural',
-  industrial: 'industrial',
-} as const;
-
-export type ParcelUpdateStatus = typeof ParcelUpdateStatus[keyof typeof ParcelUpdateStatus];
-
-
-export const ParcelUpdateStatus = {
-  pending: 'pending',
-  registered: 'registered',
-  disputed: 'disputed',
-  cancelled: 'cancelled',
-} as const;
-
+/**
+ * Mirrors UpdateParcelRequest / Parcel.UPDATABLE_FIELDS exactly. No `status` field — the parcel lifecycle changes only through the dedicated archive operation.
+ */
 export interface ParcelUpdate {
-  owner_name?: string;
-  owner_phone?: string;
-  owner_email?: string;
-  location_address?: string;
+  title?: string;
+  address?: string;
   state?: string;
   lga?: string;
-  area_sqm?: number;
-  parcel_type?: ParcelUpdateParcelType;
-  status?: ParcelUpdateStatus;
-  latitude?: number;
-  longitude?: number;
+  ward?: string;
+  community?: string;
+  property_type?: string;
+  size_sqm?: number;
+  ownership_type?: string;
+  current_owner_name?: string;
+  current_owner_contact?: string;
 }
 
 export type EvidenceDocumentType = typeof EvidenceDocumentType[keyof typeof EvidenceDocumentType];
@@ -206,36 +186,4 @@ export interface EvidenceUpdate {
 export interface ErrorResponse {
   error: string;
 }
-
-export type ListParcelsParams = {
-status?: ListParcelsStatus;
-parcel_type?: ListParcelsParcelType;
-state?: string;
-/**
- * Search by title number, owner name, or address
- */
-search?: string;
-limit?: number;
-offset?: number;
-};
-
-export type ListParcelsStatus = typeof ListParcelsStatus[keyof typeof ListParcelsStatus];
-
-
-export const ListParcelsStatus = {
-  pending: 'pending',
-  registered: 'registered',
-  disputed: 'disputed',
-  cancelled: 'cancelled',
-} as const;
-
-export type ListParcelsParcelType = typeof ListParcelsParcelType[keyof typeof ListParcelsParcelType];
-
-
-export const ListParcelsParcelType = {
-  residential: 'residential',
-  commercial: 'commercial',
-  agricultural: 'agricultural',
-  industrial: 'industrial',
-} as const;
 
