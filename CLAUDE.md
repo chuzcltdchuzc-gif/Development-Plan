@@ -370,6 +370,8 @@ This file is the always-loaded operational summary. It is a pointer, not the sou
 /docs       — this planning package
 ```
 
+**Note (2026-08-14):** an unrelated automated process (a Replit agent, outside this repository's governance workflow) added a parallel Node/TypeScript pnpm workspace at the repo root — `/artifacts` (including `landvault-web`, a new frontend scaffold), `/lib` (`api-client-react`, `api-zod`, `api-spec`, `db`), `/scripts`, plus `pnpm-workspace.yaml`/`.replit`/`replit.md`. That same process temporarily relocated the entire governed codebase above into `.migration-backup/` and removed `.github/workflows/` from its discoverable root path, which silently disabled CI. **The Python/FastAPI backend above remains the authoritative system** — Governance Authority confirmed this explicitly; the new Node scaffold's own `evidence.ts`/`parcels.ts` stubs are not being built out further under this repo's governance process. The governed code has been restored to the root paths shown above (this was a structural/path fix only — no logic changed, confirmed via full pytest/ruff/mypy re-run and matching git blob hashes against the pre-migration commit) and CI workflows are back at `.github/workflows/`. The Node/pnpm workspace (`/artifacts`, `/lib`, `/scripts`) is preserved, not removed — `landvault-web` is intended to become a UI that calls into this backend, not a replacement for it.
+
 ## Working model
 
 Sprints are one per bounded context (13 total, dependency-ordered per `docs/REBUILD_PLAN.md` §1), each gated through the Claude Code Loop in `docs/PHASE_GATES.md` and signed off against `docs/DOD.md` before merge. Do not start a sprint whose dependencies (per the bounded-context ordering) aren't yet Sprint Done.

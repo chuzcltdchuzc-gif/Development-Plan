@@ -1,0 +1,493 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: AquaSavannah LandVault API — land-registry and verification platform for Nigeria
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: parcels
+    description: Land parcel registry
+  - name: evidence
+    description: Evidence and documents
+  - name: dashboard
+    description: Dashboard statistics
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /parcels:
+    get:
+      operationId: listParcels
+      tags: [parcels]
+      summary: List parcels with optional filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, registered, disputed, cancelled]
+        - name: parcel_type
+          in: query
+          schema:
+            type: string
+            enum: [residential, commercial, agricultural, industrial]
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by title number, owner name, or address
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: number
+            default: 0
+      responses:
+        "200":
+          description: List of parcels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParcelList"
+    post:
+      operationId: createParcel
+      tags: [parcels]
+      summary: Register a new land parcel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParcelInput"
+      responses:
+        "201":
+          description: Parcel registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Parcel"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /parcels/{id}:
+    get:
+      operationId: getParcel
+      tags: [parcels]
+      summary: Get a parcel by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Parcel detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Parcel"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateParcel
+      tags: [parcels]
+      summary: Update a parcel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParcelUpdate"
+      responses:
+        "200":
+          description: Updated parcel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Parcel"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteParcel
+      tags: [parcels]
+      summary: Cancel / delete a parcel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /parcels/{id}/evidence:
+    get:
+      operationId: listParcelEvidence
+      tags: [evidence]
+      summary: List evidence for a parcel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Evidence list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Evidence"
+    post:
+      operationId: addParcelEvidence
+      tags: [evidence]
+      summary: Add evidence to a parcel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceInput"
+      responses:
+        "201":
+          description: Evidence added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evidence"
+
+  /evidence/{evidenceId}:
+    patch:
+      operationId: updateEvidence
+      tags: [evidence]
+      summary: Update evidence status (verify/reject)
+      parameters:
+        - name: evidenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvidenceUpdate"
+      responses:
+        "200":
+          description: Updated evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Evidence"
+    delete:
+      operationId: deleteEvidence
+      tags: [evidence]
+      summary: Remove evidence
+      parameters:
+        - name: evidenceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    DashboardStats:
+      type: object
+      properties:
+        total_parcels:
+          type: number
+        registered_parcels:
+          type: number
+        pending_parcels:
+          type: number
+        disputed_parcels:
+          type: number
+        avg_trust_score:
+          type: number
+        registrations_last_7_days:
+          type: number
+        evidence_verified:
+          type: number
+        evidence_pending:
+          type: number
+      required:
+        - total_parcels
+        - registered_parcels
+        - pending_parcels
+        - disputed_parcels
+        - avg_trust_score
+        - registrations_last_7_days
+        - evidence_verified
+        - evidence_pending
+
+    Parcel:
+      type: object
+      properties:
+        id:
+          type: string
+        title_number:
+          type: string
+          description: Unique parcel reference, e.g. LV-NG-2024-001234
+        owner_name:
+          type: string
+        owner_phone:
+          type: ["string", "null"]
+        owner_email:
+          type: ["string", "null"]
+        location_address:
+          type: string
+        state:
+          type: string
+          description: Nigerian state
+        lga:
+          type: string
+          description: Local Government Area
+        area_sqm:
+          type: number
+        parcel_type:
+          type: string
+          enum: [residential, commercial, agricultural, industrial]
+        status:
+          type: string
+          enum: [pending, registered, disputed, cancelled]
+        trust_score:
+          type: number
+          description: 0–100 trust score
+        latitude:
+          type: ["number", "null"]
+        longitude:
+          type: ["number", "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title_number
+        - owner_name
+        - location_address
+        - state
+        - lga
+        - area_sqm
+        - parcel_type
+        - status
+        - trust_score
+        - created_at
+        - updated_at
+
+    ParcelList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Parcel"
+        total:
+          type: number
+      required:
+        - items
+        - total
+
+    ParcelInput:
+      type: object
+      properties:
+        owner_name:
+          type: string
+          minLength: 1
+        owner_phone:
+          type: string
+        owner_email:
+          type: string
+        location_address:
+          type: string
+          minLength: 1
+        state:
+          type: string
+          minLength: 1
+        lga:
+          type: string
+          minLength: 1
+        area_sqm:
+          type: number
+          minimum: 1
+        parcel_type:
+          type: string
+          enum: [residential, commercial, agricultural, industrial]
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required:
+        - owner_name
+        - location_address
+        - state
+        - lga
+        - area_sqm
+        - parcel_type
+
+    ParcelUpdate:
+      type: object
+      properties:
+        owner_name:
+          type: string
+        owner_phone:
+          type: string
+        owner_email:
+          type: string
+        location_address:
+          type: string
+        state:
+          type: string
+        lga:
+          type: string
+        area_sqm:
+          type: number
+        parcel_type:
+          type: string
+          enum: [residential, commercial, agricultural, industrial]
+        status:
+          type: string
+          enum: [pending, registered, disputed, cancelled]
+        latitude:
+          type: number
+        longitude:
+          type: number
+
+    Evidence:
+      type: object
+      properties:
+        id:
+          type: string
+        parcel_id:
+          type: string
+        document_type:
+          type: string
+          enum: [survey_plan, certificate_of_occupancy, deed_of_assignment, affidavit, purchase_receipt, governors_consent, court_order, other]
+        file_name:
+          type: string
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending_review, verified, rejected]
+        uploaded_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - parcel_id
+        - document_type
+        - file_name
+        - status
+        - uploaded_at
+
+    EvidenceInput:
+      type: object
+      properties:
+        document_type:
+          type: string
+          enum: [survey_plan, certificate_of_occupancy, deed_of_assignment, affidavit, purchase_receipt, governors_consent, court_order, other]
+        file_name:
+          type: string
+          minLength: 1
+        notes:
+          type: string
+      required:
+        - document_type
+        - file_name
+
+    EvidenceUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending_review, verified, rejected]
+        notes:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
