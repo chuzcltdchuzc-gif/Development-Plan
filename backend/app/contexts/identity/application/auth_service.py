@@ -124,7 +124,7 @@ class AuthService:
         # Self-registration ALWAYS gets the default role — there is no role
         # field on the register request for a caller to send (ADR-004 pt. 4).
         user = User.new(
-            keycloak_subject=subject,
+            identity_subject=subject,
             email=normalized_email,
             full_name=full_name_clean,
             country=country_code,
@@ -236,7 +236,7 @@ class AuthService:
         # There is no acting principal here to re-check against: the
         # invitee has no account yet.
         user = User.new(
-            keycloak_subject=subject,
+            identity_subject=subject,
             email=invitation.invited_email,
             full_name=full_name_clean,
             country=country_code,
@@ -283,7 +283,7 @@ class AuthService:
             )
             raise _unauthenticated("Invalid email or password") from exc
 
-        user = await self.users.get_by_keycloak_subject(idp_tokens.subject)
+        user = await self.users.get_by_identity_subject(idp_tokens.subject)
         if not user or not user.can_authenticate():
             await audit(
                 "identity.login.failed",

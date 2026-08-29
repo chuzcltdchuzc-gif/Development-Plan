@@ -127,7 +127,7 @@ async def test_evidence_upload_persists_and_rolls_back_on_live_postgres() -> Non
                 await conn.execute(
                     sa.text(
                         "INSERT INTO identity_users "
-                        "(id, keycloak_subject, email, full_name, country, tenant_id, roles) "
+                        "(id, identity_subject, email, full_name, country, tenant_id, roles) "
                         "VALUES (:id, :sub, :email, 'Live Evidence Test User', "
                         "'NG', :tenant_id, '[]')"
                     ),

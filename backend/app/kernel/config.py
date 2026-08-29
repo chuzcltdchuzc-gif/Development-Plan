@@ -29,13 +29,36 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     app_name: str = "landvault-api"
 
-    # ---- Keycloak (B1 — Identity & Authorization) ------------------------
+    # ---- Keycloak (historical — B1 register/login/refresh proxy only) ----
+    # Retired as the production identity provider by ADR-025 (Supabase Auth
+    # takes that role now — see the supabase_* settings below). Kept, not
+    # deleted: these still back the existing /v1/auth/register|login|refresh
+    # endpoints, which are a separate, deferred disposition question
+    # (IMVP-3 report §M) — not touched here.
     keycloak_realm_url: str
     keycloak_client_id: str
     keycloak_client_secret: str
     keycloak_admin_token_url: str
     keycloak_admin_api_url: str
     jwt_audience: str
+
+    # ---- Supabase Auth (B1 — production identity provider, ADR-025) ------
+    # `supabase_project_url` derives both the JWKS endpoint and the issuer
+    # claim (`{url}/auth/v1/.well-known/jwks.json` and `{url}/auth/v1`
+    # respectively) — the same single-setting-derives-the-rest pattern the
+    # Keycloak realm_url setting above already uses, not a new convention.
+    supabase_project_url: str
+    # Supabase's own fixed convention for authenticated users' `aud` claim
+    # is literally the string "authenticated" — configurable rather than
+    # hardcoded so a differently-configured project isn't silently rejected,
+    # but that is the expected value for the overwhelming majority of setups.
+    supabase_jwt_audience: str = "authenticated"
+    # ES256 is Supabase's current default for asymmetric (JWKS-published)
+    # project signing keys. Configurable, not hardcoded into JwtVerifier
+    # itself, because it's the one place a project-specific choice actually
+    # varies — see app/kernel/security/jwt.py's own comment on why this
+    # became a parameter rather than a second verifier class.
+    supabase_jwt_algorithm: str = "ES256"
 
     @property
     def cookie_secure(self) -> bool:

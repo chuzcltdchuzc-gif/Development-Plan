@@ -35,7 +35,7 @@ from app.contexts.identity.ports import OptimisticLockError
 def _user_from_record(record: UserRecord) -> User:
     return User(
         user_id=str(record.id),
-        keycloak_subject=record.keycloak_subject,
+        identity_subject=record.identity_subject,
         email=record.email,
         full_name=record.full_name,
         country=record.country,
@@ -58,7 +58,7 @@ class PostgresUserRepository:
     async def add(self, user: User) -> User:
         record = UserRecord(
             id=uuid.UUID(user.user_id) if _looks_like_uuid(user.user_id) else uuid.uuid4(),
-            keycloak_subject=user.keycloak_subject,
+            identity_subject=user.identity_subject,
             email=user.email,
             full_name=user.full_name,
             country=user.country,
@@ -85,9 +85,9 @@ class PostgresUserRepository:
         record = result.scalar_one_or_none()
         return _user_from_record(record) if record else None
 
-    async def get_by_keycloak_subject(self, subject: str) -> User | None:
+    async def get_by_identity_subject(self, subject: str) -> User | None:
         result = await self._session.execute(
-            select(UserRecord).where(UserRecord.keycloak_subject == subject)
+            select(UserRecord).where(UserRecord.identity_subject == subject)
         )
         record = result.scalar_one_or_none()
         return _user_from_record(record) if record else None

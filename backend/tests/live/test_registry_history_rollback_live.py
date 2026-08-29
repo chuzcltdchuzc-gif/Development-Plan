@@ -142,7 +142,7 @@ async def test_parcel_and_history_roll_back_together_on_live_postgres() -> None:
                 await conn.execute(
                     sa.text(
                         "INSERT INTO identity_users "
-                        "(id, keycloak_subject, email, full_name, country, tenant_id, roles) "
+                        "(id, identity_subject, email, full_name, country, tenant_id, roles) "
                         "VALUES (:id, :sub, :email, 'Live Rollback Test User', "
                         "'NG', :tenant_id, '[]')"
                     ),
