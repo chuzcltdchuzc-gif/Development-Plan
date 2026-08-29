@@ -25,8 +25,12 @@ export function ParcelDetail() {
   const id = params?.id;
   const queryClient = useQueryClient();
 
-  const { data: parcel, isLoading: parcelLoading } = useGetParcel(id!, { query: { enabled: !!id } });
-  const { data: evidence, isLoading: evidenceLoading } = useListParcelEvidence(id!, { query: { enabled: !!id } });
+  const { data: parcel, isLoading: parcelLoading } = useGetParcel(id!, {
+    query: { enabled: !!id, queryKey: getGetParcelQueryKey(id!) },
+  });
+  const { data: evidence, isLoading: evidenceLoading } = useListParcelEvidence(id!, {
+    query: { enabled: !!id, queryKey: getListParcelEvidenceQueryKey(id!) },
+  });
   
   const updateParcel = useUpdateParcel();
   const updateEvidence = useUpdateEvidence();

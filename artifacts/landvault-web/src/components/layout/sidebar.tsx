@@ -1,6 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map, ShieldCheck, FileCheck, FilePlus } from "lucide-react";
+import { LayoutDashboard, Map, ShieldCheck, FileCheck, FilePlus, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -11,6 +13,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const [location] = useLocation();
+  const { user, signOut } = useAuth();
 
   return (
     <div className="flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -51,14 +54,26 @@ export function Sidebar() {
       </div>
 
       <div className="border-t border-sidebar-border p-4">
+        {/* Real Supabase session only — no placeholder/fake identity. If this
+            renders at all, RequireAuth has already confirmed a session
+            exists, so `user` here is never null in practice. */}
         <div className="flex items-center gap-3 rounded-md p-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-accent font-bold text-sidebar-foreground">
-            OA
+            {(user?.email ?? "?").charAt(0).toUpperCase()}
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold">Oluwaseun Adebayo</span>
-            <span className="text-xs text-sidebar-foreground/50">Registry Admin</span>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-sm font-semibold truncate">{user?.email ?? "Unknown"}</span>
+            <span className="text-xs text-sidebar-foreground/50">Signed in</span>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto shrink-0 text-sidebar-foreground/50 hover:text-sidebar-foreground"
+            onClick={() => void signOut()}
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

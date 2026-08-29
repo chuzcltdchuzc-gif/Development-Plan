@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useListParcels, useListParcelEvidence } from "@workspace/api-client-react";
+import { useListParcels, useListParcelEvidence, getListParcelsQueryKey } from "@workspace/api-client-react";
 import { Map, ShieldCheck, Search, CheckCircle2, AlertTriangle, FileText, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,10 @@ export function Verify() {
   const [searchInput, setSearchInput] = useState("");
   const [searchedTitle, setSearchedTitle] = useState<string | null>(null);
 
+  const searchParams = { search: searchedTitle || undefined, limit: 1 };
   const { data: searchResults, isLoading, isError } = useListParcels(
-    { search: searchedTitle || undefined, limit: 1 },
-    { query: { enabled: !!searchedTitle } }
+    searchParams,
+    { query: { enabled: !!searchedTitle, queryKey: getListParcelsQueryKey(searchParams) } }
   );
 
   const handleSearch = (e: React.FormEvent) => {
