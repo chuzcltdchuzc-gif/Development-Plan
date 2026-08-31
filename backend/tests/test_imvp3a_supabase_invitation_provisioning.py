@@ -31,6 +31,7 @@ from httpx import Response
 from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
+from app.contexts.registry.domain.parcel import Parcel
 from app.kernel.audit import verify_chain
 from app.kernel.security.tokens import new_opaque_token
 from tests.app_factory import AppHarness, build_test_app
@@ -439,3 +440,48 @@ def test_provisioning_audited_with_internal_identity(
     assert len(accepted_events) == 1
     assert accepted_events[0].payload["user_id"] == internal_user_id
     assert asyncio.run(verify_chain()) is True
+
+
+# 13. Security proof (merge-gate review): an authenticated-but-unprovisioned
+# principal (tenant_id is None — the exact state the uow.py RLS-bypass fix
+# targets) cannot read another tenant's resource through any require_auth
+# -only route. This is an in-memory-fake test, so it cannot exercise
+# Postgres RLS itself — what it proves is the INDEPENDENT application-layer
+# guard (ParcelService._in_scope: resource_tenant_id == ctx.tenant_id or
+# super_admin) still denies access even though this principal's ctx.
+# tenant_id is None and RLS (in the live Postgres case) is now bypassed for
+# them. Two independent layers, either sufficient alone — this proves the
+# second one holds regardless of the first.
+
+def test_unprovisioned_principal_cannot_read_other_tenant_parcel(
+    harness: AppHarness, client: TestClient, supabase: FakeSupabase
+) -> None:
+    _inviter_token, officer = asyncio.run(
+        _seed_governance_inviter(
+            harness, supabase, email="officer13@example.test", role="compliance_officer"
+        )
+    )
+
+    async def _seed_parcel() -> Parcel:
+        parcel = Parcel.new(
+            tenant_id=officer.tenant_id,
+            country_code="NG",
+            origin="platform_registration",
+            created_by=officer.user_id,
+        )
+        return await harness.parcels.add(parcel)
+
+    parcel = asyncio.run(_seed_parcel())
+
+    unprovisioned_token = supabase.issue(subject=_new_subject(), email="nobody13@example.test")
+    response = client.get(
+        f"/v1/parcels/{parcel.parcel_id}",
+        headers={"Authorization": f"Bearer {unprovisioned_token}"},
+    )
+    assert response.status_code == 404  # not 200, not 403-with-leaked-existence
+
+    listing = client.get(
+        "/v1/parcels", headers={"Authorization": f"Bearer {unprovisioned_token}"}
+    )
+    assert listing.status_code == 200
+    assert listing.json() == []  # list_parcels short-circuits on ctx.tenant_id is None
