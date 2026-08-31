@@ -296,6 +296,21 @@ class AuthService:
         invitation.accept()
         await self.invitations.update(invitation)
 
+        # resource_id/payload below are always the internal LandVault user
+        # id — never identity_subject — matching every other audit call in
+        # this codebase (docs/adr/ADR-004 point 5). audit()'s own
+        # principal_id, by contrast, is stamped from the AMBIENT
+        # ExecutionContext (app.kernel.context.current_context()), not
+        # passed explicitly here — for the Supabase path specifically, that
+        # ambient context is still the raw verified subject at this exact
+        # moment, because the internal id these two audit calls create is
+        # the OUTCOME of this call, not a precondition of it; no internal id
+        # could exist yet for principal_id to be. Every subsequent action
+        # this same user takes resolves principal_id to their internal id
+        # normally, once the context hydrator finds their new User row.
+        # Reviewed and accepted as correct during the IMVP-3A merge-gate
+        # review — not something to "fix" by restructuring how audit()
+        # sources principal_id.
         await audit(
             "identity.user.registered",
             resource_type="user",
