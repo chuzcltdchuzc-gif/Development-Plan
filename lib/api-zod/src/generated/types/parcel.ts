@@ -5,32 +5,53 @@
  * AquaSavannah LandVault API — land-registry and verification platform for Nigeria
  * OpenAPI spec version: 0.1.0
  */
-import type { ParcelParcelType } from './parcelParcelType';
 import type { ParcelStatus } from './parcelStatus';
 
+/**
+ * Mirrors the governed backend's actual `_parcel_view` response shape exactly (backend/app/contexts/registry/application/parcel_service.py). No `trust_score` and no `latitude`/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.
+ */
 export interface Parcel {
-  id: string;
-  /** Unique parcel reference, e.g. LV-NG-2024-001234 */
-  title_number: string;
-  owner_name: string;
-  /** @nullable */
-  owner_phone?: string | null;
-  /** @nullable */
-  owner_email?: string | null;
-  location_address: string;
-  /** Nigerian state */
-  state: string;
-  /** Local Government Area */
-  lga: string;
-  area_sqm: number;
-  parcel_type: ParcelParcelType;
+  parcel_id: string;
+  tenant_id: string;
+  country_code: string;
+  origin: string;
+  created_by: string;
+  /** One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation. */
   status: ParcelStatus;
-  /** 0–100 trust score */
-  trust_score: number;
+  /**
+     * Atomically allocated registry number (ADR-014); null until allocation completes.
+     * @nullable
+     */
+  parcel_number?: string | null;
   /** @nullable */
-  latitude?: number | null;
+  title?: string | null;
   /** @nullable */
-  longitude?: number | null;
-  created_at: Date;
-  updated_at: Date;
+  address?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  lga?: string | null;
+  /** @nullable */
+  ward?: string | null;
+  /** @nullable */
+  community?: string | null;
+  /** @nullable */
+  property_type?: string | null;
+  /** @nullable */
+  size_sqm?: number | null;
+  /** @nullable */
+  ownership_type?: string | null;
+  /** @nullable */
+  current_owner_name?: string | null;
+  /** @nullable */
+  current_owner_contact?: string | null;
+  created_at: string;
+  updated_at: string;
+  /** @nullable */
+  archived_at?: string | null;
+  /**
+     * Opaque pointer into the Spatial bounded context — never interpreted by Registry.
+     * @nullable
+     */
+  geometry_reference?: string | null;
 }

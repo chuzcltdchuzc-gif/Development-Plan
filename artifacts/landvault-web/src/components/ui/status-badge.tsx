@@ -13,19 +13,17 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   let variantClass = "bg-muted text-muted-foreground";
 
   switch (status) {
-    case "registered":
+    case "ACTIVE":
     case "verified":
       variantClass = "bg-emerald-600/10 text-emerald-600 border-emerald-600/20 border";
       break;
-    case "pending":
     case "pending_review":
       variantClass = "bg-amber-500/10 text-amber-600 border-amber-500/20 border";
       break;
-    case "disputed":
     case "rejected":
       variantClass = "bg-destructive/10 text-destructive border-destructive/20 border";
       break;
-    case "cancelled":
+    case "ARCHIVED":
       variantClass = "bg-slate-500/10 text-slate-600 border-slate-500/20 border";
       break;
   }

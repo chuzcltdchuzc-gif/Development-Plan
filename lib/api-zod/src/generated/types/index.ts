@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from './dashboardStats';
 export * from './errorResponse';
 export * from './evidence';
 export * from './evidenceDocumentType';
@@ -16,15 +15,8 @@ export * from './evidenceStatus';
 export * from './evidenceUpdate';
 export * from './evidenceUpdateStatus';
 export * from './healthStatus';
-export * from './listParcelsParams';
-export * from './listParcelsParcelType';
-export * from './listParcelsStatus';
 export * from './parcel';
 export * from './parcelInput';
-export * from './parcelInputParcelType';
 export * from './parcelList';
-export * from './parcelParcelType';
 export * from './parcelStatus';
 export * from './parcelUpdate';
-export * from './parcelUpdateParcelType';
-export * from './parcelUpdateStatus';

@@ -5,19 +5,20 @@
  * AquaSavannah LandVault API — land-registry and verification platform for Nigeria
  * OpenAPI spec version: 0.1.0
  */
-import type { ParcelUpdateParcelType } from './parcelUpdateParcelType';
-import type { ParcelUpdateStatus } from './parcelUpdateStatus';
 
+/**
+ * Mirrors UpdateParcelRequest / Parcel.UPDATABLE_FIELDS exactly. No `status` field — the parcel lifecycle changes only through the dedicated archive operation.
+ */
 export interface ParcelUpdate {
-  owner_name?: string;
-  owner_phone?: string;
-  owner_email?: string;
-  location_address?: string;
+  title?: string;
+  address?: string;
   state?: string;
   lga?: string;
-  area_sqm?: number;
-  parcel_type?: ParcelUpdateParcelType;
-  status?: ParcelUpdateStatus;
-  latitude?: number;
-  longitude?: number;
+  ward?: string;
+  community?: string;
+  property_type?: string;
+  size_sqm?: number;
+  ownership_type?: string;
+  current_owner_name?: string;
+  current_owner_contact?: string;
 }
