@@ -3,8 +3,14 @@
 B0 kernel (fail-closed config, structured logging, RFC-7807 errors, health
 checks) plus B1 Identity & Authorization: PDP/PEP, request-scoped
 Unit-of-Work, and the /v1/auth, /v1/admin routes, wired against real
-Keycloak + Postgres adapters (verified against live infrastructure — see
-CLAUDE.md for what that verification covered).
+Postgres adapters (verified against live infrastructure — see CLAUDE.md for
+what that verification covered).
+
+IMVP-3 (ADR-025): the PEP's token verifier now trusts Supabase Auth, the
+production identity provider — not Keycloak. `KeycloakIdentityProvider` is
+still wired below purely to keep the historical /v1/auth/register|login|
+refresh endpoints working (a separate, deferred disposition question); it
+plays no role in verifying tokens presented to protected routes any more.
 """
 from __future__ import annotations
 
@@ -12,7 +18,8 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.contexts.identity.adapters.keycloak import KeycloakIdentityProvider, KeycloakJWKSProvider
+from app.contexts.identity.adapters.keycloak import KeycloakIdentityProvider
+from app.contexts.identity.adapters.supabase import SupabaseJWKSProvider, supabase_issuer
 from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_production_context_hydrator
 from app.contexts.identity.dependencies import configure_identity_provider
@@ -58,12 +65,20 @@ def create_app() -> FastAPI:
     configure_uow(session_factory)
     configure_eager_fallback(EagerPostgresAuditStore(session_factory))
 
-    jwks = KeycloakJWKSProvider(realm_url=settings.keycloak_realm_url)
+    # Production token verification trusts Supabase Auth (ADR-025), not
+    # Keycloak — this is the actual gate protected routes go through.
+    jwks = SupabaseJWKSProvider(project_url=settings.supabase_project_url)
     verifier = JwtVerifier(
-        jwks=jwks, issuer=settings.keycloak_realm_url, audience=settings.jwt_audience
+        jwks=jwks,
+        issuer=supabase_issuer(settings.supabase_project_url),
+        audience=settings.supabase_jwt_audience,
+        algorithms=[settings.supabase_jwt_algorithm],
     )
     configure_pep(verifier, build_production_context_hydrator(session_factory))
 
+    # Historical only (see module docstring): still backs
+    # /v1/auth/register|login|refresh, which do not sit behind the PEP
+    # verifier above and are not part of the Supabase-authenticated path.
     identity_provider = KeycloakIdentityProvider(
         realm_url=settings.keycloak_realm_url,
         client_id=settings.keycloak_client_id,

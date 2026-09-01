@@ -40,9 +40,9 @@ class InMemoryUserRepository:
                 return deepcopy(user)
         return None
 
-    async def get_by_keycloak_subject(self, subject: str) -> User | None:
+    async def get_by_identity_subject(self, subject: str) -> User | None:
         for user in self._by_id.values():
-            if user.keycloak_subject == subject:
+            if user.identity_subject == subject:
                 return deepcopy(user)
         return None
 

@@ -12,8 +12,10 @@ from fastapi import APIRouter, Cookie, Depends, Header, Request, Response, statu
 
 from app.contexts.identity.api.dtos import (
     AcceptInvitationRequest,
+    AcceptInvitationSupabaseRequest,
     LoginRequest,
     RegisterRequest,
+    SupabaseInvitationAcceptedResponse,
     TokenResponse,
 )
 from app.contexts.identity.application.admin_service import AdminService
@@ -110,6 +112,31 @@ async def accept_invitation(
     )
     _set_refresh_cookie(response, tokens["refresh_token"], secure=get_settings().cookie_secure)
     return _token_response(tokens)
+
+
+@router.post(
+    "/invitations/accept-supabase",
+    response_model=SupabaseInvitationAcceptedResponse,
+    status_code=201,
+)
+async def accept_invitation_supabase(
+    body: AcceptInvitationSupabaseRequest,
+    ctx: ExecutionContext = Depends(require_auth),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> dict:
+    """IMVP-3A. `require_auth` is the entire trust boundary here: it already
+    verified the caller's Supabase JWT and built `ctx` from it before this
+    handler ever runs, so `ctx.principal_id`/`ctx.email` are exactly (and
+    only) what that verified token proved — never anything the request body
+    could influence, since the body has no field for either."""
+    user = await auth_service.accept_invitation_supabase(
+        token=body.token,
+        identity_subject=ctx.principal_id,
+        verified_email=ctx.email or "",
+        full_name=body.full_name,
+        country=body.country,
+    )
+    return {"user": user.public_view()}
 
 
 @router.post("/refresh", response_model=TokenResponse)

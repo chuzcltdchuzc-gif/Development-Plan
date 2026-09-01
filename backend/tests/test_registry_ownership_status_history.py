@@ -38,7 +38,7 @@ async def _seed_field_agent(harness: AppHarness, *, email: str) -> str:
         email=email, password="pw12345678", full_name="History Test User"
     )
     user = User.new(
-        keycloak_subject=subject, email=email, full_name="History Test User", country="NG",
+        identity_subject=subject, email=email, full_name="History Test User", country="NG",
     )
     user.roles = ["field_agent"]
     user = await harness.users.add(user)

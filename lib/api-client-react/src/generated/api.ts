@@ -20,13 +20,11 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  DashboardStats,
   ErrorResponse,
   Evidence,
   EvidenceInput,
   EvidenceUpdate,
   HealthStatus,
-  ListParcelsParams,
   Parcel,
   ParcelInput,
   ParcelList,
@@ -137,20 +135,21 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
-export const getGetDashboardStatsUrl = () => {
+export const getListParcelsUrl = () => {
 
 
 
 
-  return `/api/dashboard/stats`
+  return `/api/parcels`
 }
 
 /**
- * @summary Get dashboard statistics
+ * The governed backend's list endpoint (`GET /v1/parcels`) currently accepts no query parameters at all — no filtering, search, or pagination is implemented server-side. This is a known, reported contract gap (see the Frontend–Backend Contract Reconciliation Report), not a client omission.
+ * @summary List parcels
  */
-export const getDashboardStats = async ( options?: Parameters<typeof customFetch>[1]): Promise<DashboardStats> => {
+export const listParcels = async ( options?: Parameters<typeof customFetch>[1]): Promise<ParcelList> => {
 
-  return customFetch<DashboardStats>(getGetDashboardStatsUrl(),
+  return customFetch<ParcelList>(getListParcelsUrl(),
   {
     ...options,
     method: 'GET'
@@ -163,107 +162,23 @@ export const getDashboardStats = async ( options?: Parameters<typeof customFetch
 
 
 
-export const getGetDashboardStatsQueryKey = () => {
+export const getListParcelsQueryKey = () => {
     return [
-    `/api/dashboard/stats`
+    `/api/parcels`
     ] as const;
     }
 
 
-export const getGetDashboardStatsQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardStats>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListParcelsQueryOptions = <TData = Awaited<ReturnType<typeof listParcels>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetDashboardStatsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListParcelsQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboardStats>>> = ({ signal }) => getDashboardStats({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboardStats>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetDashboardStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardStats>>>
-export type GetDashboardStatsQueryError = ErrorType<unknown>
-
-
-/**
- * @summary Get dashboard statistics
- */
-
-export function useGetDashboardStats<TData = Awaited<ReturnType<typeof getDashboardStats>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetDashboardStatsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getListParcelsUrl = (params?: ListParcelsParams,) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0 ? `/api/parcels?${stringifiedParams}` : `/api/parcels`
-}
-
-/**
- * @summary List parcels with optional filters
- */
-export const listParcels = async (params?: ListParcelsParams, options?: Parameters<typeof customFetch>[1]): Promise<ParcelList> => {
-
-  return customFetch<ParcelList>(getListParcelsUrl(params),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListParcelsQueryKey = (params?: ListParcelsParams,) => {
-    return [
-    `/api/parcels`, ...(params ? [params] : [])
-    ] as const;
-    }
-
-
-export const getListParcelsQueryOptions = <TData = Awaited<ReturnType<typeof listParcels>>, TError = ErrorType<unknown>>(params?: ListParcelsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListParcelsQueryKey(params);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listParcels>>> = ({ signal }) => listParcels(params, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listParcels>>> = ({ signal }) => listParcels({ signal, ...requestOptions });
 
 
 
@@ -277,15 +192,15 @@ export type ListParcelsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List parcels with optional filters
+ * @summary List parcels
  */
 
 export function useListParcels<TData = Awaited<ReturnType<typeof listParcels>>, TError = ErrorType<unknown>>(
- params?: ListParcelsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListParcelsQueryOptions(params,options)
+  const queryOptions = getListParcelsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -455,7 +370,8 @@ export const getUpdateParcelUrl = (id: string,) => {
 }
 
 /**
- * @summary Update a parcel
+ * Matches the governed backend's `UPDATABLE_FIELDS` allow-list exactly. `status` is deliberately not updatable here — the parcel lifecycle is one-way (ACTIVE → ARCHIVED) via the dedicated archive operation below, not a generic field write.
+ * @summary Update parcel details
  */
 export const updateParcel = async (id: string,
     parcelUpdate: ParcelUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Parcel> => {
@@ -505,7 +421,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateParcelMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Update a parcel
+ * @summary Update parcel details
  */
 export const useUpdateParcel = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateParcel>>, TError,{id: string;data: BodyType<ParcelUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -518,23 +434,23 @@ export const useUpdateParcel = <TError = ErrorType<ErrorResponse>,
       return useMutation(getUpdateParcelMutationOptions(options));
     }
 
-export const getDeleteParcelUrl = (id: string,) => {
+export const getArchiveParcelUrl = (id: string,) => {
 
 
 
 
-  return `/api/parcels/${id}`
+  return `/api/parcels/${id}/archive`
 }
 
 /**
- * @summary Cancel / delete a parcel
+ * @summary Archive a parcel (one-way ACTIVE → ARCHIVED)
  */
-export const deleteParcel = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+export const archiveParcel = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<Parcel> => {
 
-  return customFetch<void>(getDeleteParcelUrl(id),
+  return customFetch<Parcel>(getArchiveParcelUrl(id),
   {
     ...options,
-    method: 'DELETE'
+    method: 'POST'
 
 
   }
@@ -544,11 +460,11 @@ export const deleteParcel = async (id: string, options?: Parameters<typeof custo
 
 
 
-export const getDeleteParcelMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteParcel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteParcel>>, TError,{id: string}, TContext> => {
+export const getArchiveParcelMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveParcel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof archiveParcel>>, TError,{id: string}, TContext> => {
 
-const mutationKey = ['deleteParcel'];
+const mutationKey = ['archiveParcel'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -558,10 +474,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteParcel>>, {id: string}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof archiveParcel>>, {id: string}> = (props) => {
           const {id} = props ?? {};
 
-          return  deleteParcel(id,requestOptions)
+          return  archiveParcel(id,requestOptions)
         }
 
 
@@ -571,22 +487,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type DeleteParcelMutationResult = NonNullable<Awaited<ReturnType<typeof deleteParcel>>>
+    export type ArchiveParcelMutationResult = NonNullable<Awaited<ReturnType<typeof archiveParcel>>>
 
-    export type DeleteParcelMutationError = ErrorType<unknown>
+    export type ArchiveParcelMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Cancel / delete a parcel
+ * @summary Archive a parcel (one-way ACTIVE → ARCHIVED)
  */
-export const useDeleteParcel = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteParcel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useArchiveParcel = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveParcel>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteParcel>>,
+        Awaited<ReturnType<typeof archiveParcel>>,
         TError,
         {id: string},
         TContext
       > => {
-      return useMutation(getDeleteParcelMutationOptions(options));
+      return useMutation(getArchiveParcelMutationOptions(options));
     }
 
 export const getListParcelEvidenceUrl = (id: string,) => {

@@ -47,6 +47,21 @@ class AcceptInvitationRequest(BaseModel):
     country: str | None = None
 
 
+class AcceptInvitationSupabaseRequest(BaseModel):
+    """Supabase path (IMVP-3A) — deliberately has no password, identity_subject,
+    email, tenant, or role field: extra="forbid" means a client attempting to
+    supply any of those is rejected outright (422), not silently ignored. The
+    identity comes exclusively from the caller's already-verified Supabase
+    access token (require_auth); tenant/role come exclusively from the
+    invitation itself."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    full_name: str
+    country: str | None = None
+
+
 class SuspendTenantRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -78,6 +93,14 @@ class UserView(BaseModel):
     tenant_id: str
     roles: list[str]
     account_status: str
+
+
+class SupabaseInvitationAcceptedResponse(BaseModel):
+    """No access_token/refresh_token here (unlike TokenResponse) — Supabase
+    already authenticated the caller and already owns their session; this
+    side never issues one for this path."""
+
+    user: UserView
 
 
 class TokenResponse(BaseModel):

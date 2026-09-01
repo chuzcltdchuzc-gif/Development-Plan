@@ -61,6 +61,7 @@ from tests.fakes.registry import (
 )
 from tests.fakes.spatial import FakeParcelExistencePort, InMemoryParcelGeometryRepository
 from tests.fakes.storage import InMemoryStoragePort
+from tests.fakes.supabase_jwks import FakeSupabase
 
 
 @dataclass
@@ -83,7 +84,9 @@ class AppHarness:
     storage: InMemoryStoragePort
 
 
-def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
+def build_test_app(
+    *, rate_limit_enabled: bool = True, supabase: FakeSupabase | None = None
+) -> AppHarness:
     keycloak = FakeKeycloak()
     users = InMemoryUserRepository()
     sessions = InMemorySessionRepository()
@@ -103,7 +106,19 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
 
     configure_audit_store(audit_store)
 
-    verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
+    # IMVP-3A: production's PEP verifier trusts Supabase exclusively
+    # (app.main), not Keycloak — Keycloak's fake stays wired below either
+    # way (AuthService.__init__ still requires an IdentityProvider for the
+    # historical register/login/refresh endpoints), but which verifier the
+    # PEP itself checks incoming tokens against must match whichever
+    # provider a given test's tokens actually come from.
+    if supabase is not None:
+        verifier = JwtVerifier(
+            jwks=supabase, issuer=supabase.issuer, audience=supabase.audience,
+            algorithms=["ES256"],
+        )
+    else:
+        verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
     configure_pep(verifier, build_context_hydrator(users, tenants, delegations))
 
     app = FastAPI(title="landvault-api-test")

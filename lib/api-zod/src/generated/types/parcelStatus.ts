@@ -6,12 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.
+ */
 export type ParcelStatus = typeof ParcelStatus[keyof typeof ParcelStatus];
 
 
 export const ParcelStatus = {
-  pending: 'pending',
-  registered: 'registered',
-  disputed: 'disputed',
-  cancelled: 'cancelled',
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED',
 } as const;

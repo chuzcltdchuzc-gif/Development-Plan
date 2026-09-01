@@ -17,54 +17,34 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Get dashboard statistics
+ * The governed backend's list endpoint (`GET /v1/parcels`) currently accepts no query parameters at all — no filtering, search, or pagination is implemented server-side. This is a known, reported contract gap (see the Frontend–Backend Contract Reconciliation Report), not a client omission.
+ * @summary List parcels
  */
-export const GetDashboardStatsResponse = zod.object({
-  "total_parcels": zod.number(),
-  "registered_parcels": zod.number(),
-  "pending_parcels": zod.number(),
-  "disputed_parcels": zod.number(),
-  "avg_trust_score": zod.number(),
-  "registrations_last_7_days": zod.number(),
-  "evidence_verified": zod.number(),
-  "evidence_pending": zod.number()
-})
-
-
-/**
- * @summary List parcels with optional filters
- */
-export const listParcelsQueryLimitDefault = 50;
-export const listParcelsQueryOffsetDefault = 0;
-
-export const ListParcelsQueryParams = zod.object({
-  "status": zod.enum(['pending', 'registered', 'disputed', 'cancelled']).optional(),
-  "parcel_type": zod.enum(['residential', 'commercial', 'agricultural', 'industrial']).optional(),
-  "state": zod.coerce.string().optional(),
-  "search": zod.coerce.string().optional().describe('Search by title number, owner name, or address'),
-  "limit": zod.coerce.number().default(listParcelsQueryLimitDefault),
-  "offset": zod.coerce.number().default(listParcelsQueryOffsetDefault)
-})
-
 export const ListParcelsResponse = zod.object({
   "items": zod.array(zod.object({
-  "id": zod.string(),
-  "title_number": zod.string().describe('Unique parcel reference, e.g. LV-NG-2024-001234'),
-  "owner_name": zod.string(),
-  "owner_phone": zod.string().nullish(),
-  "owner_email": zod.string().nullish(),
-  "location_address": zod.string(),
-  "state": zod.string().describe('Nigerian state'),
-  "lga": zod.string().describe('Local Government Area'),
-  "area_sqm": zod.number(),
-  "parcel_type": zod.enum(['residential', 'commercial', 'agricultural', 'industrial']),
-  "status": zod.enum(['pending', 'registered', 'disputed', 'cancelled']),
-  "trust_score": zod.number().describe('0–100 trust score'),
-  "latitude": zod.number().nullish(),
-  "longitude": zod.number().nullish(),
-  "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date()
-})),
+  "parcel_id": zod.string(),
+  "tenant_id": zod.string(),
+  "country_code": zod.string(),
+  "origin": zod.string(),
+  "created_by": zod.string(),
+  "status": zod.enum(['ACTIVE', 'ARCHIVED']).describe('One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.'),
+  "parcel_number": zod.string().nullish().describe('Atomically allocated registry number (ADR-014); null until allocation completes.'),
+  "title": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "lga": zod.string().nullish(),
+  "ward": zod.string().nullish(),
+  "community": zod.string().nullish(),
+  "property_type": zod.string().nullish(),
+  "size_sqm": zod.number().nullish(),
+  "ownership_type": zod.string().nullish(),
+  "current_owner_name": zod.string().nullish(),
+  "current_owner_contact": zod.string().nullish(),
+  "created_at": zod.string(),
+  "updated_at": zod.string(),
+  "archived_at": zod.string().nullish(),
+  "geometry_reference": zod.string().nullish().describe('Opaque pointer into the Spatial bounded context — never interpreted by Registry.')
+}).describe('Mirrors the governed backend\'s actual `_parcel_view` response shape exactly (backend\/app\/contexts\/registry\/application\/parcel_service.py). No `trust_score` and no `latitude`\/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.')),
   "total": zod.number()
 })
 
@@ -80,36 +60,44 @@ export const ListParcelsResponse = zod.object({
 
 
 export const CreateParcelBody = zod.object({
-  "owner_name": zod.string().min(1),
-  "owner_phone": zod.string().optional(),
-  "owner_email": zod.string().optional(),
-  "location_address": zod.string().min(1),
+  "country_code": zod.string().optional(),
+  "title": zod.string().optional(),
+  "address": zod.string().min(1),
   "state": zod.string().min(1),
   "lga": zod.string().min(1),
-  "area_sqm": zod.number().min(1),
-  "parcel_type": zod.enum(['residential', 'commercial', 'agricultural', 'industrial']),
-  "latitude": zod.number().optional(),
-  "longitude": zod.number().optional()
-})
+  "ward": zod.string().optional(),
+  "community": zod.string().optional(),
+  "property_type": zod.string(),
+  "size_sqm": zod.number().min(1),
+  "ownership_type": zod.string().optional(),
+  "current_owner_name": zod.string().min(1),
+  "current_owner_contact": zod.string().optional()
+}).describe('Mirrors CreateParcelRequest (backend\/app\/contexts\/registry\/api\/dtos.py) exactly.')
 
 export const CreateParcelResponse = zod.object({
-  "id": zod.string(),
-  "title_number": zod.string().describe('Unique parcel reference, e.g. LV-NG-2024-001234'),
-  "owner_name": zod.string(),
-  "owner_phone": zod.string().nullish(),
-  "owner_email": zod.string().nullish(),
-  "location_address": zod.string(),
-  "state": zod.string().describe('Nigerian state'),
-  "lga": zod.string().describe('Local Government Area'),
-  "area_sqm": zod.number(),
-  "parcel_type": zod.enum(['residential', 'commercial', 'agricultural', 'industrial']),
-  "status": zod.enum(['pending', 'registered', 'disputed', 'cancelled']),
-  "trust_score": zod.number().describe('0–100 trust score'),
-  "latitude": zod.number().nullish(),
-  "longitude": zod.number().nullish(),
-  "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date()
-})
+  "parcel_id": zod.string(),
+  "tenant_id": zod.string(),
+  "country_code": zod.string(),
+  "origin": zod.string(),
+  "created_by": zod.string(),
+  "status": zod.enum(['ACTIVE', 'ARCHIVED']).describe('One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.'),
+  "parcel_number": zod.string().nullish().describe('Atomically allocated registry number (ADR-014); null until allocation completes.'),
+  "title": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "lga": zod.string().nullish(),
+  "ward": zod.string().nullish(),
+  "community": zod.string().nullish(),
+  "property_type": zod.string().nullish(),
+  "size_sqm": zod.number().nullish(),
+  "ownership_type": zod.string().nullish(),
+  "current_owner_name": zod.string().nullish(),
+  "current_owner_contact": zod.string().nullish(),
+  "created_at": zod.string(),
+  "updated_at": zod.string(),
+  "archived_at": zod.string().nullish(),
+  "geometry_reference": zod.string().nullish().describe('Opaque pointer into the Spatial bounded context — never interpreted by Registry.')
+}).describe('Mirrors the governed backend\'s actual `_parcel_view` response shape exactly (backend\/app\/contexts\/registry\/application\/parcel_service.py). No `trust_score` and no `latitude`\/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.')
 
 
 /**
@@ -120,74 +108,110 @@ export const GetParcelParams = zod.object({
 })
 
 export const GetParcelResponse = zod.object({
-  "id": zod.string(),
-  "title_number": zod.string().describe('Unique parcel reference, e.g. LV-NG-2024-001234'),
-  "owner_name": zod.string(),
-  "owner_phone": zod.string().nullish(),
-  "owner_email": zod.string().nullish(),
-  "location_address": zod.string(),
-  "state": zod.string().describe('Nigerian state'),
-  "lga": zod.string().describe('Local Government Area'),
-  "area_sqm": zod.number(),
-  "parcel_type": zod.enum(['residential', 'commercial', 'agricultural', 'industrial']),
-  "status": zod.enum(['pending', 'registered', 'disputed', 'cancelled']),
-  "trust_score": zod.number().describe('0–100 trust score'),
-  "latitude": zod.number().nullish(),
-  "longitude": zod.number().nullish(),
-  "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date()
-})
+  "parcel_id": zod.string(),
+  "tenant_id": zod.string(),
+  "country_code": zod.string(),
+  "origin": zod.string(),
+  "created_by": zod.string(),
+  "status": zod.enum(['ACTIVE', 'ARCHIVED']).describe('One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.'),
+  "parcel_number": zod.string().nullish().describe('Atomically allocated registry number (ADR-014); null until allocation completes.'),
+  "title": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "lga": zod.string().nullish(),
+  "ward": zod.string().nullish(),
+  "community": zod.string().nullish(),
+  "property_type": zod.string().nullish(),
+  "size_sqm": zod.number().nullish(),
+  "ownership_type": zod.string().nullish(),
+  "current_owner_name": zod.string().nullish(),
+  "current_owner_contact": zod.string().nullish(),
+  "created_at": zod.string(),
+  "updated_at": zod.string(),
+  "archived_at": zod.string().nullish(),
+  "geometry_reference": zod.string().nullish().describe('Opaque pointer into the Spatial bounded context — never interpreted by Registry.')
+}).describe('Mirrors the governed backend\'s actual `_parcel_view` response shape exactly (backend\/app\/contexts\/registry\/application\/parcel_service.py). No `trust_score` and no `latitude`\/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.')
 
 
 /**
- * @summary Update a parcel
+ * Matches the governed backend's `UPDATABLE_FIELDS` allow-list exactly. `status` is deliberately not updatable here — the parcel lifecycle is one-way (ACTIVE → ARCHIVED) via the dedicated archive operation below, not a generic field write.
+ * @summary Update parcel details
  */
 export const UpdateParcelParams = zod.object({
   "id": zod.coerce.string()
 })
 
 export const UpdateParcelBody = zod.object({
-  "owner_name": zod.string().optional(),
-  "owner_phone": zod.string().optional(),
-  "owner_email": zod.string().optional(),
-  "location_address": zod.string().optional(),
+  "title": zod.string().optional(),
+  "address": zod.string().optional(),
   "state": zod.string().optional(),
   "lga": zod.string().optional(),
-  "area_sqm": zod.number().optional(),
-  "parcel_type": zod.enum(['residential', 'commercial', 'agricultural', 'industrial']).optional(),
-  "status": zod.enum(['pending', 'registered', 'disputed', 'cancelled']).optional(),
-  "latitude": zod.number().optional(),
-  "longitude": zod.number().optional()
-})
+  "ward": zod.string().optional(),
+  "community": zod.string().optional(),
+  "property_type": zod.string().optional(),
+  "size_sqm": zod.number().optional(),
+  "ownership_type": zod.string().optional(),
+  "current_owner_name": zod.string().optional(),
+  "current_owner_contact": zod.string().optional()
+}).describe('Mirrors UpdateParcelRequest \/ Parcel.UPDATABLE_FIELDS exactly. No `status` field — the parcel lifecycle changes only through the dedicated archive operation.')
 
 export const UpdateParcelResponse = zod.object({
-  "id": zod.string(),
-  "title_number": zod.string().describe('Unique parcel reference, e.g. LV-NG-2024-001234'),
-  "owner_name": zod.string(),
-  "owner_phone": zod.string().nullish(),
-  "owner_email": zod.string().nullish(),
-  "location_address": zod.string(),
-  "state": zod.string().describe('Nigerian state'),
-  "lga": zod.string().describe('Local Government Area'),
-  "area_sqm": zod.number(),
-  "parcel_type": zod.enum(['residential', 'commercial', 'agricultural', 'industrial']),
-  "status": zod.enum(['pending', 'registered', 'disputed', 'cancelled']),
-  "trust_score": zod.number().describe('0–100 trust score'),
-  "latitude": zod.number().nullish(),
-  "longitude": zod.number().nullish(),
-  "created_at": zod.coerce.date(),
-  "updated_at": zod.coerce.date()
-})
+  "parcel_id": zod.string(),
+  "tenant_id": zod.string(),
+  "country_code": zod.string(),
+  "origin": zod.string(),
+  "created_by": zod.string(),
+  "status": zod.enum(['ACTIVE', 'ARCHIVED']).describe('One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.'),
+  "parcel_number": zod.string().nullish().describe('Atomically allocated registry number (ADR-014); null until allocation completes.'),
+  "title": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "lga": zod.string().nullish(),
+  "ward": zod.string().nullish(),
+  "community": zod.string().nullish(),
+  "property_type": zod.string().nullish(),
+  "size_sqm": zod.number().nullish(),
+  "ownership_type": zod.string().nullish(),
+  "current_owner_name": zod.string().nullish(),
+  "current_owner_contact": zod.string().nullish(),
+  "created_at": zod.string(),
+  "updated_at": zod.string(),
+  "archived_at": zod.string().nullish(),
+  "geometry_reference": zod.string().nullish().describe('Opaque pointer into the Spatial bounded context — never interpreted by Registry.')
+}).describe('Mirrors the governed backend\'s actual `_parcel_view` response shape exactly (backend\/app\/contexts\/registry\/application\/parcel_service.py). No `trust_score` and no `latitude`\/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.')
 
 
 /**
- * @summary Cancel / delete a parcel
+ * @summary Archive a parcel (one-way ACTIVE → ARCHIVED)
  */
-export const DeleteParcelParams = zod.object({
+export const ArchiveParcelParams = zod.object({
   "id": zod.coerce.string()
 })
 
-export const DeleteParcelResponse = zod.void()
+export const ArchiveParcelResponse = zod.object({
+  "parcel_id": zod.string(),
+  "tenant_id": zod.string(),
+  "country_code": zod.string(),
+  "origin": zod.string(),
+  "created_by": zod.string(),
+  "status": zod.enum(['ACTIVE', 'ARCHIVED']).describe('One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.'),
+  "parcel_number": zod.string().nullish().describe('Atomically allocated registry number (ADR-014); null until allocation completes.'),
+  "title": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "lga": zod.string().nullish(),
+  "ward": zod.string().nullish(),
+  "community": zod.string().nullish(),
+  "property_type": zod.string().nullish(),
+  "size_sqm": zod.number().nullish(),
+  "ownership_type": zod.string().nullish(),
+  "current_owner_name": zod.string().nullish(),
+  "current_owner_contact": zod.string().nullish(),
+  "created_at": zod.string(),
+  "updated_at": zod.string(),
+  "archived_at": zod.string().nullish(),
+  "geometry_reference": zod.string().nullish().describe('Opaque pointer into the Spatial bounded context — never interpreted by Registry.')
+}).describe('Mirrors the governed backend\'s actual `_parcel_view` response shape exactly (backend\/app\/contexts\/registry\/application\/parcel_service.py). No `trust_score` and no `latitude`\/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.')
 
 
 /**

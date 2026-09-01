@@ -127,7 +127,7 @@ async def _seed_user_with_role(
     subject = await harness.identity_provider.create_user(
         email=email, password=password, full_name="Seed User"
     )
-    user = User.new(keycloak_subject=subject, email=email, full_name="Seed User", country="NG")
+    user = User.new(identity_subject=subject, email=email, full_name="Seed User", country="NG")
     user.roles = [role]
     await harness.users.add(user)
     # B2 slice 3: the context hydrator now also requires an ACTIVE Tenant
@@ -148,7 +148,7 @@ def test_role_escalation_impossible(harness: AppHarness, client: TestClient) -> 
             harness, email="officer@example.test", password="pw12345678", role="compliance_officer"
         )
     )
-    officer_user = asyncio.run(harness.users.get_by_keycloak_subject(idp_tokens.subject))
+    officer_user = asyncio.run(harness.users.get_by_identity_subject(idp_tokens.subject))
     assert officer_user is not None
 
     target = _register(client, email="target@example.test", password="pw12345678")

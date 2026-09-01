@@ -67,7 +67,7 @@ async def _seed_field_agent(harness: AppHarness, *, email: str) -> str:
         email=email, password="pw12345678", full_name="Non-Adjudication Test User"
     )
     user = User.new(
-        keycloak_subject=subject,
+        identity_subject=subject,
         email=email,
         full_name="Non-Adjudication Test User",
         country="NG",

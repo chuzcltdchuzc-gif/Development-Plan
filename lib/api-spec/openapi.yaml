@@ -14,8 +14,6 @@ tags:
     description: Land parcel registry
   - name: evidence
     description: Evidence and documents
-  - name: dashboard
-    description: Dashboard statistics
 paths:
   /healthz:
     get:
@@ -30,54 +28,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
-  /dashboard/stats:
-    get:
-      operationId: getDashboardStats
-      tags: [dashboard]
-      summary: Get dashboard statistics
-      responses:
-        "200":
-          description: Dashboard stats
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DashboardStats"
-
   /parcels:
     get:
       operationId: listParcels
       tags: [parcels]
-      summary: List parcels with optional filters
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [pending, registered, disputed, cancelled]
-        - name: parcel_type
-          in: query
-          schema:
-            type: string
-            enum: [residential, commercial, agricultural, industrial]
-        - name: state
-          in: query
-          schema:
-            type: string
-        - name: search
-          in: query
-          schema:
-            type: string
-          description: Search by title number, owner name, or address
-        - name: limit
-          in: query
-          schema:
-            type: number
-            default: 50
-        - name: offset
-          in: query
-          schema:
-            type: number
-            default: 0
+      summary: List parcels
+      description: >-
+        The governed backend's list endpoint (`GET /v1/parcels`) currently accepts no query
+        parameters at all — no filtering, search, or pagination is implemented server-side. This is
+        a known, reported contract gap (see the Frontend–Backend Contract Reconciliation Report),
+        not a client omission.
       responses:
         "200":
           description: List of parcels
@@ -136,7 +96,11 @@ paths:
     patch:
       operationId: updateParcel
       tags: [parcels]
-      summary: Update a parcel
+      summary: Update parcel details
+      description: >-
+        Matches the governed backend's `UPDATABLE_FIELDS` allow-list exactly. `status` is
+        deliberately not updatable here — the parcel lifecycle is one-way (ACTIVE → ARCHIVED) via
+        the dedicated archive operation below, not a generic field write.
       parameters:
         - name: id
           in: path
@@ -162,10 +126,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      operationId: deleteParcel
+
+  /parcels/{id}/archive:
+    post:
+      operationId: archiveParcel
       tags: [parcels]
-      summary: Cancel / delete a parcel
+      summary: Archive a parcel (one-way ACTIVE → ARCHIVED)
       parameters:
         - name: id
           in: path
@@ -173,8 +139,18 @@ paths:
           schema:
             type: string
       responses:
-        "204":
-          description: Deleted
+        "200":
+          description: Archived parcel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Parcel"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /parcels/{id}/evidence:
     get:
@@ -268,89 +244,70 @@ components:
       required:
         - status
 
-    DashboardStats:
-      type: object
-      properties:
-        total_parcels:
-          type: number
-        registered_parcels:
-          type: number
-        pending_parcels:
-          type: number
-        disputed_parcels:
-          type: number
-        avg_trust_score:
-          type: number
-        registrations_last_7_days:
-          type: number
-        evidence_verified:
-          type: number
-        evidence_pending:
-          type: number
-      required:
-        - total_parcels
-        - registered_parcels
-        - pending_parcels
-        - disputed_parcels
-        - avg_trust_score
-        - registrations_last_7_days
-        - evidence_verified
-        - evidence_pending
-
     Parcel:
       type: object
+      description: >-
+        Mirrors the governed backend's actual `_parcel_view` response shape exactly
+        (backend/app/contexts/registry/application/parcel_service.py). No `trust_score` and no
+        `latitude`/`longitude` fields exist here — those were legacy, ungoverned assumptions removed
+        during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial
+        bounded-context concern, referenced only via the opaque `geometry_reference` pointer.
       properties:
-        id:
+        parcel_id:
           type: string
-        title_number:
+        tenant_id:
           type: string
-          description: Unique parcel reference, e.g. LV-NG-2024-001234
-        owner_name:
+        country_code:
           type: string
-        owner_phone:
-          type: ["string", "null"]
-        owner_email:
-          type: ["string", "null"]
-        location_address:
+        origin:
           type: string
-        state:
+        created_by:
           type: string
-          description: Nigerian state
-        lga:
-          type: string
-          description: Local Government Area
-        area_sqm:
-          type: number
-        parcel_type:
-          type: string
-          enum: [residential, commercial, agricultural, industrial]
         status:
           type: string
-          enum: [pending, registered, disputed, cancelled]
-        trust_score:
-          type: number
-          description: 0–100 trust score
-        latitude:
+          enum: [ACTIVE, ARCHIVED]
+          description: One-way lifecycle — ACTIVE to ARCHIVED only, via the archive operation.
+        parcel_number:
+          type: ["string", "null"]
+          description: Atomically allocated registry number (ADR-014); null until allocation completes.
+        title:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        lga:
+          type: ["string", "null"]
+        ward:
+          type: ["string", "null"]
+        community:
+          type: ["string", "null"]
+        property_type:
+          type: ["string", "null"]
+        size_sqm:
           type: ["number", "null"]
-        longitude:
-          type: ["number", "null"]
+        ownership_type:
+          type: ["string", "null"]
+        current_owner_name:
+          type: ["string", "null"]
+        current_owner_contact:
+          type: ["string", "null"]
         created_at:
           type: string
-          format: date-time
         updated_at:
           type: string
-          format: date-time
+        archived_at:
+          type: ["string", "null"]
+        geometry_reference:
+          type: ["string", "null"]
+          description: Opaque pointer into the Spatial bounded context — never interpreted by Registry.
       required:
-        - id
-        - title_number
-        - owner_name
-        - location_address
-        - state
-        - lga
-        - area_sqm
-        - parcel_type
+        - parcel_id
+        - tenant_id
+        - country_code
+        - origin
+        - created_by
         - status
-        - trust_score
         - created_at
         - updated_at
 
@@ -369,15 +326,13 @@ components:
 
     ParcelInput:
       type: object
+      description: Mirrors CreateParcelRequest (backend/app/contexts/registry/api/dtos.py) exactly.
       properties:
-        owner_name:
+        country_code:
           type: string
-          minLength: 1
-        owner_phone:
+        title:
           type: string
-        owner_email:
-          type: string
-        location_address:
+        address:
           type: string
           minLength: 1
         state:
@@ -386,51 +341,58 @@ components:
         lga:
           type: string
           minLength: 1
-        area_sqm:
+        ward:
+          type: string
+        community:
+          type: string
+        property_type:
+          type: string
+        size_sqm:
           type: number
           minimum: 1
-        parcel_type:
+        ownership_type:
           type: string
-          enum: [residential, commercial, agricultural, industrial]
-        latitude:
-          type: number
-        longitude:
-          type: number
+        current_owner_name:
+          type: string
+          minLength: 1
+        current_owner_contact:
+          type: string
       required:
-        - owner_name
-        - location_address
+        - address
         - state
         - lga
-        - area_sqm
-        - parcel_type
+        - size_sqm
+        - property_type
+        - current_owner_name
 
     ParcelUpdate:
       type: object
+      description: >-
+        Mirrors UpdateParcelRequest / Parcel.UPDATABLE_FIELDS exactly. No `status` field — the
+        parcel lifecycle changes only through the dedicated archive operation.
       properties:
-        owner_name:
+        title:
           type: string
-        owner_phone:
-          type: string
-        owner_email:
-          type: string
-        location_address:
+        address:
           type: string
         state:
           type: string
         lga:
           type: string
-        area_sqm:
-          type: number
-        parcel_type:
+        ward:
           type: string
-          enum: [residential, commercial, agricultural, industrial]
-        status:
+        community:
           type: string
-          enum: [pending, registered, disputed, cancelled]
-        latitude:
+        property_type:
+          type: string
+        size_sqm:
           type: number
-        longitude:
-          type: number
+        ownership_type:
+          type: string
+        current_owner_name:
+          type: string
+        current_owner_contact:
+          type: string
 
     Evidence:
       type: object
