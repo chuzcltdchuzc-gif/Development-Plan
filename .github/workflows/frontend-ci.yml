@@ -7,8 +7,98 @@ on:
       - main
 
 jobs:
+  # Required check (main's branch protection context: "typecheck / lint /
+  # test / build"). Validates the actual LandVault application,
+  # artifacts/landvault-web, and its generated API client — not the
+  # historical frontend/ F0 shell (see frontend-legacy below).
+  #
+  # No dedicated Lint or Test step: neither tool exists for this package
+  # today (confirmed during the IMVP-2/3 reconciliation review — no eslint
+  # config and no "lint"/"test" script anywhere in artifacts/landvault-web
+  # or the workspace root). The job's name below is kept exactly as-is only
+  # because that literal string is what branch protection requires as a
+  # required-check context — it does not claim those two steps run. See
+  # the LandVault Frontend CI Hardening Report.
   build:
     name: typecheck / lint / test / build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect landvault-web / workspace changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            landvault_web:
+              - "artifacts/landvault-web/**"
+              - "lib/api-client-react/**"
+              - "lib/api-zod/**"
+              - "lib/api-spec/**"
+              - "pnpm-workspace.yaml"
+              - "pnpm-lock.yaml"
+              - "package.json"
+              - "tsconfig.base.json"
+              - ".github/workflows/frontend-ci.yml"
+
+      - name: Set up pnpm
+        if: steps.filter.outputs.landvault_web == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "11"
+
+      - name: Set up Node
+        if: steps.filter.outputs.landvault_web == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        if: steps.filter.outputs.landvault_web == 'true'
+        run: pnpm install --frozen-lockfile
+
+      # Generated API client consistency: regenerate from
+      # lib/api-spec/openapi.yaml, then fail loudly if the committed output
+      # doesn't match what codegen actually produces — otherwise the
+      # frontend's typed contract can silently drift from the spec it's
+      # supposed to come from (exactly the drift found and manually fixed
+      # during the IMVP-2/3 reconciliation).
+      - name: Regenerate API client from spec
+        if: steps.filter.outputs.landvault_web == 'true'
+        working-directory: lib/api-spec
+        run: pnpm run codegen
+
+      - name: Fail if generated API client is stale
+        if: steps.filter.outputs.landvault_web == 'true'
+        run: |
+          if ! git diff --exit-code -- lib/api-client-react/src/generated lib/api-zod/src/generated; then
+            echo "::error::Generated API client output does not match 'pnpm run codegen' against the current lib/api-spec/openapi.yaml. Run codegen locally and commit the regenerated files."
+            exit 1
+          fi
+
+      - name: Typecheck (landvault-web + workspace libs)
+        if: steps.filter.outputs.landvault_web == 'true'
+        run: |
+          pnpm run typecheck:libs
+          pnpm --filter "@workspace/landvault-web" run typecheck
+
+      - name: Production build
+        if: steps.filter.outputs.landvault_web == 'true'
+        env:
+          PORT: "3000"
+          BASE_PATH: "/"
+        run: pnpm --filter "@workspace/landvault-web" run build
+
+  # Historical F0 shell (frontend/, Next.js + npm) — not the governed
+  # LandVault application. Kept running for visibility per the CI Hardening
+  # authorization ("do not delete"), but deliberately given a different
+  # check name so it is NOT one of main's required status checks (only
+  # "typecheck / lint / test / build" and "pytest / ruff / mypy" are
+  # required) — this job cannot block a merge.
+  frontend-legacy:
+    name: frontend/ (legacy F0 shell, non-required)
     runs-on: ubuntu-latest
     defaults:
       run:
