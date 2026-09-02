@@ -63,7 +63,7 @@ export const getHealthCheckUrl = () => {
 
 
 
-  return `/api/healthz`
+  return `/v1/healthz`
 }
 
 /**
@@ -86,7 +86,7 @@ export const healthCheck = async ( options?: Parameters<typeof customFetch>[1]):
 
 export const getHealthCheckQueryKey = () => {
     return [
-    `/api/healthz`
+    `/v1/healthz`
     ] as const;
     }
 
@@ -140,7 +140,7 @@ export const getListParcelsUrl = () => {
 
 
 
-  return `/api/parcels`
+  return `/v1/parcels`
 }
 
 /**
@@ -164,7 +164,7 @@ export const listParcels = async ( options?: Parameters<typeof customFetch>[1]):
 
 export const getListParcelsQueryKey = () => {
     return [
-    `/api/parcels`
+    `/v1/parcels`
     ] as const;
     }
 
@@ -218,7 +218,7 @@ export const getCreateParcelUrl = () => {
 
 
 
-  return `/api/parcels`
+  return `/v1/parcels`
 }
 
 /**
@@ -289,7 +289,7 @@ export const getGetParcelUrl = (id: string,) => {
 
 
 
-  return `/api/parcels/${id}`
+  return `/v1/parcels/${id}`
 }
 
 /**
@@ -312,7 +312,7 @@ export const getParcel = async (id: string, options?: Parameters<typeof customFe
 
 export const getGetParcelQueryKey = (id: string,) => {
     return [
-    `/api/parcels/${id}`
+    `/v1/parcels/${id}`
     ] as const;
     }
 
@@ -366,7 +366,7 @@ export const getUpdateParcelUrl = (id: string,) => {
 
 
 
-  return `/api/parcels/${id}`
+  return `/v1/parcels/${id}`
 }
 
 /**
@@ -439,7 +439,7 @@ export const getArchiveParcelUrl = (id: string,) => {
 
 
 
-  return `/api/parcels/${id}/archive`
+  return `/v1/parcels/${id}/archive`
 }
 
 /**
@@ -510,7 +510,7 @@ export const getListParcelEvidenceUrl = (id: string,) => {
 
 
 
-  return `/api/parcels/${id}/evidence`
+  return `/v1/parcels/${id}/evidence`
 }
 
 /**
@@ -533,7 +533,7 @@ export const listParcelEvidence = async (id: string, options?: Parameters<typeof
 
 export const getListParcelEvidenceQueryKey = (id: string,) => {
     return [
-    `/api/parcels/${id}/evidence`
+    `/v1/parcels/${id}/evidence`
     ] as const;
     }
 
@@ -587,7 +587,7 @@ export const getAddParcelEvidenceUrl = (id: string,) => {
 
 
 
-  return `/api/parcels/${id}/evidence`
+  return `/v1/parcels/${id}/evidence`
 }
 
 /**
@@ -659,7 +659,7 @@ export const getUpdateEvidenceUrl = (evidenceId: string,) => {
 
 
 
-  return `/api/evidence/${evidenceId}`
+  return `/v1/evidence/${evidenceId}`
 }
 
 /**
@@ -731,7 +731,7 @@ export const getDeleteEvidenceUrl = (evidenceId: string,) => {
 
 
 
-  return `/api/evidence/${evidenceId}`
+  return `/v1/evidence/${evidenceId}`
 }
 
 /**
