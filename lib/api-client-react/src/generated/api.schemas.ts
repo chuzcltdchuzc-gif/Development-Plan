@@ -69,10 +69,7 @@ export interface Parcel {
   geometry_reference?: string | null;
 }
 
-export interface ParcelList {
-  items: Parcel[];
-  total: number;
-}
+export type ParcelList = Parcel[];
 
 /**
  * Mirrors CreateParcelRequest (backend/app/contexts/registry/api/dtos.py) exactly.

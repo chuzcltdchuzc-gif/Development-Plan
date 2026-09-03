@@ -20,8 +20,7 @@ export const HealthCheckResponse = zod.object({
  * The governed backend's list endpoint (`GET /v1/parcels`) currently accepts no query parameters at all — no filtering, search, or pagination is implemented server-side. This is a known, reported contract gap (see the Frontend–Backend Contract Reconciliation Report), not a client omission.
  * @summary List parcels
  */
-export const ListParcelsResponse = zod.object({
-  "items": zod.array(zod.object({
+export const ListParcelsResponseItem = zod.object({
   "parcel_id": zod.string(),
   "tenant_id": zod.string(),
   "country_code": zod.string(),
@@ -44,9 +43,8 @@ export const ListParcelsResponse = zod.object({
   "updated_at": zod.string(),
   "archived_at": zod.string().nullish(),
   "geometry_reference": zod.string().nullish().describe('Opaque pointer into the Spatial bounded context — never interpreted by Registry.')
-}).describe('Mirrors the governed backend\'s actual `_parcel_view` response shape exactly (backend\/app\/contexts\/registry\/application\/parcel_service.py). No `trust_score` and no `latitude`\/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.')),
-  "total": zod.number()
-})
+}).describe('Mirrors the governed backend\'s actual `_parcel_view` response shape exactly (backend\/app\/contexts\/registry\/application\/parcel_service.py). No `trust_score` and no `latitude`\/`longitude` fields exist here — those were legacy, ungoverned assumptions removed during IMVP-2 frontend stabilization (see the IMVP-2 report). Geometry is a separate Spatial bounded-context concern, referenced only via the opaque `geometry_reference` pointer.')
+export const ListParcelsResponse = zod.array(ListParcelsResponseItem)
 
 
 /**

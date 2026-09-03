@@ -311,18 +311,19 @@ components:
         - created_at
         - updated_at
 
+    # Mirrors the governed backend's actual response shape exactly
+    # (ParcelService.list_parcels returns a plain list, and the router
+    # declares no response_model to wrap it — backend/app/contexts/
+    # registry/application/parcel_service.py, .../api/parcel_router.py).
+    # A previous {items, total} object-wrapper shape here was fictional —
+    # it never matched what GET /v1/parcels actually returns, and caused a
+    # runtime crash (`Cannot read properties of undefined (reading
+    # 'length')`) in every frontend consumer that read `.items`/`.total`
+    # off the real bare-array response (IMVP-4 browser runtime defect).
     ParcelList:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/Parcel"
-        total:
-          type: number
-      required:
-        - items
-        - total
+      type: array
+      items:
+        $ref: "#/components/schemas/Parcel"
 
     ParcelInput:
       type: object

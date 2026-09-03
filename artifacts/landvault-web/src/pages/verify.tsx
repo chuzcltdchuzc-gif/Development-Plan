@@ -29,7 +29,7 @@ export function Verify() {
   const parcel = useMemo(() => {
     if (!searchedNumber || !allParcels) return undefined;
     const needle = searchedNumber.trim().toLowerCase();
-    return allParcels.items.find((p) => p.parcel_number?.toLowerCase() === needle);
+    return allParcels.find((p) => p.parcel_number?.toLowerCase() === needle);
   }, [allParcels, searchedNumber]);
 
   const notFound = searchedNumber && allParcels && !parcel;
