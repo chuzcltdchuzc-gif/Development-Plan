@@ -43,7 +43,7 @@ export function ParcelsRegistry() {
 
   const filtered = useMemo(() => {
     if (!data) return [];
-    return data.items.filter((p) => matchesFilters(p, searchInput, status, state));
+    return data.filter((p) => matchesFilters(p, searchInput, status, state));
   }, [data, searchInput, status, state]);
 
   return (
@@ -181,7 +181,7 @@ export function ParcelsRegistry() {
           </div>
           {data && (
             <div className="px-6 py-4 border-t bg-muted/20 text-sm text-muted-foreground">
-              Showing {filtered.length} of {data.total} parcels
+              Showing {filtered.length} of {data.length} parcels
               {/* Server-side pagination doesn't exist yet — the backend's list endpoint returns
                   every parcel in one call. Client-side only for now; a real gap, not hidden. */}
             </div>

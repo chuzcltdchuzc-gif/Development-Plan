@@ -7,7 +7,4 @@
  */
 import type { Parcel } from './parcel';
 
-export interface ParcelList {
-  items: Parcel[];
-  total: number;
-}
+export type ParcelList = Parcel[];

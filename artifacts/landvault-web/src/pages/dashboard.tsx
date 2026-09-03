@@ -42,9 +42,9 @@ export function Dashboard() {
                     The registry could not be reached. Try again shortly.
                   </p>
                 </div>
-              ) : recentParcels && recentParcels.items.length > 0 ? (
+              ) : recentParcels && recentParcels.length > 0 ? (
                 <div className="space-y-4">
-                  {recentParcels.items.slice(0, 5).map((parcel) => (
+                  {recentParcels.slice(0, 5).map((parcel) => (
                     <Link key={parcel.parcel_id} href={`/parcels/${parcel.parcel_id}`} className="block">
                       <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
                         <div className="flex items-center gap-4">
