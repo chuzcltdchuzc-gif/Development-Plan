@@ -17,7 +17,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.contexts.registry.domain.value_objects import PARCEL_REGISTRANT_ROLES
-from app.contexts.spatial.api.dtos import SubmitGeometryRequest
+from app.contexts.spatial.api.dtos import GeometryResponse, SubmitGeometryRequest
 from app.contexts.spatial.application.spatial_service import SpatialService
 from app.contexts.spatial.dependencies import get_spatial_service
 from app.kernel.authorization.pep import require_auth, require_role
@@ -26,7 +26,12 @@ from app.kernel.context import ExecutionContext
 router = APIRouter(prefix="/v1/spatial", tags=["spatial"])
 
 
-@router.put("/parcels/{parcel_id}/geometry", status_code=201)
+@router.put(
+    "/parcels/{parcel_id}/geometry",
+    status_code=201,
+    response_model=GeometryResponse,
+    operation_id="submitParcelGeometry",
+)
 async def submit_geometry(
     parcel_id: str,
     body: SubmitGeometryRequest,
@@ -38,7 +43,11 @@ async def submit_geometry(
     )
 
 
-@router.get("/parcels/{parcel_id}/geometry")
+@router.get(
+    "/parcels/{parcel_id}/geometry",
+    response_model=GeometryResponse,
+    operation_id="getActiveParcelGeometry",
+)
 async def get_active_geometry(
     parcel_id: str,
     ctx: ExecutionContext = Depends(require_auth),

@@ -1,23 +1,15 @@
-import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { format } from "date-fns";
-import { useGetParcel, useArchiveParcel, useListParcelEvidence, useAddParcelEvidence, useUpdateEvidence, getGetParcelQueryKey, getListParcelEvidenceQueryKey } from "@workspace/api-client-react";
-import { ParcelStatus, EvidenceDocumentType, EvidenceStatus } from "@workspace/api-client-react";
+import { useGetParcel, useArchiveParcel, getGetParcelQueryKey } from "@workspace/api-client-react";
+import { ParcelStatus } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 
 import { AppLayout } from "@/components/layout/app-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Map, User, CheckCircle2, XCircle, FileText, Upload, ChevronLeft, MapPin, AlertTriangle, Archive } from "lucide-react";
+import { Map, User, FileText, ChevronLeft, MapPin, AlertTriangle, Archive } from "lucide-react";
 
 export function ParcelDetail() {
   const [, params] = useRoute("/parcels/:id");
@@ -27,33 +19,19 @@ export function ParcelDetail() {
   const { data: parcel, isLoading: parcelLoading, isError: parcelError } = useGetParcel(id!, {
     query: { enabled: !!id, queryKey: getGetParcelQueryKey(id!) },
   });
-  const { data: evidence, isLoading: evidenceLoading, isError: evidenceError } = useListParcelEvidence(id!, {
-    query: { enabled: !!id, queryKey: getListParcelEvidenceQueryKey(id!) },
-  });
 
   const archiveParcel = useArchiveParcel();
-  const updateEvidence = useUpdateEvidence();
 
   // The governed backend has no generic "update status" field — the parcel lifecycle is one-way
   // (ACTIVE -> ARCHIVED) via a dedicated archive operation, not a PATCH to an arbitrary status value.
   const handleArchive = () => {
     if (!id) return;
-    archiveParcel.mutate({ id }, {
+    archiveParcel.mutate({ parcelId: id }, {
       onSuccess: (updatedParcel) => {
         toast.success("Parcel archived");
         queryClient.setQueryData(getGetParcelQueryKey(id), updatedParcel);
       },
       onError: () => toast.error("Failed to archive parcel"),
-    });
-  };
-
-  const handleEvidenceStatus = (evidenceId: string, status: EvidenceStatus) => {
-    updateEvidence.mutate({ evidenceId, data: { status } }, {
-      onSuccess: () => {
-        toast.success("Evidence status updated");
-        queryClient.invalidateQueries({ queryKey: getListParcelEvidenceQueryKey(id!) });
-      },
-      onError: () => toast.error("Failed to update evidence status"),
     });
   };
 
@@ -162,66 +140,22 @@ export function ParcelDetail() {
             </Card>
 
             <Card>
-              <CardHeader className="border-b bg-muted/20 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    Supporting Evidence
-                  </CardTitle>
-                  <CardDescription>Documents verifying the parcel's title and ownership.</CardDescription>
-                </div>
-                <AddEvidenceDialog parcelId={parcel.parcel_id} />
+              <CardHeader className="border-b bg-muted/20">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Supporting Evidence
+                </CardTitle>
+                <CardDescription>Documents verifying the parcel's title and ownership.</CardDescription>
               </CardHeader>
-              <CardContent className="p-0">
-                {evidenceLoading ? (
-                  <div className="p-8 text-center text-muted-foreground animate-pulse">Loading evidence...</div>
-                ) : evidenceError ? (
-                  <div className="p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
-                    <AlertTriangle className="h-8 w-8 text-destructive/40" />
-                    Could not load evidence. Try again shortly.
-                  </div>
-                ) : evidence && evidence.length > 0 ? (
-                  <div className="divide-y">
-                    {evidence.map(item => (
-                      <div key={item.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/10 transition-colors">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <FileText className="h-8 w-8 text-muted-foreground/50" />
-                            <div>
-                              <div className="font-semibold text-foreground flex items-center gap-2">
-                                {item.file_name}
-                                <StatusBadge status={item.status} className="text-[10px] px-2 py-0" />
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1 capitalize">
-                                {item.document_type.replace(/_/g, " ")} &middot; Uploaded {format(new Date(item.uploaded_at), "MMM d, yyyy")}
-                              </div>
-                            </div>
-                          </div>
-                          {item.notes && <p className="text-sm mt-3 text-muted-foreground italic border-l-2 pl-3 ml-11">{item.notes}</p>}
-                        </div>
-                        
-                        {item.status === "pending_review" && (
-                          <div className="flex gap-2 shrink-0">
-                            <Button size="sm" variant="outline" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => handleEvidenceStatus(item.id, "verified")}>
-                              <CheckCircle2 className="h-4 w-4 mr-1" /> Verify
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleEvidenceStatus(item.id, "rejected")}>
-                              <XCircle className="h-4 w-4 mr-1" /> Reject
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-12 text-center flex flex-col items-center justify-center border-b border-dashed">
-                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                      <FileText className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-base font-semibold">No evidence documents</h3>
-                    <p className="text-sm text-muted-foreground mt-1 mb-4">Upload survey plans, deeds, or receipts to build trust.</p>
-                  </div>
-                )}
+              <CardContent className="p-12 text-center flex flex-col items-center justify-center">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                  <FileText className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="text-base font-semibold">Evidence services are not yet connected in this build</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                  Uploading and reviewing survey plans, deeds, and receipts will appear here once
+                  that capability is available.
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -252,107 +186,5 @@ export function ParcelDetail() {
         </div>
       </div>
     </AppLayout>
-  );
-}
-
-const evidenceSchema = z.object({
-  document_type: z.nativeEnum(EvidenceDocumentType),
-  file_name: z.string().min(1, "File name is required"),
-  notes: z.string().optional(),
-});
-
-function AddEvidenceDialog({ parcelId }: { parcelId: string }) {
-  const [open, setOpen] = useState(false);
-  const queryClient = useQueryClient();
-  const addEvidence = useAddParcelEvidence();
-
-  const form = useForm<z.infer<typeof evidenceSchema>>({
-    resolver: zodResolver(evidenceSchema),
-    defaultValues: {
-      document_type: "survey_plan",
-      file_name: "",
-      notes: "",
-    }
-  });
-
-  const onSubmit = (data: z.infer<typeof evidenceSchema>) => {
-    addEvidence.mutate({ id: parcelId, data }, {
-      onSuccess: () => {
-        toast.success("Evidence added successfully");
-        queryClient.invalidateQueries({ queryKey: getListParcelEvidenceQueryKey(parcelId) });
-        queryClient.invalidateQueries({ queryKey: getGetParcelQueryKey(parcelId) });
-        setOpen(false);
-        form.reset();
-      }
-    });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm"><Upload className="mr-2 h-4 w-4" /> Add Document</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Evidence Document</DialogTitle>
-          <DialogDescription>Upload supporting documentation for this parcel.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <FormField
-              control={form.control}
-              name="document_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Document Type *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.values(EvidenceDocumentType).map(t => (
-                        <SelectItem key={t} value={t}>{t.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="file_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>File Name / Reference *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Survey_Plan_2023.pdf" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Additional context..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter className="pt-4">
-              <Button type="submit" disabled={addEvidence.isPending}>Upload Document</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
   );
 }

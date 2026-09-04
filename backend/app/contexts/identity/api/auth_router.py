@@ -16,7 +16,9 @@ from app.contexts.identity.api.dtos import (
     LoginRequest,
     RegisterRequest,
     SupabaseInvitationAcceptedResponse,
+    TenantSummaryResponse,
     TokenResponse,
+    UserContextResponse,
 )
 from app.contexts.identity.application.admin_service import AdminService
 from app.contexts.identity.application.auth_service import AuthService
@@ -65,7 +67,9 @@ def _token_response(tokens: dict) -> dict:
     }
 
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
+@router.post(
+    "/register", response_model=TokenResponse, status_code=201, operation_id="registerUser"
+)
 async def register(
     body: RegisterRequest,
     request: Request,
@@ -79,7 +83,7 @@ async def register(
     return _token_response(tokens)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, operation_id="login")
 async def login(
     body: LoginRequest,
     request: Request,
@@ -94,7 +98,12 @@ async def login(
     return _token_response(tokens)
 
 
-@router.post("/invitations/accept", response_model=TokenResponse, status_code=201)
+@router.post(
+    "/invitations/accept",
+    response_model=TokenResponse,
+    status_code=201,
+    operation_id="acceptInvitation",
+)
 async def accept_invitation(
     body: AcceptInvitationRequest,
     request: Request,
@@ -118,6 +127,7 @@ async def accept_invitation(
     "/invitations/accept-supabase",
     response_model=SupabaseInvitationAcceptedResponse,
     status_code=201,
+    operation_id="acceptInvitationSupabase",
 )
 async def accept_invitation_supabase(
     body: AcceptInvitationSupabaseRequest,
@@ -139,7 +149,7 @@ async def accept_invitation_supabase(
     return {"user": user.public_view()}
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse, operation_id="refreshToken")
 async def refresh(
     request: Request,
     response: Response,
@@ -154,7 +164,7 @@ async def refresh(
     return _token_response(tokens)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, operation_id="logout")
 async def logout(
     response: Response,
     refresh_cookie: str | None = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
@@ -167,7 +177,7 @@ async def logout(
     return response
 
 
-@router.get("/me")
+@router.get("/me", response_model=UserContextResponse, operation_id="getCurrentUser")
 async def me(ctx: ExecutionContext = Depends(require_auth)) -> dict:
     return {
         "user_id": ctx.principal_id,
@@ -179,7 +189,9 @@ async def me(ctx: ExecutionContext = Depends(require_auth)) -> dict:
     }
 
 
-@router.get("/me/tenant")
+@router.get(
+    "/me/tenant", response_model=TenantSummaryResponse, operation_id="getCurrentUserTenant"
+)
 async def my_tenant(
     ctx: ExecutionContext = Depends(require_auth),
     admin_service: AdminService = Depends(get_admin_service),
