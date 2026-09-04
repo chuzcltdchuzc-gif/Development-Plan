@@ -26,7 +26,13 @@ export default defineConfig({
       target: "generated",
       client: "react-query",
       mode: "split",
-      baseUrl: "/v1",
+      // No baseUrl override: the canonical spec is now generated straight
+      // from FastAPI's own route prefixes (backend/app/contexts/*/api/
+      // *_router.py), so every path already carries its real prefix
+      // (e.g. "/v1/parcels", "/health/live" with no prefix at all).
+      // Adding "/v1" here on top of that would double it for every
+      // Registry/Spatial/Identity path (OpenAPI Source-of-Truth
+      // Hardening — see docs/adr's /v1 treatment note).
       clean: true,
       prettier: true,
       override: {

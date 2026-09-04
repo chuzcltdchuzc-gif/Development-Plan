@@ -47,3 +47,13 @@ jobs:
       - name: pytest
         if: steps.filter.outputs.backend == 'true'
         run: pytest -q
+
+      # OpenAPI Source-of-Truth Hardening: backend/app is the only allowed
+      # origin for lib/api-spec/openapi.yaml — this fails the build if the
+      # committed spec no longer matches what the current FastAPI app
+      # actually exports (backend/scripts/export_openapi.py), the same
+      # "regenerate, then diff against committed output" shape
+      # frontend-ci.yml already uses for the generated API client below it.
+      - name: OpenAPI export drift check
+        if: steps.filter.outputs.backend == 'true'
+        run: python scripts/export_openapi.py --check
