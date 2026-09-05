@@ -22,10 +22,6 @@ export const ReadinessCheckResponse = zod.record(zod.string(), zod.string())
 /**
  * @summary Register
  */
-export const RegisterUserHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const RegisterUserBody = zod.object({
   "email": zod.string(),
   "password": zod.string(),
@@ -44,10 +40,6 @@ export const RegisterUserResponse = zod.object({
 /**
  * @summary Login
  */
-export const LoginHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const LoginBody = zod.object({
   "email": zod.string(),
   "password": zod.string()
@@ -64,10 +56,6 @@ export const LoginResponse = zod.object({
 /**
  * @summary Accept Invitation
  */
-export const AcceptInvitationHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const AcceptInvitationBody = zod.object({
   "token": zod.string(),
   "password": zod.string(),
@@ -91,10 +79,6 @@ export const AcceptInvitationResponse = zod.object({
  * could influence, since the body has no field for either.
  * @summary Accept Invitation Supabase
  */
-export const AcceptInvitationSupabaseHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const AcceptInvitationSupabaseBody = zod.object({
   "token": zod.string(),
   "full_name": zod.string(),
@@ -118,8 +102,7 @@ export const AcceptInvitationSupabaseResponse = zod.object({
  * @summary Refresh
  */
 export const RefreshTokenHeader = zod.object({
-  "x-refresh-token": zod.union([zod.string(),zod.null()]).optional(),
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
+  "x-refresh-token": zod.union([zod.string(),zod.null()]).optional()
 })
 
 export const RefreshTokenResponse = zod.object({
@@ -133,20 +116,12 @@ export const RefreshTokenResponse = zod.object({
 /**
  * @summary Logout
  */
-export const LogoutHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const LogoutResponse = zod.void()
 
 
 /**
  * @summary Me
  */
-export const GetCurrentUserHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const GetCurrentUserResponse = zod.object({
   "user_id": zod.string(),
   "email": zod.union([zod.string(),zod.null()]).optional(),
@@ -160,10 +135,6 @@ export const GetCurrentUserResponse = zod.object({
 /**
  * @summary My Tenant
  */
-export const GetCurrentUserTenantHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const GetCurrentUserTenantResponse = zod.object({
   "tenant_id": zod.string(),
   "name": zod.string(),
@@ -182,10 +153,6 @@ export const AssignRoleParams = zod.object({
   "user_id": zod.coerce.string()
 })
 
-export const AssignRoleHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const AssignRoleBody = zod.object({
   "role": zod.string()
 })
@@ -202,12 +169,22 @@ export const AssignRoleResponse = zod.object({
 
 
 /**
+ * @summary List Invitations
+ */
+export const ListInvitationsResponseItem = zod.object({
+  "invitation_id": zod.string(),
+  "email": zod.string(),
+  "role": zod.string(),
+  "status": zod.string(),
+  "expires_at": zod.string(),
+  "created_at": zod.string()
+}).describe('Mirrors `_invitation_summary` — used by list\/revoke, never the\nplaintext token.')
+export const ListInvitationsResponse = zod.array(ListInvitationsResponseItem)
+
+
+/**
  * @summary Create Invitation
  */
-export const CreateInvitationHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const CreateInvitationBody = zod.object({
   "email": zod.string(),
   "role": zod.string()
@@ -223,32 +200,10 @@ export const CreateInvitationResponse = zod.object({
 
 
 /**
- * @summary List Invitations
- */
-export const ListInvitationsHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
-export const ListInvitationsResponseItem = zod.object({
-  "invitation_id": zod.string(),
-  "email": zod.string(),
-  "role": zod.string(),
-  "status": zod.string(),
-  "expires_at": zod.string(),
-  "created_at": zod.string()
-}).describe('Mirrors `_invitation_summary` — used by list\/revoke, never the\nplaintext token.')
-export const ListInvitationsResponse = zod.array(ListInvitationsResponseItem)
-
-
-/**
  * @summary Revoke Invitation
  */
 export const RevokeInvitationParams = zod.object({
   "invitation_id": zod.coerce.string()
-})
-
-export const RevokeInvitationHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
 })
 
 export const RevokeInvitationResponse = zod.object({
@@ -264,10 +219,6 @@ export const RevokeInvitationResponse = zod.object({
 /**
  * @summary List Tenants
  */
-export const ListTenantsHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const ListTenantsResponseItem = zod.object({
   "tenant_id": zod.string(),
   "name": zod.string(),
@@ -287,10 +238,6 @@ export const GetTenantParams = zod.object({
   "tenant_id": zod.coerce.string()
 })
 
-export const GetTenantHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const GetTenantResponse = zod.object({
   "tenant_id": zod.string(),
   "name": zod.string(),
@@ -307,10 +254,6 @@ export const GetTenantResponse = zod.object({
  */
 export const SuspendTenantParams = zod.object({
   "tenant_id": zod.coerce.string()
-})
-
-export const SuspendTenantHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
 })
 
 export const SuspendTenantBody = zod.object({
@@ -335,10 +278,6 @@ export const ReactivateTenantParams = zod.object({
   "tenant_id": zod.coerce.string()
 })
 
-export const ReactivateTenantHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const ReactivateTenantResponse = zod.object({
   "tenant_id": zod.string(),
   "name": zod.string(),
@@ -357,10 +296,6 @@ export const ArchiveTenantParams = zod.object({
   "tenant_id": zod.coerce.string()
 })
 
-export const ArchiveTenantHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const ArchiveTenantResponse = zod.object({
   "tenant_id": zod.string(),
   "name": zod.string(),
@@ -373,12 +308,30 @@ export const ArchiveTenantResponse = zod.object({
 
 
 /**
+ * @summary List Delegations
+ */
+export const ListDelegationsResponseItem = zod.object({
+  "delegation_id": zod.string(),
+  "tenant_id": zod.string(),
+  "delegator_user_id": zod.string(),
+  "delegate_user_id": zod.string(),
+  "delegated_roles": zod.array(zod.string()),
+  "scope": zod.string(),
+  "status": zod.string(),
+  "expires_at": zod.union([zod.string(),zod.null()]).optional(),
+  "created_at": zod.string(),
+  "updated_at": zod.string(),
+  "revoked_at": zod.union([zod.string(),zod.null()]).optional(),
+  "revoked_by": zod.union([zod.string(),zod.null()]).optional(),
+  "effective": zod.boolean(),
+  "ineffective_reason": zod.union([zod.string(),zod.null()]).optional()
+}).describe('Mirrors `_delegation_summary` called \*with\* `effective=` — the\nshape `list_delegations`\/`get_delegation` actually return, distinct\nfrom the plain summary above (Section 6\'s \"genuinely heterogeneous\nper-route\" case: these two extra fields are only ever computed, and\nonly ever present, on the read paths).')
+export const ListDelegationsResponse = zod.array(ListDelegationsResponseItem)
+
+
+/**
  * @summary Create Delegation
  */
-export const CreateDelegationHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const createDelegationBodyScopeDefault = `tenant_governance`;
 
 export const CreateDelegationBody = zod.object({
@@ -405,40 +358,10 @@ export const CreateDelegationResponse = zod.object({
 
 
 /**
- * @summary List Delegations
- */
-export const ListDelegationsHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
-export const ListDelegationsResponseItem = zod.object({
-  "delegation_id": zod.string(),
-  "tenant_id": zod.string(),
-  "delegator_user_id": zod.string(),
-  "delegate_user_id": zod.string(),
-  "delegated_roles": zod.array(zod.string()),
-  "scope": zod.string(),
-  "status": zod.string(),
-  "expires_at": zod.union([zod.string(),zod.null()]).optional(),
-  "created_at": zod.string(),
-  "updated_at": zod.string(),
-  "revoked_at": zod.union([zod.string(),zod.null()]).optional(),
-  "revoked_by": zod.union([zod.string(),zod.null()]).optional(),
-  "effective": zod.boolean(),
-  "ineffective_reason": zod.union([zod.string(),zod.null()]).optional()
-}).describe('Mirrors `_delegation_summary` called \*with\* `effective=` — the\nshape `list_delegations`\/`get_delegation` actually return, distinct\nfrom the plain summary above (Section 6\'s \"genuinely heterogeneous\nper-route\" case: these two extra fields are only ever computed, and\nonly ever present, on the read paths).')
-export const ListDelegationsResponse = zod.array(ListDelegationsResponseItem)
-
-
-/**
  * @summary Get Delegation
  */
 export const GetDelegationParams = zod.object({
   "delegation_id": zod.coerce.string()
-})
-
-export const GetDelegationHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
 })
 
 export const GetDelegationResponse = zod.object({
@@ -466,10 +389,6 @@ export const RevokeDelegationParams = zod.object({
   "delegation_id": zod.coerce.string()
 })
 
-export const RevokeDelegationHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const RevokeDelegationResponse = zod.object({
   "delegation_id": zod.string(),
   "tenant_id": zod.string(),
@@ -493,10 +412,6 @@ export const ExtendDelegationParams = zod.object({
   "delegation_id": zod.coerce.string()
 })
 
-export const ExtendDelegationHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const ExtendDelegationBody = zod.object({
   "expires_at": zod.union([zod.string(),zod.null()]).optional()
 })
@@ -518,12 +433,38 @@ export const ExtendDelegationResponse = zod.object({
 
 
 /**
+ * @summary List Parcels
+ */
+export const ListParcelsResponseItem = zod.object({
+  "parcel_id": zod.string(),
+  "tenant_id": zod.string(),
+  "country_code": zod.string(),
+  "origin": zod.string(),
+  "created_by": zod.string(),
+  "status": zod.enum(['ACTIVE', 'ARCHIVED']).describe('The two values `app.contexts.registry.domain.parcel.Parcel.status`\ncan ever hold (STATUS_ACTIVE\/STATUS_ARCHIVED) — one-way, no third\nvalue, no code path constructs anything else (ADR-013).'),
+  "parcel_number": zod.union([zod.string(),zod.null()]).optional(),
+  "title": zod.union([zod.string(),zod.null()]).optional(),
+  "address": zod.union([zod.string(),zod.null()]).optional(),
+  "state": zod.union([zod.string(),zod.null()]).optional(),
+  "lga": zod.union([zod.string(),zod.null()]).optional(),
+  "ward": zod.union([zod.string(),zod.null()]).optional(),
+  "community": zod.union([zod.string(),zod.null()]).optional(),
+  "property_type": zod.union([zod.string(),zod.null()]).optional(),
+  "size_sqm": zod.union([zod.number(),zod.null()]).optional(),
+  "ownership_type": zod.union([zod.string(),zod.null()]).optional(),
+  "current_owner_name": zod.union([zod.string(),zod.null()]).optional(),
+  "current_owner_contact": zod.union([zod.string(),zod.null()]).optional(),
+  "created_at": zod.string(),
+  "updated_at": zod.string(),
+  "archived_at": zod.union([zod.string(),zod.null()]).optional(),
+  "geometry_reference": zod.union([zod.string(),zod.null()]).optional()
+}).describe('Response shape for every Registry endpoint that returns a parcel.\nMirrors `parcel_service._parcel_view` field-for-field — that function,\nnot this model, is the source of truth; this only makes its existing\nshape visible to OpenAPI (OpenAPI Source-of-Truth Hardening).')
+export const ListParcelsResponse = zod.array(ListParcelsResponseItem)
+
+
+/**
  * @summary Create Parcel
  */
-export const CreateParcelHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const CreateParcelBody = zod.object({
   "country_code": zod.union([zod.string(),zod.null()]).optional(),
   "title": zod.union([zod.string(),zod.null()]).optional(),
@@ -566,48 +507,10 @@ export const CreateParcelResponse = zod.object({
 
 
 /**
- * @summary List Parcels
- */
-export const ListParcelsHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
-export const ListParcelsResponseItem = zod.object({
-  "parcel_id": zod.string(),
-  "tenant_id": zod.string(),
-  "country_code": zod.string(),
-  "origin": zod.string(),
-  "created_by": zod.string(),
-  "status": zod.enum(['ACTIVE', 'ARCHIVED']).describe('The two values `app.contexts.registry.domain.parcel.Parcel.status`\ncan ever hold (STATUS_ACTIVE\/STATUS_ARCHIVED) — one-way, no third\nvalue, no code path constructs anything else (ADR-013).'),
-  "parcel_number": zod.union([zod.string(),zod.null()]).optional(),
-  "title": zod.union([zod.string(),zod.null()]).optional(),
-  "address": zod.union([zod.string(),zod.null()]).optional(),
-  "state": zod.union([zod.string(),zod.null()]).optional(),
-  "lga": zod.union([zod.string(),zod.null()]).optional(),
-  "ward": zod.union([zod.string(),zod.null()]).optional(),
-  "community": zod.union([zod.string(),zod.null()]).optional(),
-  "property_type": zod.union([zod.string(),zod.null()]).optional(),
-  "size_sqm": zod.union([zod.number(),zod.null()]).optional(),
-  "ownership_type": zod.union([zod.string(),zod.null()]).optional(),
-  "current_owner_name": zod.union([zod.string(),zod.null()]).optional(),
-  "current_owner_contact": zod.union([zod.string(),zod.null()]).optional(),
-  "created_at": zod.string(),
-  "updated_at": zod.string(),
-  "archived_at": zod.union([zod.string(),zod.null()]).optional(),
-  "geometry_reference": zod.union([zod.string(),zod.null()]).optional()
-}).describe('Response shape for every Registry endpoint that returns a parcel.\nMirrors `parcel_service._parcel_view` field-for-field — that function,\nnot this model, is the source of truth; this only makes its existing\nshape visible to OpenAPI (OpenAPI Source-of-Truth Hardening).')
-export const ListParcelsResponse = zod.array(ListParcelsResponseItem)
-
-
-/**
  * @summary Update Parcel
  */
 export const UpdateParcelParams = zod.object({
   "parcel_id": zod.coerce.string()
-})
-
-export const UpdateParcelHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
 })
 
 export const UpdateParcelBody = zod.object({
@@ -657,10 +560,6 @@ export const GetParcelParams = zod.object({
   "parcel_id": zod.coerce.string()
 })
 
-export const GetParcelHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const GetParcelResponse = zod.object({
   "parcel_id": zod.string(),
   "tenant_id": zod.string(),
@@ -694,10 +593,6 @@ export const ArchiveParcelParams = zod.object({
   "parcel_id": zod.coerce.string()
 })
 
-export const ArchiveParcelHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const ArchiveParcelResponse = zod.object({
   "parcel_id": zod.string(),
   "tenant_id": zod.string(),
@@ -729,10 +624,6 @@ export const ArchiveParcelResponse = zod.object({
  */
 export const SetParcelGeometryReferenceParams = zod.object({
   "parcel_id": zod.coerce.string()
-})
-
-export const SetParcelGeometryReferenceHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
 })
 
 export const SetParcelGeometryReferenceBody = zod.object({
@@ -772,10 +663,6 @@ export const SubmitParcelGeometryParams = zod.object({
   "parcel_id": zod.coerce.string()
 })
 
-export const SubmitParcelGeometryHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
-})
-
 export const SubmitParcelGeometryBody = zod.object({
   "boundary": zod.string()
 })
@@ -798,10 +685,6 @@ export const SubmitParcelGeometryResponse = zod.object({
  */
 export const GetActiveParcelGeometryParams = zod.object({
   "parcel_id": zod.coerce.string()
-})
-
-export const GetActiveParcelGeometryHeader = zod.object({
-  "authorization": zod.union([zod.string(),zod.null()]).optional()
 })
 
 export const GetActiveParcelGeometryResponse = zod.object({

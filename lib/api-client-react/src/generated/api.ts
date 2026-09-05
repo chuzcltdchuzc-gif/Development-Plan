@@ -693,7 +693,7 @@ export const getGetCurrentUserQueryKey = () => {
     }
 
 
-export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -712,14 +712,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCurrentUserQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
-export type GetCurrentUserQueryError = ErrorType<HTTPValidationError>
+export type GetCurrentUserQueryError = ErrorType<unknown>
 
 
 /**
  * @summary Me
  */
 
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -770,7 +770,7 @@ export const getGetCurrentUserTenantQueryKey = () => {
     }
 
 
-export const getGetCurrentUserTenantQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUserTenant>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserTenant>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCurrentUserTenantQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUserTenant>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserTenant>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -789,14 +789,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCurrentUserTenantQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUserTenant>>>
-export type GetCurrentUserTenantQueryError = ErrorType<HTTPValidationError>
+export type GetCurrentUserTenantQueryError = ErrorType<unknown>
 
 
 /**
  * @summary My Tenant
  */
 
-export function useGetCurrentUserTenant<TData = Awaited<ReturnType<typeof getCurrentUserTenant>>, TError = ErrorType<HTTPValidationError>>(
+export function useGetCurrentUserTenant<TData = Awaited<ReturnType<typeof getCurrentUserTenant>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserTenant>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -886,6 +886,83 @@ export const useAssignRole = <TError = ErrorType<HTTPValidationError>,
       return useMutation(getAssignRoleMutationOptions(options));
     }
 
+export const getListInvitationsUrl = () => {
+
+
+
+
+  return `/v1/admin/invitations`
+}
+
+/**
+ * @summary List Invitations
+ */
+export const listInvitations = async ( options?: Parameters<typeof customFetch>[1]): Promise<InvitationSummaryResponse[]> => {
+
+  return customFetch<InvitationSummaryResponse[]>(getListInvitationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInvitationsQueryKey = () => {
+    return [
+    `/v1/admin/invitations`
+    ] as const;
+    }
+
+
+export const getListInvitationsQueryOptions = <TData = Awaited<ReturnType<typeof listInvitations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvitations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInvitationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvitations>>> = ({ signal }) => listInvitations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvitations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInvitationsQueryResult = NonNullable<Awaited<ReturnType<typeof listInvitations>>>
+export type ListInvitationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List Invitations
+ */
+
+export function useListInvitations<TData = Awaited<ReturnType<typeof listInvitations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvitations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInvitationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreateInvitationUrl = () => {
 
 
@@ -956,83 +1033,6 @@ export const useCreateInvitation = <TError = ErrorType<HTTPValidationError>,
       > => {
       return useMutation(getCreateInvitationMutationOptions(options));
     }
-
-export const getListInvitationsUrl = () => {
-
-
-
-
-  return `/v1/admin/invitations`
-}
-
-/**
- * @summary List Invitations
- */
-export const listInvitations = async ( options?: Parameters<typeof customFetch>[1]): Promise<InvitationSummaryResponse[]> => {
-
-  return customFetch<InvitationSummaryResponse[]>(getListInvitationsUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListInvitationsQueryKey = () => {
-    return [
-    `/v1/admin/invitations`
-    ] as const;
-    }
-
-
-export const getListInvitationsQueryOptions = <TData = Awaited<ReturnType<typeof listInvitations>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvitations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListInvitationsQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInvitations>>> = ({ signal }) => listInvitations({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInvitations>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListInvitationsQueryResult = NonNullable<Awaited<ReturnType<typeof listInvitations>>>
-export type ListInvitationsQueryError = ErrorType<HTTPValidationError>
-
-
-/**
- * @summary List Invitations
- */
-
-export function useListInvitations<TData = Awaited<ReturnType<typeof listInvitations>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInvitations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListInvitationsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
 
 export const getRevokeInvitationUrl = (invitationId: string,) => {
 
@@ -1138,7 +1138,7 @@ export const getListTenantsQueryKey = () => {
     }
 
 
-export const getListTenantsQueryOptions = <TData = Awaited<ReturnType<typeof listTenants>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListTenantsQueryOptions = <TData = Awaited<ReturnType<typeof listTenants>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -1157,14 +1157,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListTenantsQueryResult = NonNullable<Awaited<ReturnType<typeof listTenants>>>
-export type ListTenantsQueryError = ErrorType<HTTPValidationError>
+export type ListTenantsQueryError = ErrorType<unknown>
 
 
 /**
  * @summary List Tenants
  */
 
-export function useListTenants<TData = Awaited<ReturnType<typeof listTenants>>, TError = ErrorType<HTTPValidationError>>(
+export function useListTenants<TData = Awaited<ReturnType<typeof listTenants>>, TError = ErrorType<unknown>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -1473,6 +1473,83 @@ export const useArchiveTenant = <TError = ErrorType<HTTPValidationError>,
       return useMutation(getArchiveTenantMutationOptions(options));
     }
 
+export const getListDelegationsUrl = () => {
+
+
+
+
+  return `/v1/admin/delegations`
+}
+
+/**
+ * @summary List Delegations
+ */
+export const listDelegations = async ( options?: Parameters<typeof customFetch>[1]): Promise<DelegationSummaryEffectiveResponse[]> => {
+
+  return customFetch<DelegationSummaryEffectiveResponse[]>(getListDelegationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDelegationsQueryKey = () => {
+    return [
+    `/v1/admin/delegations`
+    ] as const;
+    }
+
+
+export const getListDelegationsQueryOptions = <TData = Awaited<ReturnType<typeof listDelegations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDelegations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDelegationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDelegations>>> = ({ signal }) => listDelegations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDelegations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDelegationsQueryResult = NonNullable<Awaited<ReturnType<typeof listDelegations>>>
+export type ListDelegationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List Delegations
+ */
+
+export function useListDelegations<TData = Awaited<ReturnType<typeof listDelegations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDelegations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDelegationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreateDelegationUrl = () => {
 
 
@@ -1543,83 +1620,6 @@ export const useCreateDelegation = <TError = ErrorType<HTTPValidationError>,
       > => {
       return useMutation(getCreateDelegationMutationOptions(options));
     }
-
-export const getListDelegationsUrl = () => {
-
-
-
-
-  return `/v1/admin/delegations`
-}
-
-/**
- * @summary List Delegations
- */
-export const listDelegations = async ( options?: Parameters<typeof customFetch>[1]): Promise<DelegationSummaryEffectiveResponse[]> => {
-
-  return customFetch<DelegationSummaryEffectiveResponse[]>(getListDelegationsUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListDelegationsQueryKey = () => {
-    return [
-    `/v1/admin/delegations`
-    ] as const;
-    }
-
-
-export const getListDelegationsQueryOptions = <TData = Awaited<ReturnType<typeof listDelegations>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDelegations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListDelegationsQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDelegations>>> = ({ signal }) => listDelegations({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDelegations>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListDelegationsQueryResult = NonNullable<Awaited<ReturnType<typeof listDelegations>>>
-export type ListDelegationsQueryError = ErrorType<HTTPValidationError>
-
-
-/**
- * @summary List Delegations
- */
-
-export function useListDelegations<TData = Awaited<ReturnType<typeof listDelegations>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDelegations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListDelegationsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
 
 export const getGetDelegationUrl = (delegationId: string,) => {
 
@@ -1841,6 +1841,83 @@ export const useExtendDelegation = <TError = ErrorType<HTTPValidationError>,
       return useMutation(getExtendDelegationMutationOptions(options));
     }
 
+export const getListParcelsUrl = () => {
+
+
+
+
+  return `/v1/parcels`
+}
+
+/**
+ * @summary List Parcels
+ */
+export const listParcels = async ( options?: Parameters<typeof customFetch>[1]): Promise<Parcel[]> => {
+
+  return customFetch<Parcel[]>(getListParcelsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListParcelsQueryKey = () => {
+    return [
+    `/v1/parcels`
+    ] as const;
+    }
+
+
+export const getListParcelsQueryOptions = <TData = Awaited<ReturnType<typeof listParcels>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListParcelsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listParcels>>> = ({ signal }) => listParcels({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListParcelsQueryResult = NonNullable<Awaited<ReturnType<typeof listParcels>>>
+export type ListParcelsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List Parcels
+ */
+
+export function useListParcels<TData = Awaited<ReturnType<typeof listParcels>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListParcelsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreateParcelUrl = () => {
 
 
@@ -1911,83 +1988,6 @@ export const useCreateParcel = <TError = ErrorType<HTTPValidationError>,
       > => {
       return useMutation(getCreateParcelMutationOptions(options));
     }
-
-export const getListParcelsUrl = () => {
-
-
-
-
-  return `/v1/parcels`
-}
-
-/**
- * @summary List Parcels
- */
-export const listParcels = async ( options?: Parameters<typeof customFetch>[1]): Promise<Parcel[]> => {
-
-  return customFetch<Parcel[]>(getListParcelsUrl(),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getListParcelsQueryKey = () => {
-    return [
-    `/v1/parcels`
-    ] as const;
-    }
-
-
-export const getListParcelsQueryOptions = <TData = Awaited<ReturnType<typeof listParcels>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListParcelsQueryKey();
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listParcels>>> = ({ signal }) => listParcels({ signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type ListParcelsQueryResult = NonNullable<Awaited<ReturnType<typeof listParcels>>>
-export type ListParcelsQueryError = ErrorType<HTTPValidationError>
-
-
-/**
- * @summary List Parcels
- */
-
-export function useListParcels<TData = Awaited<ReturnType<typeof listParcels>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getListParcelsQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
 
 export const getUpdateParcelUrl = (parcelId: string,) => {
 
