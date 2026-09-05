@@ -52,8 +52,21 @@ is accurate for the *bounded-context freeze record* (B1/B2/B3 are indeed frozen)
 for the *phase-gate* ordering, which is a separate, also-binding instrument. This is not a reason to
 refuse the planning work requested (Phases 1–5 below proceed on that basis), but it is a conflict a
 human Governance Authority should resolve explicitly — either by closing Phase 2's gate first, or by
-recording a deliberate, reasoned exception to the phase order (itself a governance act under Article
-VI §2, not a default any single session may assume).
+recording a deliberate, reasoned exception to the phase order (itself a governance act, not a default
+any single session may assume).
+
+> **Resolved, 5 September 2026, under GD-007** (LV-000 v1.8, Article XVI §2): this Finding's citation
+> above — "LV-000 v1.8 Article VIII §2... B4 as a whole programme remains open pending Slice 3/
+> ADR-021" — is not traceable to the ratified Constitution's current text (Article VIII §2 there
+> concerns identity/access/audit, not phase sequencing) and is superseded by GD-007's own, corrected
+> citations rather than repeated. Likewise, "a governance act under Article VI §2" named the wrong
+> mechanism — Article VI is the Trust Network Doctrine, not an amendment procedure. The operative
+> authority GD-007 actually used is LV-000 Article XVI §2 (a later numbered Governance Decision
+> naming and qualifying an earlier one — here, GD-004), not Article XIV and not Article VI. On the
+> substance, this Finding's conclusion stands: B5.0–B5.3 did proceed ahead of `EXECUTION_PLAN.md`'s
+> Phase 2→3 gate, with no exception recorded at the time. GD-007 records that exception now,
+> narrowly, for exactly those four slices — it does not extend to any further B5 work, which remains
+> subject to this Finding's ordering in full.
 
 ### Finding 2 — Engineering Rule §10 (non-adjudication check) is not implemented
 
