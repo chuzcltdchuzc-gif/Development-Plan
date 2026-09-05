@@ -70,6 +70,34 @@ def test_genuinely_public_routes_have_no_security_requirement() -> None:
         )
 
 
+def test_evidence_operations_exist_with_stable_ids_and_bearer_auth() -> None:
+    """B5 IMVP-5: the two real Evidence operations exist, have the stable
+    operation IDs the frontend's generated client depends on, and are
+    protected by the same SupabaseBearerAuth scheme every other protected
+    route uses — no Evidence-specific auth mechanism was invented."""
+    schema = _schema()
+    path = schema["paths"]["/v1/parcels/{parcel_id}/evidence"]
+
+    assert path["post"]["operationId"] == "uploadParcelEvidence"
+    assert path["post"]["security"] == [{"SupabaseBearerAuth": []}]
+    assert path["get"]["operationId"] == "listParcelEvidence"
+    assert path["get"]["security"] == [{"SupabaseBearerAuth": []}]
+
+
+def test_no_fictional_evidence_operations_returned() -> None:
+    """The previously-removed fictional Evidence endpoints
+    (/v1/evidence/{evidenceId}, and any GET-by-id) must not reappear —
+    IMVP-5's minimum API surface is upload + list only (Section 15)."""
+    schema = _schema()
+    evidence_paths = [p for p in schema["paths"] if "evidence" in p]
+    assert evidence_paths == ["/v1/parcels/{parcel_id}/evidence"]
+
+
+def test_no_double_v1_prefix_anywhere() -> None:
+    schema = _schema()
+    assert not any("/v1/v1" in path for path in schema["paths"])
+
+
 def test_no_oauth_scopes_or_schemes_invented() -> None:
     schema = _schema()
     for scheme in schema["components"]["securitySchemes"].values():

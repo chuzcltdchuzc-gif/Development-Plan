@@ -18,6 +18,10 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from app.contexts.evidence.adapters.supabase_storage import SupabaseStorageAdapter
+from app.contexts.evidence.api import evidence_router
+from app.contexts.evidence.dependencies import get_storage_port
+from app.contexts.evidence.ports import StoragePort
 from app.contexts.identity.adapters.keycloak import KeycloakIdentityProvider
 from app.contexts.identity.adapters.supabase import SupabaseJWKSProvider, supabase_issuer
 from app.contexts.identity.api import admin_router, auth_router
@@ -92,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router.router)
     app.include_router(parcel_router.router)
     app.include_router(spatial_router.router)
+    app.include_router(evidence_router.router)
 
     # Composition-root-only wiring (docs/adr/ADR-019/ADR-022): connects
     # Registry's GeometryPort to Spatial's real adapter via
@@ -106,6 +111,19 @@ def create_app() -> FastAPI:
         return RealGeometryAdapter(PostgresParcelGeometryRepository(session))
 
     app.dependency_overrides[get_geometry_port] = _get_real_geometry_port
+
+    # IMVP-5: the real Supabase Storage adapter, wired the identical way
+    # GeometryPort's real adapter is above — Evidence's own get_storage_port
+    # (app/contexts/evidence/dependencies.py) never learns a concrete
+    # adapter exists; only this composition root does.
+    def _get_real_storage_port() -> StoragePort:
+        return SupabaseStorageAdapter(
+            project_url=settings.supabase_project_url,
+            service_role_key=settings.supabase_service_role_key,
+            bucket=settings.supabase_evidence_bucket,
+        )
+
+    app.dependency_overrides[get_storage_port] = _get_real_storage_port
 
     return app
 

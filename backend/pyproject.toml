@@ -41,7 +41,7 @@ select = ["E", "F", "I", "UP", "B"]
 # FastAPI's Depends()/Header()/Cookie() are designed to be called in argument
 # defaults — that's the framework's own idiom, not the mutable-default-arg
 # bug B008 exists to catch.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Cookie", "fastapi.Security", "app.kernel.authorization.pep.require_role"]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Header", "fastapi.Cookie", "fastapi.Security", "fastapi.Query", "app.kernel.authorization.pep.require_role"]
 
 [tool.mypy]
 python_version = "3.12"

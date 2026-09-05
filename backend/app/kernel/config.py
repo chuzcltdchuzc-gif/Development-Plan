@@ -60,6 +60,19 @@ class Settings(BaseSettings):
     # became a parameter rather than a second verifier class.
     supabase_jwt_algorithm: str = "ES256"
 
+    # ---- Supabase Storage (B5 IMVP-5 — real StoragePort adapter, ADR-025 E3) ----
+    # Server-side only — never sent to the browser, never logged (app.contexts.
+    # evidence.adapters.supabase_storage). The backend authenticates to Storage
+    # as itself (this key), exactly as it already authenticates to Postgres as
+    # itself (database_url) rather than forwarding the caller's own Supabase
+    # JWT — the PDP/PEP decision (already governed, ADR-004 §2-5) is what gates
+    # access; Storage's own bucket policies are the second, independent
+    # backstop layer, the identical "two independent layers" shape ADR-025 E2
+    # already established for Postgres RLS. Fail-closed: no default, so a
+    # missing value aborts startup rather than silently degrading (rule 2).
+    supabase_service_role_key: str
+    supabase_evidence_bucket: str = "evidence"
+
     @property
     def cookie_secure(self) -> bool:
         """Secure by construction, not by configuration: only ever False in

@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.evidence.adapters.orm import EvidenceRecordModel
 from app.contexts.evidence.domain.evidence_record import EvidenceRecord
+from app.contexts.evidence.ports import ParcelAuthorityInfo
 
 
 def _record_from_model(model: EvidenceRecordModel) -> EvidenceRecord:
@@ -117,3 +118,26 @@ class PostgresEvidenceRepository:
         model.legal_hold_by = uuid.UUID(record.legal_hold_by) if record.legal_hold_by else None
         await self._session.flush()
         return _record_from_model(model)
+
+
+class PostgresParcelExistenceAdapter:
+    """Implements ParcelExistencePort via a read-only query against
+    Registry's `parcels` table, through the same request-scoped session —
+    RLS (already in effect via the Unit-of-Work's session variables) makes
+    this return no row for a parcel outside the caller's tenant scope,
+    identical to app.contexts.spatial.adapters.postgres_repositories.
+    PostgresParcelExistenceAdapter (IMVP-5's Evidence-local copy of the
+    same B4 Slice 2 pattern)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def get_parcel_authority(self, *, parcel_id: str) -> ParcelAuthorityInfo | None:
+        result = await self._session.execute(
+            text("SELECT tenant_id, created_by FROM parcels WHERE id = :parcel_id"),
+            {"parcel_id": parcel_id},
+        )
+        row = result.one_or_none()
+        if row is None:
+            return None
+        return ParcelAuthorityInfo(tenant_id=row.tenant_id, created_by=str(row.created_by))

@@ -18,11 +18,26 @@ import pytest
 from fastapi import HTTPException
 
 from app.contexts.evidence.application.evidence_service import EvidenceService
+from app.contexts.evidence.ports import ParcelAuthorityInfo
 from app.kernel.audit import configure_audit_store
 from app.kernel.context import ExecutionContext
 from tests.fakes.audit_store import InMemoryAuditStore
 from tests.fakes.evidence import InMemoryEvidenceRepository
 from tests.fakes.storage import InMemoryStoragePort
+
+
+class _StaticParcelExistence:
+    """Fixed parcel_id -> tenant/creator map, not the full
+    InMemoryParcelRepository-backed fake (tests/fakes/evidence.py's
+    FakeEvidenceParcelExistencePort) — these B5.2-era tests exercise
+    record_upload/mark_hashed/seal/legal-hold and never construct a real
+    Parcel, so a plain static lookup is the smaller fixture."""
+
+    def __init__(self, parcels: dict[str, ParcelAuthorityInfo]) -> None:
+        self._parcels = parcels
+
+    async def get_parcel_authority(self, *, parcel_id: str) -> ParcelAuthorityInfo | None:
+        return self._parcels.get(parcel_id)
 
 
 @pytest.fixture
@@ -38,13 +53,30 @@ def evidence_repo() -> InMemoryEvidenceRepository:
 
 
 @pytest.fixture
-def service(evidence_repo: InMemoryEvidenceRepository) -> EvidenceService:
+def parcel_existence() -> _StaticParcelExistence:
+    return _StaticParcelExistence(
+        {
+            "par_1": ParcelAuthorityInfo(tenant_id="ten_1", created_by="usr_1"),
+            "par_2": ParcelAuthorityInfo(tenant_id="ten_2", created_by="usr_1"),
+        }
+    )
+
+
+@pytest.fixture
+def service(
+    evidence_repo: InMemoryEvidenceRepository, parcel_existence: _StaticParcelExistence
+) -> EvidenceService:
     # B5.3 added a required `storage` dependency to EvidenceService; these
     # B5.2-era tests exercise record_upload/mark_hashed/seal/legal-hold only
     # (never upload_evidence, which is the only method that touches
     # storage), so a bare fake with no calls made against it is sufficient
     # here — see tests/test_evidence_upload.py for storage-path coverage.
-    return EvidenceService(evidence=evidence_repo, storage=InMemoryStoragePort())
+    # IMVP-5 added the required `parcel_existence` dependency, used only by
+    # upload_evidence/list_evidence_for_parcel (see parcel_existence fixture
+    # above and the test using "par_2" below).
+    return EvidenceService(
+        evidence=evidence_repo, storage=InMemoryStoragePort(), parcel_existence=parcel_existence
+    )
 
 
 def _ctx(
@@ -130,15 +162,29 @@ async def test_super_admin_can_read_cross_tenant(service: EvidenceService) -> No
 async def test_list_evidence_for_parcel_filters_out_of_tenant_results(
     service: EvidenceService,
 ) -> None:
-    await _upload(service, ctx=_ctx(tenant_id="ten_1"), parcel_id="par_shared")
-    await _upload(service, ctx=_ctx(tenant_id="ten_2"), parcel_id="par_shared")
+    await _upload(service, ctx=_ctx(tenant_id="ten_1"), parcel_id="par_1")
 
-    results = await service.list_evidence_for_parcel(
-        ctx=_ctx(tenant_id="ten_1"), parcel_id="par_shared"
-    )
+    results = await service.list_evidence_for_parcel(ctx=_ctx(tenant_id="ten_1"), parcel_id="par_1")
 
     assert len(results) == 1
     assert results[0]["tenant_id"] == "ten_1"
+
+
+async def test_list_evidence_for_parcel_404_when_parcel_belongs_to_another_tenant(
+    service: EvidenceService,
+) -> None:
+    """IMVP-5: a caller from a different tenant than the parcel's own
+    can't list its Evidence at all — the parcel itself is invisible to
+    them (404), a stronger guarantee than merely filtering results, and
+    the realistic replacement for the old (pre-authorization) "same
+    parcel_id, two tenants" scenario this test used to cover — a single
+    parcel_id cannot actually belong to two tenants once the parcel
+    itself is the source of tenant truth, per _StaticParcelExistence."""
+    await _upload(service, ctx=_ctx(tenant_id="ten_2"), parcel_id="par_2")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.list_evidence_for_parcel(ctx=_ctx(tenant_id="ten_1"), parcel_id="par_2")
+    assert exc_info.value.status_code == 404
 
 
 async def test_mark_hashed_transitions_and_audits(

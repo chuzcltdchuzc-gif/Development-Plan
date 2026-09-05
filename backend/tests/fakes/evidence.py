@@ -8,6 +8,8 @@ from __future__ import annotations
 from copy import deepcopy
 
 from app.contexts.evidence.domain.evidence_record import EvidenceRecord
+from app.contexts.evidence.ports import ParcelAuthorityInfo
+from tests.fakes.registry import InMemoryParcelRepository
 
 
 class InMemoryEvidenceRepository:
@@ -57,3 +59,20 @@ class InMemoryEvidenceRepository:
             raise ValueError(f"evidence record {record.evidence_id} not found")
         self._by_id[record.evidence_id] = deepcopy(record)
         return deepcopy(record)
+
+
+class FakeEvidenceParcelExistencePort:
+    """Wraps the SAME InMemoryParcelRepository instance the test harness
+    gives to Registry — mirrors tests.fakes.spatial.FakeParcelExistencePort
+    exactly, so a test can create a real parcel via Registry's own
+    endpoints and immediately upload/list Evidence against that exact
+    parcel_id."""
+
+    def __init__(self, parcels: InMemoryParcelRepository) -> None:
+        self._parcels = parcels
+
+    async def get_parcel_authority(self, *, parcel_id: str) -> ParcelAuthorityInfo | None:
+        parcel = await self._parcels.get(parcel_id)
+        if parcel is None:
+            return None
+        return ParcelAuthorityInfo(tenant_id=parcel.tenant_id, created_by=parcel.created_by)

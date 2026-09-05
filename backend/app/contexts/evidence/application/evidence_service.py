@@ -37,7 +37,13 @@ from app.contexts.evidence.domain.evidence_record import (
     EvidenceRecord,
     EvidenceSealedError,
 )
-from app.contexts.evidence.ports import EvidenceRepository, StoragePort
+from app.contexts.evidence.ports import (
+    EvidenceRepository,
+    ParcelAuthorityInfo,
+    ParcelExistencePort,
+    StoragePort,
+)
+from app.contexts.identity.domain.value_objects import GOVERNANCE_ROLES
 from app.kernel.audit import audit
 from app.kernel.context import ExecutionContext
 
@@ -64,6 +70,10 @@ def _not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="evidence record not found")
 
 
+def _not_found_parcel() -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="parcel not found")
+
+
 def _in_scope(ctx: ExecutionContext, resource_tenant_id: str) -> bool:
     """Mirrors app.contexts.registry.application.parcel_service._in_scope
     exactly — duplicated locally rather than imported, per the same
@@ -71,6 +81,17 @@ def _in_scope(ctx: ExecutionContext, resource_tenant_id: str) -> bool:
     section already gave: a third occurrence is the trigger to promote this
     into the kernel, not presupposed here."""
     return resource_tenant_id == ctx.tenant_id or ctx.has_any_role("super_admin")
+
+
+def _can_mutate(ctx: ExecutionContext, authority: ParcelAuthorityInfo) -> bool:
+    """The parcel's creator, or a currently-effective governance role —
+    the identical ADR-015/ADR-022 creator-or-governance shape
+    app.contexts.spatial.application.spatial_service._can_mutate already
+    uses for the same "who may act on this specific parcel" question,
+    reused here for IMVP-5's upload authorization (ADR-026's own "exact
+    role-gating... deferred to a later decision" — this is that decision,
+    made by extension rather than invention)."""
+    return authority.created_by == ctx.principal_id or ctx.has_any_role(*GOVERNANCE_ROLES)
 
 
 def _evidence_view(record: EvidenceRecord) -> dict:
@@ -97,9 +118,24 @@ def _evidence_view(record: EvidenceRecord) -> dict:
 
 
 class EvidenceService:
-    def __init__(self, *, evidence: EvidenceRepository, storage: StoragePort) -> None:
+    def __init__(
+        self,
+        *,
+        evidence: EvidenceRepository,
+        storage: StoragePort,
+        parcel_existence: ParcelExistencePort,
+    ) -> None:
         self.evidence = evidence
         self.storage = storage
+        self.parcel_existence = parcel_existence
+
+    async def _load_parcel_authority_in_scope(
+        self, *, ctx: ExecutionContext, parcel_id: str
+    ) -> ParcelAuthorityInfo:
+        authority = await self.parcel_existence.get_parcel_authority(parcel_id=parcel_id)
+        if authority is None or not _in_scope(ctx, authority.tenant_id):
+            raise _not_found_parcel()
+        return authority
 
     async def upload_evidence(
         self,
@@ -120,11 +156,38 @@ class EvidenceService:
         hashing of a live HTTP multipart body is deferred to whichever slice
         adds the actual upload endpoint; this method's own hashing is
         already correct and reusable once that endpoint exists, only its
-        input-acquisition step would change."""
+        input-acquisition step would change.
+
+        IMVP-5 adds the authorization check ADR-026 explicitly deferred
+        ("exact role-gating... to a later decision"): the target parcel
+        must exist, be in the caller's tenant scope, and the caller must be
+        its creator or hold a governance role — the identical
+        creator-or-governance shape ADR-015/ADR-022 already use, applied
+        here by extension, not invention (Depends(require_role(
+        *PARCEL_REGISTRANT_ROLES)) at the router is the coarse gate; this
+        is the fine-grained, resource-aware one, same two-tier split
+        parcel_router.py's own mutation endpoints already use)."""
         if not ctx.tenant_id:
             raise _bad_request("caller has no tenant to record evidence within")
         if not data:
             raise _bad_request("uploaded content is empty")
+
+        authority = await self._load_parcel_authority_in_scope(ctx=ctx, parcel_id=parcel_id)
+        if not _can_mutate(ctx, authority):
+            await audit(
+                "evidence.upload_denied",
+                resource_type="parcel",
+                resource_id=parcel_id,
+                decision="DENY",
+                payload={
+                    "tenant_id": authority.tenant_id,
+                    "reason": "not_creator_and_not_governance",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="only the parcel's creator or a governance role may submit evidence for it",
+            )
 
         # Server-side hash of the bytes this request actually received —
         # never a client-supplied hash claim (ADR-007 decision 4).
@@ -270,6 +333,12 @@ class EvidenceService:
     async def list_evidence_for_parcel(
         self, *, ctx: ExecutionContext, parcel_id: str
     ) -> list[dict]:
+        """IMVP-5: the parcel itself must be visible to the caller first
+        (same plain tenant-scoped read app.contexts.registry.application.
+        parcel_service.get_parcel already uses — no creator restriction on
+        reads, only on the upload/mutation path above) — a 404 for a
+        nonexistent or cross-tenant parcel, not a silently empty list."""
+        await self._load_parcel_authority_in_scope(ctx=ctx, parcel_id=parcel_id)
         records = await self.evidence.list_for_parcel(parcel_id)
         return [_evidence_view(r) for r in records if _in_scope(ctx, r.tenant_id)]
 

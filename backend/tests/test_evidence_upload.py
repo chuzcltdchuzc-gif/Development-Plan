@@ -23,11 +23,26 @@ from app.contexts.evidence.application.evidence_service import (
     EvidenceService,
 )
 from app.contexts.evidence.domain.evidence_record import STATUS_HASHED, STATUS_RECEIVED
+from app.contexts.evidence.ports import ParcelAuthorityInfo
 from app.kernel.audit import configure_audit_store
 from app.kernel.context import ExecutionContext
 from tests.fakes.audit_store import InMemoryAuditStore
 from tests.fakes.evidence import InMemoryEvidenceRepository
 from tests.fakes.storage import InMemoryStoragePort
+
+
+class _StaticParcelExistence:
+    """Fixed parcel_id -> tenant/creator map — this file tests
+    upload_evidence's hash/storage/integrity mechanics, not IMVP-5's
+    parcel-authorization layer itself (see tests/test_evidence_api.py for
+    that coverage); every test here uses one of the two parcels seeded
+    below, both "owned" by the default ctx's principal_id."""
+
+    def __init__(self, parcels: dict[str, ParcelAuthorityInfo]) -> None:
+        self._parcels = parcels
+
+    async def get_parcel_authority(self, *, parcel_id: str) -> ParcelAuthorityInfo | None:
+        return self._parcels.get(parcel_id)
 
 
 class _CorruptingStoragePort(InMemoryStoragePort):
@@ -60,10 +75,24 @@ def storage() -> InMemoryStoragePort:
 
 
 @pytest.fixture
+def parcel_existence() -> _StaticParcelExistence:
+    return _StaticParcelExistence(
+        {
+            "par_1": ParcelAuthorityInfo(tenant_id="ten_1", created_by="usr_1"),
+            "par_a": ParcelAuthorityInfo(tenant_id="ten_a", created_by="usr_1"),
+        }
+    )
+
+
+@pytest.fixture
 def service(
-    evidence_repo: InMemoryEvidenceRepository, storage: InMemoryStoragePort
+    evidence_repo: InMemoryEvidenceRepository,
+    storage: InMemoryStoragePort,
+    parcel_existence: _StaticParcelExistence,
 ) -> EvidenceService:
-    return EvidenceService(evidence=evidence_repo, storage=storage)
+    return EvidenceService(
+        evidence=evidence_repo, storage=storage, parcel_existence=parcel_existence
+    )
 
 
 def _ctx(
@@ -292,10 +321,14 @@ async def test_upload_audit_ref_resolves_and_hashed_event_follows(
 
 
 async def test_integrity_mismatch_raises_and_leaves_record_at_received(
-    evidence_repo: InMemoryEvidenceRepository, audit_store: InMemoryAuditStore
+    evidence_repo: InMemoryEvidenceRepository,
+    audit_store: InMemoryAuditStore,
+    parcel_existence: _StaticParcelExistence,
 ) -> None:
     corrupting_storage = _CorruptingStoragePort()
-    service = EvidenceService(evidence=evidence_repo, storage=corrupting_storage)
+    service = EvidenceService(
+        evidence=evidence_repo, storage=corrupting_storage, parcel_existence=parcel_existence
+    )
 
     with pytest.raises(EvidenceIntegrityError):
         await _upload(service)
@@ -315,6 +348,6 @@ async def test_integrity_mismatch_raises_and_leaves_record_at_received(
 
 
 async def test_upload_is_tenant_scoped(service: EvidenceService) -> None:
-    result = await _upload(service, ctx=_ctx(tenant_id="ten_a"))
+    result = await _upload(service, ctx=_ctx(tenant_id="ten_a"), parcel_id="par_a")
 
     assert result["tenant_id"] == "ten_a"
