@@ -46,29 +46,12 @@ paths:
       - identity
       summary: Register
       operationId: registerUser
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
+        required: true
       responses:
         '201':
           description: Successful Response
@@ -88,29 +71,12 @@ paths:
       - identity
       summary: Login
       operationId: login
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -130,29 +96,12 @@ paths:
       - identity
       summary: Accept Invitation
       operationId: acceptInvitation
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AcceptInvitationRequest'
+        required: true
       responses:
         '201':
           description: Successful Response
@@ -182,29 +131,12 @@ paths:
 
         could influence, since the body has no field for either.'
       operationId: acceptInvitationSupabase
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AcceptInvitationSupabaseRequest'
+        required: true
       responses:
         '201':
           description: Successful Response
@@ -218,6 +150,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SupabaseBearerAuth: []
   /v1/auth/refresh:
     post:
       tags:
@@ -233,14 +167,6 @@ paths:
           - type: string
           - type: 'null'
           title: X-Refresh-Token
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
       - name: lv_refresh
         in: cookie
         required: false
@@ -249,14 +175,6 @@ paths:
           - type: string
           - type: 'null'
           title: Lv Refresh
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -276,15 +194,9 @@ paths:
       - identity
       summary: Logout
       operationId: logout
+      security:
+      - SupabaseBearerAuth: []
       parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
       - name: lv_refresh
         in: cookie
         required: false
@@ -293,14 +205,6 @@ paths:
           - type: string
           - type: 'null'
           title: Lv Refresh
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '204':
           description: Successful Response
@@ -316,23 +220,6 @@ paths:
       - identity
       summary: Me
       operationId: getCurrentUser
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -340,35 +227,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserContextResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SupabaseBearerAuth: []
   /v1/auth/me/tenant:
     get:
       tags:
       - identity
       summary: My Tenant
       operationId: getCurrentUserTenant
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -376,18 +242,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TenantSummaryResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SupabaseBearerAuth: []
   /v1/admin/users/{user_id}/roles:
     post:
       tags:
       - identity-admin
       summary: Assign Role
       operationId: assignRole
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: user_id
         in: path
@@ -395,22 +259,6 @@ paths:
         schema:
           type: string
           title: User Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
         required: true
         content:
@@ -431,34 +279,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
   /v1/admin/invitations:
+    get:
+      tags:
+      - identity-admin
+      summary: List Invitations
+      operationId: listInvitations
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/InvitationSummaryResponse'
+                type: array
+                title: Response Listinvitations
+      security:
+      - SupabaseBearerAuth: []
     post:
       tags:
       - identity-admin
       summary: Create Invitation
       operationId: createInvitation
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateInvitationRequest'
+        required: true
       responses:
         '201':
           description: Successful Response
@@ -472,50 +320,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - identity-admin
-      summary: List Invitations
-      operationId: listInvitations
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InvitationSummaryResponse'
-                title: Response Listinvitations
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SupabaseBearerAuth: []
   /v1/admin/invitations/{invitation_id}/revoke:
     post:
       tags:
       - identity-admin
       summary: Revoke Invitation
       operationId: revokeInvitation
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: invitation_id
         in: path
@@ -523,22 +337,6 @@ paths:
         schema:
           type: string
           title: Invitation Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -558,45 +356,26 @@ paths:
       - identity-admin
       summary: List Tenants
       operationId: listTenants
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                type: array
                 items:
                   $ref: '#/components/schemas/TenantSummaryResponse'
+                type: array
                 title: Response Listtenants
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SupabaseBearerAuth: []
   /v1/admin/tenants/{tenant_id}:
     get:
       tags:
       - identity-admin
       summary: Get Tenant
       operationId: getTenant
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: tenant_id
         in: path
@@ -604,22 +383,6 @@ paths:
         schema:
           type: string
           title: Tenant Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -639,6 +402,8 @@ paths:
       - identity-admin
       summary: Suspend Tenant
       operationId: suspendTenant
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: tenant_id
         in: path
@@ -646,22 +411,6 @@ paths:
         schema:
           type: string
           title: Tenant Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
         required: true
         content:
@@ -687,6 +436,8 @@ paths:
       - identity-admin
       summary: Reactivate Tenant
       operationId: reactivateTenant
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: tenant_id
         in: path
@@ -694,22 +445,6 @@ paths:
         schema:
           type: string
           title: Tenant Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -729,6 +464,8 @@ paths:
       - identity-admin
       summary: Archive Tenant
       operationId: archiveTenant
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: tenant_id
         in: path
@@ -736,22 +473,6 @@ paths:
         schema:
           type: string
           title: Tenant Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -766,34 +487,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
   /v1/admin/delegations:
+    get:
+      tags:
+      - identity-admin
+      summary: List Delegations
+      operationId: listDelegations
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DelegationSummaryEffectiveResponse'
+                type: array
+                title: Response Listdelegations
+      security:
+      - SupabaseBearerAuth: []
     post:
       tags:
       - identity-admin
       summary: Create Delegation
       operationId: createDelegation
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateDelegationRequest'
+        required: true
       responses:
         '201':
           description: Successful Response
@@ -807,50 +528,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - identity-admin
-      summary: List Delegations
-      operationId: listDelegations
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DelegationSummaryEffectiveResponse'
-                title: Response Listdelegations
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SupabaseBearerAuth: []
   /v1/admin/delegations/{delegation_id}:
     get:
       tags:
       - identity-admin
       summary: Get Delegation
       operationId: getDelegation
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: delegation_id
         in: path
@@ -858,22 +545,6 @@ paths:
         schema:
           type: string
           title: Delegation Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -893,6 +564,8 @@ paths:
       - identity-admin
       summary: Revoke Delegation
       operationId: revokeDelegation
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: delegation_id
         in: path
@@ -900,22 +573,6 @@ paths:
         schema:
           type: string
           title: Delegation Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -935,6 +592,8 @@ paths:
       - identity-admin
       summary: Extend Delegation
       operationId: extendDelegation
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: delegation_id
         in: path
@@ -942,22 +601,6 @@ paths:
         schema:
           type: string
           title: Delegation Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
         required: true
         content:
@@ -978,34 +621,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
   /v1/parcels:
+    get:
+      tags:
+      - registry
+      summary: List Parcels
+      operationId: listParcels
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Parcel'
+                type: array
+                title: Response Listparcels
+      security:
+      - SupabaseBearerAuth: []
     post:
       tags:
       - registry
       summary: Create Parcel
       operationId: createParcel
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateParcelRequest'
+        required: true
       responses:
         '201':
           description: Successful Response
@@ -1019,50 +662,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - registry
-      summary: List Parcels
-      operationId: listParcels
-      parameters:
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Parcel'
-                title: Response Listparcels
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - SupabaseBearerAuth: []
   /v1/parcels/{parcel_id}:
     patch:
       tags:
       - registry
       summary: Update Parcel
       operationId: updateParcel
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: parcel_id
         in: path
@@ -1070,22 +679,6 @@ paths:
         schema:
           type: string
           title: Parcel Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
         required: true
         content:
@@ -1110,6 +703,8 @@ paths:
       - registry
       summary: Get Parcel
       operationId: getParcel
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: parcel_id
         in: path
@@ -1117,22 +712,6 @@ paths:
         schema:
           type: string
           title: Parcel Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -1152,6 +731,8 @@ paths:
       - registry
       summary: Archive Parcel
       operationId: archiveParcel
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: parcel_id
         in: path
@@ -1159,22 +740,6 @@ paths:
         schema:
           type: string
           title: Parcel Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -1194,6 +759,8 @@ paths:
       - registry
       summary: Set Geometry Reference
       operationId: setParcelGeometryReference
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: parcel_id
         in: path
@@ -1201,22 +768,6 @@ paths:
         schema:
           type: string
           title: Parcel Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
         required: true
         content:
@@ -1242,6 +793,8 @@ paths:
       - spatial
       summary: Submit Geometry
       operationId: submitParcelGeometry
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: parcel_id
         in: path
@@ -1249,22 +802,6 @@ paths:
         schema:
           type: string
           title: Parcel Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       requestBody:
         required: true
         content:
@@ -1289,6 +826,8 @@ paths:
       - spatial
       summary: Get Active Geometry
       operationId: getActiveParcelGeometry
+      security:
+      - SupabaseBearerAuth: []
       parameters:
       - name: parcel_id
         in: path
@@ -1296,22 +835,6 @@ paths:
         schema:
           type: string
           title: Parcel Id
-      - name: authorization
-        in: header
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Authorization
-      - name: lv_access
-        in: cookie
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lv Access
       responses:
         '200':
           description: Successful Response
@@ -2250,3 +1773,12 @@ components:
       - msg
       - type
       title: ValidationError
+  securitySchemes:
+    SupabaseBearerAuth:
+      type: http
+      description: 'Supabase Auth access token (ADR-025), verified against the project''s
+        JWKS. Send as ''Authorization: Bearer <token>''; the browser session flow
+        may instead rely on the ''lv_access'' cookie set by that flow — both are accepted
+        identically by the server.'
+      scheme: bearer
+      bearerFormat: JWT
