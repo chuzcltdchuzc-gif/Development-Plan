@@ -20,7 +20,7 @@
 | **Relationship to the adopted v1.0** | v1.0's named principles are incorporated and remain in force verbatim (Article II §4, Schedule 1). Incorporation is permanent and does not expire |
 | **Repository of record** | `aquasavannah-landvault` |
 | **Canonical path** | `docs/LV-000-constitution.md` |
-| **Governing decisions in force** | GD-001, GD-002 (as amended by GD-004), GD-003, GD-004, GD-005, GD-006 |
+| **Governing decisions in force** | GD-001, GD-002 (as amended by GD-004), GD-003, GD-004 (qualified by GD-007), GD-005, GD-006, GD-007 |
 | **Prime Directive** | LandVault preserves and verifies land evidence. It does not decide who owns land. |
 | **Classification** | Public (Governance) |
 | **Owner** | Office of the LandVault Constitution (Governance Authority) |
@@ -312,6 +312,47 @@ recorded as a properly-governed act rather than an unrecorded edit. **This decis
 itself authorise, ratify, or regularise any infrastructure change, ADR approval, or implementation
 activity** — those are governed, where applicable, by their own instruments (ADR status fields,
 the Execution Plan's phase gates), not by this entry.
+
+**GD-007 — IMVP-5 Sequencing Exception and Evidence Foundation Ratification (qualification of
+GD-004).** *(Ratified 5 September 2026.)* Operative authority: **Article XVI §2** (below) — GD-007
+is a later numbered decision that explicitly names and qualifies GD-004; it is not proposed under
+Article XIV and does not amend this Constitution.
+
+`docs/EXECUTION_PLAN.md` §5 (the execution instrument GD-004 ratified) sequences delivery as Phase
+0 → Phase 1 → Phase 2 (B4 Spatial) → Phase 3 (B5 Evidence). Phase 2's gate includes "overlaps
+surfaced," which `docs/adr/ADR-021` — Proposed, not Accepted — would supply. Slices B5.0 (Evidence
+governance, `docs/adr/ADR-026`, Accepted), B5.1 (`StoragePort` Protocol and hermetic fake only, no
+real storage adapter), B5.2 (`EvidenceRecord` aggregate, repository, migration `0012`), and B5.3
+(`EvidenceService.upload_evidence()`, no HTTP endpoint) were nonetheless implemented and merged to
+`main` (PRs #11, #12) on 2026-08-02–08-04, with no exception recorded at the time.
+
+Independent re-verification against governed `main` found no violation of Article VII (not yet
+engaged — nothing has been sealed), Article VIII §1–§4 (RLS parity with `parcels` confirmed live),
+ADR-002 (unchanged), or ADR-025/ADR-026 (both Accepted, correctly implemented): the deviation is
+sequencing only, not architectural.
+
+**Decision.** GD-004 is qualified, and only to this extent: its execution-sequencing effect over
+`EXECUTION_PLAN.md` §5's Phase 2→Phase 3 gate does not apply, retroactively, to Slices B5.0 through
+B5.3 as they exist on `main`. GD-004 otherwise remains in full force for every other phase
+transition. `docs/PHASE-B5_IMPLEMENTATION_PLAN.md`'s own "Finding 1," which attributed this
+sequencing concern to a constitutional passage not traceable to this Edition's text, is treated as
+resolved on the corrected basis recorded here.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise B5.4 (WORM
+sealing), B5.5 (chain of custody), B5.6 (legal hold enforcement), B5.7 (break-glass), B5.8 (Merkle/
+OpenTimestamps anchoring), Cloudflare R2 or any WORM-grade/immutable archival infrastructure, any
+data-residency architecture change, Evidence backend expansion beyond a future separately-ratified
+IMVP-5 scope, OCR, duplicate detection, confidence scoring, certificates, background-job
+infrastructure, Paystack, or ADR-021/B4 Slice 3 implementation. It does not convert ADR-021 from
+Proposed to Accepted. **This Constitution is not amended by this decision; Article X §4 stands
+exactly as ratified.**
+
+This decision clears the historical sequencing objection sufficiently for Governance Authority to
+separately consider and, if appropriate, authorise a narrowly bounded IMVP-5 (a real `StoragePort`
+adapter plus a minimal, non-sealing HTTP surface stopping at `HASHED` status) — it does not itself
+authorise that implementation. Any future deviation from `EXECUTION_PLAN.md`'s phase gates,
+including any B5 slice beyond B5.0–B5.3, requires its own explicit Governance Authority decision
+under this same mechanism before implementation begins.
 
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 

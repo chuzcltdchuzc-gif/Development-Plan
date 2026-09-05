@@ -249,6 +249,14 @@ No script may allocate ADR numbers. Allocation is a governed act performed by a 
 
 **Phase 1 does not begin until Phase 0's gate is met. B4 Spatial does not begin until Phase 1's gate is met.** That sequence is Article X §4, and it is not negotiable against a delivery date.
 
+> **Qualified, 5 September 2026, under GD-007** (LV-000 v1.8, Article XVI §2): by the same clause,
+> Phase 3 (B5 Evidence) does not begin until Phase 2's gate (B4 Spatial, including "overlaps
+> surfaced" — `docs/adr/ADR-021`, Proposed) is met. Slices B5.0–B5.3 were merged to `main` ahead of
+> that gate, with no exception recorded at the time. GD-007 qualifies this instrument's
+> execution-sequencing effect, narrowly, for exactly those four already-completed slices — this
+> sentence, and the phase table above, are otherwise unchanged and remain fully binding for every
+> other transition, including any further B5 work.
+
 ## Enactment
 
 This instrument is ratified on 29 July 2026 under GD-004 and is in force from that date. It carries no hold and no condition.
