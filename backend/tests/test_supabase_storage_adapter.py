@@ -124,6 +124,48 @@ async def test_list_keys_filters_by_prefix_and_sorts() -> None:
     assert keys == ["tenants/t1/parcels/p1/evidence/e1-object"]
 
 
+async def test_adapter_accepts_any_key_without_tenant_check() -> None:
+    """Documents ADR-027 §10.0/§11 as an executable invariant, not just a
+    docstring claim: this adapter performs no tenant authorization of its
+    own. A key naming one tenant and a key naming a completely different
+    tenant, written through the same service-role-authenticated adapter
+    instance, are handled identically — there is no code path here that
+    could accept one and deny the other. The one real tenant boundary is
+    EvidenceService's, proven in tests/test_evidence_api.py, not this
+    adapter's."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"Key": "x"})
+
+    adapter = _adapter(httpx.MockTransport(handler))
+
+    await adapter.put("tenants/tenant-a/parcels/p1/evidence/e1/object", b"data")
+    await adapter.put("tenants/tenant-b/parcels/p9/evidence/e9/object", b"data")
+    # No further assertion is possible or meaningful — both calls simply
+    # succeeding, with no tenant-comparison logic anywhere in the adapter
+    # to have denied either one, is the invariant under test.
+
+
+def test_adapter_never_accepts_a_per_call_caller_token() -> None:
+    """ADR-027 §10.1/§3 (Option A): this adapter authenticates to Storage
+    only as itself, via one fixed service-role key set at construction —
+    it never forwards a caller's own Supabase JWT (that would be Option
+    B's dual-enforcement design, not yet built, gated on ADR-027 §10.4/
+    §10.5). Asserted structurally so a future change cannot silently add a
+    per-call caller-token parameter without this test being touched."""
+    import inspect
+
+    init_params = set(inspect.signature(SupabaseStorageAdapter.__init__).parameters)
+    assert init_params == {
+        "self", "project_url", "service_role_key", "bucket", "timeout_seconds", "transport",
+    }
+    for method_name in ("put", "get", "list_keys"):
+        method_params = set(
+            inspect.signature(getattr(SupabaseStorageAdapter, method_name)).parameters
+        )
+        assert not method_params & {"caller_token", "jwt", "user_token", "access_token"}
+
+
 async def test_put_immutable_fails_closed_not_implemented() -> None:
     from datetime import UTC, datetime
 

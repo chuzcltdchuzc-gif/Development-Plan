@@ -172,6 +172,35 @@ def test_upload_unauthorized_role_denied(harness: AppHarness, client: TestClient
 # --- 3. Tenant isolation -------------------------------------------------------
 
 
+def test_rejected_cross_tenant_upload_never_invokes_storage_adapter(
+    harness: AppHarness, client: TestClient
+) -> None:
+    """ADR-027 §10.2/§11: proves the one authorization boundary that
+    actually exists (PDP/PEP + EvidenceService's tenant/parcel check) runs
+    to completion, and denies, before StoragePort is ever reached — not an
+    assertion about Storage RLS, which does not exist during the pilot
+    (SupabaseStorageAdapter has no tenant check of its own; see
+    tests/test_supabase_storage_adapter.py). InMemoryStoragePort's
+    list_keys("") returns every object ever written, so an empty result
+    after a denied request is direct evidence Storage was never called."""
+    owner_tokens, _ = asyncio.run(
+        _seed_user_with_role(
+            harness, email="storage-owner@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+    parcel_id = _create_parcel(client, owner_tokens.access_token)
+    other_tokens, _ = asyncio.run(
+        _seed_user_with_role(
+            harness, email="storage-other@example.test", password="pw12345678", role="field_agent"
+        )
+    )
+
+    response = _upload(client, other_tokens.access_token, parcel_id)
+
+    assert response.status_code == 404
+    assert asyncio.run(harness.storage.list_keys("")) == []
+
+
 def test_cross_tenant_upload_denied(harness: AppHarness, client: TestClient) -> None:
     owner_tokens, _ = asyncio.run(
         _seed_user_with_role(

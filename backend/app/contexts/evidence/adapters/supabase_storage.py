@@ -8,25 +8,36 @@ already uses for Supabase Auth's REST API — not a dedicated Supabase SDK.
 No new dependency was introduced for this adapter (Engineering Rule 5):
 `httpx` is already pinned in pyproject.toml.
 
-Security model (ADR-025 E2's already-governed "two independent layers"
-shape, applied to Storage instead of Postgres): this backend authenticates
-to Storage as *itself*, using a server-side-only service-role key — it
-never forwards a caller's own Supabase JWT to Storage. FastAPI's existing
-PDP/PEP (require_auth/require_role, unchanged) is the primary authorization
-gate, decided entirely before this adapter is ever called
+Security model — governed by docs/adr/
+ADR-027-supabase-storage-authorization-and-tenant-isolation.md (Accepted),
+not by ADR-025 E2, which describes Postgres RLS only and was never a
+decision about Storage's own trust model. Stated plainly, per that ADR's
+own §10.0: this backend authenticates to Storage as *itself*, using a
+server-side-only service-role key — it never forwards a caller's own
+Supabase JWT to Storage. FastAPI's existing PDP/PEP (require_auth/
+require_role, unchanged) is the *sole* tenant-authorization boundary for
+Evidence Storage, decided entirely before this adapter is ever called
 (app.contexts.evidence.application.evidence_service's own
-_load_parcel_authority_in_scope/_can_mutate checks); the private bucket's
-own Storage policies (infra/supabase/evidence_bucket.sql) are the second,
-independent backstop layer — exactly the role Postgres RLS already plays
-for the database, per ADR-025 E2. This is not a new architecture decision:
-it is the same governed pattern, applied to a second resource type.
+_load_parcel_authority_in_scope/_can_mutate checks). The private bucket's
+Storage policies (infra/supabase/evidence_bucket.sql) grant nothing to
+`anon`/`authenticated` and so are bypassed entirely by this adapter's
+service-role key — **there is no second, independent enforcement layer
+here**, unlike Postgres, where RLS is a same-connection backstop behind
+the PDP/PEP decision. This adapter performs no tenant validation of its
+own, by design; a key naming one tenant and a key naming another are
+handled identically (see test_adapter_accepts_any_key_without_tenant_check
+in tests/test_supabase_storage_adapter.py). This asymmetry is an accepted,
+named, self-expiring pilot exception under ADR-027 §10.1 — bounded to a
+single Evidence-storage tenant, all access through FastAPI, no
+browser/client-direct Storage path — not a claim of parity with Postgres's
+two-layer model, and not a new architecture decision made by this file.
 
 This adapter provides ordinary (non-WORM) storage only. `put_immutable`/
 `worm_grade` fail closed (`NotImplementedError`) — Supabase Storage has no
 Object-Lock/WORM primitive; pretending otherwise would be exactly the
 "fake WORM at the storage layer" defect ADR-007's own founding motivation
 exists to prevent. Cloudflare R2 (WORM-grade sealing) remains a separate,
-unbuilt adapter, out of scope until B5.4.
+unbuilt adapter, out of scope until B5.4 — ADR-027 does not authorize it.
 """
 from __future__ import annotations
 
