@@ -10,6 +10,15 @@ appear to differ, the ADR governs.
 during the bounded pilot. Does not cover `DATABASE_URL`, Supabase Auth's JWKS configuration, or any
 other secret — each has its own operational ownership, unchanged by this document.
 
+**Credential format:** Supabase currently supports two formats for this credential, both carrying
+the identical elevated, RLS-bypassing trust role ADR-027 governs
+(https://supabase.com/docs/guides/api/api-keys): the current non-JWT **secret key**
+(`sb_secret_...`) — preferred for new setups — and the legacy **service_role JWT**, which Supabase
+states "remains valid until you disable them." The adapter detects which format is configured and
+sends the correct request headers for each (`apikey` always; `Authorization: Bearer` only for a
+JWT-shaped credential) — no runbook step differs by format; obtain whichever the project's
+dashboard currently issues.
+
 This runbook describes procedures against **Supabase's currently-documented, supported project
 administration surface** (the project dashboard's API settings, where project API keys are viewed
 and, where the platform offers it, rotated). It does not invent a Supabase capability that has not

@@ -38,14 +38,42 @@ Object-Lock/WORM primitive; pretending otherwise would be exactly the
 "fake WORM at the storage layer" defect ADR-007's own founding motivation
 exists to prevent. Cloudflare R2 (WORM-grade sealing) remains a separate,
 unbuilt adapter, out of scope until B5.4 — ADR-027 does not authorize it.
+
+Credential format (both accepted, same trust role, ADR-027 does not
+distinguish between them — see docs/EVIDENCE_STORAGE_CREDENTIAL_RUNBOOK.md):
+Supabase's current API-key system (https://supabase.com/docs/guides/api/
+api-keys) replaces the legacy JWT-form `service_role` key with a non-JWT
+"secret key" (`sb_secret_...`) that maps to the same elevated,
+RLS-bypassing role. Per that same documentation, "send publishable and
+secret keys on the apikey header, not on Authorization: Bearer" — a
+non-JWT secret key sent as a Bearer token fails Supabase's gateway-level
+JWT parsing before this adapter's own request ever completes (surfaced as
+an "Invalid Compact JWS" error). `_build_auth_headers` below sends
+`apikey` unconditionally (both formats accept it) and adds
+`Authorization: Bearer` only when the configured credential is actually
+JWT-shaped — i.e. only for a legacy `service_role` key, which Supabase's
+docs confirm "remains valid until you disable them" in the dashboard.
+This is a platform/implementation compatibility detail, not an
+ADR-027 architecture change: ADR-027 governs the credential's *trust
+role* (backend-held, elevated, RLS-bypassing, server-only), never its
+concrete wire format.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 import httpx
 
 from app.contexts.evidence.ports import StorageObjectNotFoundError, WormGrade
+
+# A legacy Supabase service_role key is a three-part JWT; a modern secret
+# key (sb_secret_...) and publishable key (sb_publishable_...) are opaque,
+# non-JWT strings. This pattern exists only to decide which header(s) to
+# send (see module docstring) — it is not a security boundary, and a false
+# negative here (an unrecognized JWT-like string) only costs one extra,
+# harmless apikey-only header, never a credential leak.
+_JWT_SHAPED = re.compile(r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$")
 
 
 class SupabaseStorageAdapter:
@@ -68,9 +96,21 @@ class SupabaseStorageAdapter:
         # identical to every call site below before this parameter existed.
         self._transport = transport
         # Never logged, never included in any exception message below —
-        # only ever sent as this adapter's own outbound Authorization
-        # header, exactly like SupabaseJWKSProvider's own httpx usage.
-        self._headers = {"Authorization": f"Bearer {service_role_key}"}
+        # only ever sent in this adapter's own outbound headers, exactly
+        # like SupabaseJWKSProvider's own httpx usage.
+        self._headers = self._build_auth_headers(service_role_key)
+
+    @staticmethod
+    def _build_auth_headers(credential: str) -> dict[str, str]:
+        """`apikey` is required by Supabase's gateway for both current
+        credential formats. `Authorization: Bearer` is added only for a
+        JWT-shaped (legacy service_role) credential — sending a modern,
+        non-JWT secret key there fails Supabase's own JWT parsing (see
+        module docstring)."""
+        headers = {"apikey": credential}
+        if _JWT_SHAPED.match(credential):
+            headers["Authorization"] = f"Bearer {credential}"
+        return headers
 
     def _object_url(self, key: str) -> str:
         return f"{self._object_base}/{self._bucket}/{key}"
