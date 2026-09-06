@@ -336,6 +336,15 @@ connection-pool health afterward), `ruff`/`mypy` clean, 230/230 hermetic tests p
 **Not yet merged.** Implemented on branch `feat/b5.3-evidence-upload-integrity`, pushed to `origin`.
 **B5.4 (WORM sealing) is not authorized and has not begun.**
 
+**`docs/adr/ADR-027-supabase-storage-authorization-and-tenant-isolation.md` is Accepted,
+2026-09-06** — governs the credential/enforcement model for ordinary (non-WORM) Evidence Storage,
+filling the gap ADR-025 E3 left open. Pilot (Ehime Mbano) uses the backend's service-role
+credential after PDP/PEP authorization, as a named, self-expiring exception bounded by three hard
+gates (a second tenant, any browser-direct Storage path, or production deployment) — see the ADR
+for the compensating controls and the required future dual-enforcement architecture. This governs
+IMVP-5/PR #22 (`feat/imvp-5-evidence-vertical-slice`, not yet merged); it does not authorize
+B5.4/WORM/R2.
+
 This file is the always-loaded operational summary. It is a pointer, not the source of truth — if anything here ever conflicts with the documents it points to, **those documents win.**
 
 ## The 6 non-negotiable rules (full detail: `docs/ENGINEERING_RULES.md`)
