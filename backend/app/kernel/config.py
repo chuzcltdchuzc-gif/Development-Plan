@@ -74,8 +74,10 @@ class Settings(BaseSettings):
     # (https://supabase.com/docs/guides/api/api-keys): a legacy JWT-form
     # service_role key, or the current non-JWT secret key (sb_secret_...) —
     # both carry the identical elevated, RLS-bypassing trust role ADR-027
-    # governs; app.contexts.evidence.adapters.supabase_storage picks the
-    # correct request headers for whichever format is configured. Fail-closed:
+    # governs; app.contexts.evidence.adapters.supabase_storage sends both
+    # `apikey` and `Authorization: Bearer` with this value, live-verified
+    # against Storage's actual object-level routes (not generic platform
+    # docs alone — see that module's own docstring). Fail-closed:
     # no default, so a missing value aborts startup rather than silently
     # degrading (rule 2); the validator below also rejects the literal
     # unedited .env.example placeholder.

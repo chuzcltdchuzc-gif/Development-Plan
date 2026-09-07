@@ -14,10 +14,12 @@ other secret — each has its own operational ownership, unchanged by this docum
 the identical elevated, RLS-bypassing trust role ADR-027 governs
 (https://supabase.com/docs/guides/api/api-keys): the current non-JWT **secret key**
 (`sb_secret_...`) — preferred for new setups — and the legacy **service_role JWT**, which Supabase
-states "remains valid until you disable them." The adapter detects which format is configured and
-sends the correct request headers for each (`apikey` always; `Authorization: Bearer` only for a
-JWT-shaped credential) — no runbook step differs by format; obtain whichever the project's
-dashboard currently issues.
+states "remains valid until you disable them." The adapter sends both `apikey` and
+`Authorization: Bearer` with the same value for either format — live-verified against Storage's
+own object-level routes, which require `Authorization` to be present and accept the current
+secret-key format there without treating it as a JWT (see supabase_storage.py's own module
+docstring for the full investigation) — no runbook step differs by format; obtain whichever the
+project's dashboard currently issues.
 
 This runbook describes procedures against **Supabase's currently-documented, supported project
 administration surface** (the project dashboard's API settings, where project API keys are viewed

@@ -5,10 +5,12 @@ the adapter builds correct requests and translates responses/errors
 without live Supabase Storage credentials or network access.
 
 Does not, and cannot, prove real Supabase Storage's own actual behavior
-(auth enforcement, bucket policies, real latency/failure modes) — that is
-exactly what Engineering Rule 7's live rehearsal is for, and this
-environment has no live Supabase project to rehearse against (see the
-IMVP-5 implementation report's "live Supabase integration status").
+(bucket policies, real latency/failure modes) beyond what a one-time,
+manual live investigation already established about header requirements
+(see supabase_storage.py's own module docstring, and
+docs/EVIDENCE_STORAGE_CREDENTIAL_RUNBOOK.md) — that investigation is not
+re-run by these tests on every CI run, only encoded as the fixed
+assertions below.
 """
 from __future__ import annotations
 
@@ -20,14 +22,13 @@ from app.contexts.evidence.ports import StorageObjectNotFoundError
 
 PROJECT_URL = "https://test-project.supabase.test"
 # Shaped like a modern Supabase secret key (sb_secret_...): an opaque,
-# non-JWT string. Deliberately NOT dot-separated, so it must never be sent
-# as a Bearer token (see module docstring of supabase_storage.py and
-# https://supabase.com/docs/guides/api/api-keys: "send publishable and
-# secret keys on the apikey header, not on Authorization: Bearer").
+# non-JWT string.
 SERVICE_ROLE_KEY = "test-service-role-key-do-not-log-me"
-# Shaped like a legacy service_role JWT: three dot-separated segments.
-# Not a real signed token — only its *shape* matters to the adapter's
-# format-detection logic under test.
+# Shaped like a legacy service_role JWT: three dot-separated segments. Not
+# a real signed token — only used to prove header behavior doesn't depend
+# on credential shape (see test_put_sends_both_headers_regardless_of_
+# credential_shape below; live-verified against a real Supabase project,
+# module docstring).
 LEGACY_JWT_SERVICE_ROLE_KEY = "test-header.test-payload.test-signature"
 BUCKET = "evidence"
 
@@ -58,46 +59,37 @@ async def test_put_sends_correct_request_and_upserts() -> None:
     assert request.method == "POST"
     assert request.url == f"{PROJECT_URL}/storage/v1/object/{BUCKET}/{key}"
     assert request.headers["apikey"] == SERVICE_ROLE_KEY
+    assert request.headers["authorization"] == f"Bearer {SERVICE_ROLE_KEY}"
     assert request.headers["content-type"] == "application/pdf"
     assert request.headers["x-upsert"] == "true"
     assert request.content == b"hello"
 
 
-async def test_put_sends_modern_secret_key_only_via_apikey_never_as_bearer() -> None:
-    """Supabase's current API-key docs: a non-JWT secret/publishable key
-    sent as `Authorization: Bearer` fails the gateway's JWT parsing before
-    reaching this project's own routing — the "Invalid Compact JWS" failure
-    this fix exists to prevent for real (non-JWT) credentials."""
+@pytest.mark.parametrize("credential", [SERVICE_ROLE_KEY, LEGACY_JWT_SERVICE_ROLE_KEY])
+async def test_put_sends_both_headers_regardless_of_credential_shape(credential: str) -> None:
+    """Live-verified against a real Supabase project's Storage API (module
+    docstring): the object-level routes this adapter calls require
+    `Authorization` to be present regardless of credential format, and
+    accept the current non-JWT secret key there without attempting to
+    verify it as a JWT — unlike Storage's separate, adapter-unused
+    bucket-management endpoint. `apikey`-only (this adapter's prior
+    behavior for a non-JWT-shaped credential) was rejected live with
+    "headers must have required property 'authorization'" before this fix;
+    both headers, same value, succeeded. A legacy JWT-shaped credential
+    gets the identical treatment — no format branching is needed or
+    correct here."""
     captured: dict[str, httpx.Request] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured["request"] = request
         return httpx.Response(200, json={"Key": "x"})
 
-    adapter = _adapter(httpx.MockTransport(handler))
+    adapter = _adapter(httpx.MockTransport(handler), key=credential)
     await adapter.put("key", b"data")
 
     headers = captured["request"].headers
-    assert headers["apikey"] == SERVICE_ROLE_KEY
-    assert "authorization" not in headers
-
-
-async def test_put_sends_legacy_jwt_key_via_both_apikey_and_bearer() -> None:
-    """Backward compatibility: Supabase's docs confirm legacy service_role
-    JWT keys "remain valid until you disable them" — a JWT-shaped
-    credential still gets Authorization: Bearer, alongside apikey."""
-    captured: dict[str, httpx.Request] = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["request"] = request
-        return httpx.Response(200, json={"Key": "x"})
-
-    adapter = _adapter(httpx.MockTransport(handler), key=LEGACY_JWT_SERVICE_ROLE_KEY)
-    await adapter.put("key", b"data")
-
-    headers = captured["request"].headers
-    assert headers["apikey"] == LEGACY_JWT_SERVICE_ROLE_KEY
-    assert headers["authorization"] == f"Bearer {LEGACY_JWT_SERVICE_ROLE_KEY}"
+    assert headers["apikey"] == credential
+    assert headers["authorization"] == f"Bearer {credential}"
 
 
 async def test_put_default_content_type_when_none_given() -> None:
