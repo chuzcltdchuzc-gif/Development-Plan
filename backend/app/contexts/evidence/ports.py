@@ -37,12 +37,39 @@ visible from the port's own shape, not only from the aggregate's methods.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Protocol
 
 from app.contexts.evidence.domain.evidence_record import EvidenceRecord
 
 WormGrade = Literal["governance", "compliance"]
+
+
+@dataclass(frozen=True)
+class ParcelAuthorityInfo:
+    """The minimum information the Evidence upload authorization check
+    (IMVP-5) needs about the parcel an upload targets — tenant scope and
+    creator authority, the identical shape docs/adr/ADR-022 §8 already
+    established for Spatial's own ParcelExistencePort
+    (app.contexts.spatial.ports). Duplicated here, not imported, per the
+    same bounded-context isolation reasoning (docs/adr/ADR-018): Evidence
+    has no need for, and must not depend on, anything else about a
+    parcel."""
+
+    tenant_id: str
+    created_by: str
+
+
+class ParcelExistencePort(Protocol):
+    """Read-only existence/authority lookup against Registry's `parcels`
+    table — the one place Evidence reads across the context boundary,
+    mirroring app.contexts.spatial.ports.ParcelExistencePort exactly.
+    Returns `ParcelAuthorityInfo` if the parcel exists (and, for the real
+    adapter, is visible under `parcels`' own RLS policy), `None`
+    otherwise."""
+
+    async def get_parcel_authority(self, *, parcel_id: str) -> ParcelAuthorityInfo | None: ...
 
 
 class StorageObjectNotFoundError(Exception):

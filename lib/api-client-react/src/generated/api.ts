@@ -27,6 +27,7 @@ import type {
   CreateParcelRequest,
   DelegationSummaryEffectiveResponse,
   DelegationSummaryResponse,
+  EvidenceResponse,
   ExtendDelegationRequest,
   GeometryResponse,
   HTTPValidationError,
@@ -45,6 +46,7 @@ import type {
   TenantSummaryResponse,
   TokenResponse,
   UpdateParcelRequest,
+  UploadParcelEvidenceParams,
   UserContextResponse
 } from './api.schemas';
 
@@ -2418,6 +2420,164 @@ export function useGetActiveParcelGeometry<TData = Awaited<ReturnType<typeof get
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetActiveParcelGeometryQueryOptions(parcelId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUploadParcelEvidenceUrl = (parcelId: string,
+    params: UploadParcelEvidenceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/parcels/${parcelId}/evidence?${stringifiedParams}` : `/v1/parcels/${parcelId}/evidence`
+}
+
+/**
+ * @summary Upload Parcel Evidence
+ */
+export const uploadParcelEvidence = async (parcelId: string,
+    uploadParcelEvidenceBody: Blob,
+    params: UploadParcelEvidenceParams, options?: Parameters<typeof customFetch>[1]): Promise<EvidenceResponse> => {
+
+  return customFetch<EvidenceResponse>(getUploadParcelEvidenceUrl(parcelId,params),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream', ...options?.headers },
+    body: uploadParcelEvidenceBody
+  }
+);}
+
+
+
+
+
+export const getUploadParcelEvidenceMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadParcelEvidence>>, TError,{parcelId: string;data: BodyType<Blob>;params: UploadParcelEvidenceParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadParcelEvidence>>, TError,{parcelId: string;data: BodyType<Blob>;params: UploadParcelEvidenceParams}, TContext> => {
+
+const mutationKey = ['uploadParcelEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadParcelEvidence>>, {parcelId: string;data: BodyType<Blob>;params: UploadParcelEvidenceParams}> = (props) => {
+          const {parcelId,data,params} = props ?? {};
+
+          return  uploadParcelEvidence(parcelId,data,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadParcelEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof uploadParcelEvidence>>>
+    export type UploadParcelEvidenceMutationBody = BodyType<Blob>
+    export type UploadParcelEvidenceMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Upload Parcel Evidence
+ */
+export const useUploadParcelEvidence = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadParcelEvidence>>, TError,{parcelId: string;data: BodyType<Blob>;params: UploadParcelEvidenceParams}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof uploadParcelEvidence>>,
+        TError,
+        {parcelId: string;data: BodyType<Blob>;params: UploadParcelEvidenceParams},
+        TContext
+      > => {
+      return useMutation(getUploadParcelEvidenceMutationOptions(options));
+    }
+
+export const getListParcelEvidenceUrl = (parcelId: string,) => {
+
+
+
+
+  return `/v1/parcels/${parcelId}/evidence`
+}
+
+/**
+ * @summary List Parcel Evidence
+ */
+export const listParcelEvidence = async (parcelId: string, options?: Parameters<typeof customFetch>[1]): Promise<EvidenceResponse[]> => {
+
+  return customFetch<EvidenceResponse[]>(getListParcelEvidenceUrl(parcelId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListParcelEvidenceQueryKey = (parcelId: string,) => {
+    return [
+    `/v1/parcels/${parcelId}/evidence`
+    ] as const;
+    }
+
+
+export const getListParcelEvidenceQueryOptions = <TData = Awaited<ReturnType<typeof listParcelEvidence>>, TError = ErrorType<HTTPValidationError>>(parcelId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcelEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListParcelEvidenceQueryKey(parcelId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listParcelEvidence>>> = ({ signal }) => listParcelEvidence(parcelId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: parcelId !== null && parcelId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listParcelEvidence>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListParcelEvidenceQueryResult = NonNullable<Awaited<ReturnType<typeof listParcelEvidence>>>
+export type ListParcelEvidenceQueryError = ErrorType<HTTPValidationError>
+
+
+/**
+ * @summary List Parcel Evidence
+ */
+
+export function useListParcelEvidence<TData = Awaited<ReturnType<typeof listParcelEvidence>>, TError = ErrorType<HTTPValidationError>>(
+ parcelId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listParcelEvidence>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListParcelEvidenceQueryOptions(parcelId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

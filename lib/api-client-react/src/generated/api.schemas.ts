@@ -100,6 +100,57 @@ export interface DelegationSummaryResponse {
   revoked_by?: string | null;
 }
 
+/**
+ * Mirrors `app.contexts.evidence.domain.evidence_record.EVIDENCE_TYPES`
+ * exactly (ADR-026) — kept in sync by the assertion in
+ * tests/test_evidence_api.py, not by import, since the domain layer uses
+ * a plain frozenset (no framework coupling), not an enum.
+ */
+export type EvidenceType = typeof EvidenceType[keyof typeof EvidenceType];
+
+
+export const EvidenceType = {
+  SURVEY_PLAN: 'SURVEY_PLAN',
+  TITLE_DOCUMENT: 'TITLE_DOCUMENT',
+  IDENTITY_DOCUMENT: 'IDENTITY_DOCUMENT',
+  OTHER: 'OTHER',
+} as const;
+
+/**
+ * Mirrors `evidence_record.STATUS_*` — IMVP-5 only ever produces
+ * RECEIVED/HASHED; SEALED exists on the domain model but no code path
+ * in this slice ever reaches it (seal() is not called anywhere in the
+ * upload path, and no endpoint exposes it).
+ */
+export type EvidenceStatus = typeof EvidenceStatus[keyof typeof EvidenceStatus];
+
+
+export const EvidenceStatus = {
+  RECEIVED: 'RECEIVED',
+  HASHED: 'HASHED',
+  SEALED: 'SEALED',
+} as const;
+
+/**
+ * Response shape for both Evidence endpoints. Mirrors
+ * `evidence_service._evidence_view`'s field-for-field truth for the
+ * fields a client needs — see module docstring for what's omitted and
+ * why.
+ */
+export interface EvidenceResponse {
+  evidence_id: string;
+  parcel_id: string;
+  uploaded_by: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  basis: string;
+  evidence_type: EvidenceType;
+  status: EvidenceStatus;
+  sha256?: string | null;
+  created_at: string;
+}
+
 export interface ExtendDelegationRequest {
   expires_at?: string | null;
 }
@@ -342,4 +393,18 @@ export interface UserContextResponse {
 export type LivenessCheck200 = {[key: string]: string};
 
 export type ReadinessCheck200 = {[key: string]: string};
+
+export type UploadParcelEvidenceParams = {
+/**
+ * @minLength 1
+ * @maxLength 255
+ */
+filename: string;
+evidence_type: EvidenceType;
+/**
+ * @minLength 1
+ * @maxLength 500
+ */
+basis: string;
+};
 

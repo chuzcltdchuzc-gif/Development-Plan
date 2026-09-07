@@ -60,6 +60,45 @@ class Settings(BaseSettings):
     # became a parameter rather than a second verifier class.
     supabase_jwt_algorithm: str = "ES256"
 
+    # ---- Supabase Storage (B5 IMVP-5 — real StoragePort adapter; authorization/
+    # trust model governed by docs/adr/ADR-027-supabase-storage-authorization-
+    # and-tenant-isolation.md, Accepted — not ADR-025 E2, which describes
+    # Postgres RLS only) ----
+    # Server-side only — never sent to the browser, never logged (app.contexts.
+    # evidence.adapters.supabase_storage). The backend authenticates to Storage
+    # as itself (this key), never forwarding the caller's own Supabase JWT.
+    # FastAPI's PDP/PEP is the *sole* tenant-authorization boundary for
+    # Evidence Storage during the pilot (ADR-027 §10.0) — Storage's own RLS is
+    # bypassed by this credential, not a second independent layer, unlike
+    # Postgres. Accepts either of Supabase's current credential formats
+    # (https://supabase.com/docs/guides/api/api-keys): a legacy JWT-form
+    # service_role key, or the current non-JWT secret key (sb_secret_...) —
+    # both carry the identical elevated, RLS-bypassing trust role ADR-027
+    # governs; app.contexts.evidence.adapters.supabase_storage sends both
+    # `apikey` and `Authorization: Bearer` with this value, live-verified
+    # against Storage's actual object-level routes (not generic platform
+    # docs alone — see that module's own docstring). Fail-closed:
+    # no default, so a missing value aborts startup rather than silently
+    # degrading (rule 2); the validator below also rejects the literal
+    # unedited .env.example placeholder.
+    supabase_service_role_key: str
+    supabase_evidence_bucket: str = "evidence"
+
+    @field_validator("supabase_service_role_key")
+    @classmethod
+    def _reject_unedited_placeholder(cls, value: str) -> str:
+        # Deliberately narrow: only the exact literal .env.example default.
+        # A broader "contains 'test'" heuristic would reject the test suite's
+        # and export_openapi.py's own deliberate stand-in values
+        # ("test-service-role-key") — a real credential's actual validity is
+        # verified by Supabase's own API at call time, not guessable here.
+        if value == "change-me-locally":
+            raise ValueError(
+                "SUPABASE_SERVICE_ROLE_KEY is still the unedited .env.example placeholder — "
+                "set a real Supabase service_role or secret key before starting the backend."
+            )
+        return value
+
     @property
     def cookie_secure(self) -> bool:
         """Secure by construction, not by configuration: only ever False in

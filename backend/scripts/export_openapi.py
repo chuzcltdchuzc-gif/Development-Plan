@@ -56,6 +56,7 @@ def _set_placeholder_settings() -> None:
     os.environ.setdefault("KEYCLOAK_ADMIN_API_URL", "https://idp.test/admin/realms/landvault")
     os.environ.setdefault("JWT_AUDIENCE", "landvault-api")
     os.environ.setdefault("SUPABASE_PROJECT_URL", "https://test-project.supabase.test")
+    os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key")
 
 
 def _load_app():

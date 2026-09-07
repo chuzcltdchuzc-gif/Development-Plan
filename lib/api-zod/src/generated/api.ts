@@ -700,3 +700,60 @@ export const GetActiveParcelGeometryResponse = zod.object({
 }).describe('Mirrors `spatial_service._geometry_view` field-for-field.')
 
 
+/**
+ * @summary Upload Parcel Evidence
+ */
+export const UploadParcelEvidenceParams = zod.object({
+  "parcel_id": zod.coerce.string()
+})
+
+export const uploadParcelEvidenceQueryFilenameMax = 255;
+
+export const uploadParcelEvidenceQueryBasisMax = 500;
+
+
+
+export const UploadParcelEvidenceQueryParams = zod.object({
+  "filename": zod.coerce.string().min(1).max(uploadParcelEvidenceQueryFilenameMax),
+  "evidence_type": zod.enum(['SURVEY_PLAN', 'TITLE_DOCUMENT', 'IDENTITY_DOCUMENT', 'OTHER']),
+  "basis": zod.coerce.string().min(1).max(uploadParcelEvidenceQueryBasisMax)
+})
+
+export const UploadParcelEvidenceResponse = zod.object({
+  "evidence_id": zod.string(),
+  "parcel_id": zod.string(),
+  "uploaded_by": zod.string(),
+  "filename": zod.string(),
+  "mime_type": zod.string(),
+  "size_bytes": zod.number(),
+  "basis": zod.string(),
+  "evidence_type": zod.enum(['SURVEY_PLAN', 'TITLE_DOCUMENT', 'IDENTITY_DOCUMENT', 'OTHER']).describe('Mirrors `app.contexts.evidence.domain.evidence_record.EVIDENCE_TYPES`\nexactly (ADR-026) — kept in sync by the assertion in\ntests\/test_evidence_api.py, not by import, since the domain layer uses\na plain frozenset (no framework coupling), not an enum.'),
+  "status": zod.enum(['RECEIVED', 'HASHED', 'SEALED']).describe('Mirrors `evidence_record.STATUS_\*` — IMVP-5 only ever produces\nRECEIVED\/HASHED; SEALED exists on the domain model but no code path\nin this slice ever reaches it (seal() is not called anywhere in the\nupload path, and no endpoint exposes it).'),
+  "sha256": zod.union([zod.string(),zod.null()]).optional(),
+  "created_at": zod.string()
+}).describe('Response shape for both Evidence endpoints. Mirrors\n`evidence_service._evidence_view`\'s field-for-field truth for the\nfields a client needs — see module docstring for what\'s omitted and\nwhy.')
+
+
+/**
+ * @summary List Parcel Evidence
+ */
+export const ListParcelEvidenceParams = zod.object({
+  "parcel_id": zod.coerce.string()
+})
+
+export const ListParcelEvidenceResponseItem = zod.object({
+  "evidence_id": zod.string(),
+  "parcel_id": zod.string(),
+  "uploaded_by": zod.string(),
+  "filename": zod.string(),
+  "mime_type": zod.string(),
+  "size_bytes": zod.number(),
+  "basis": zod.string(),
+  "evidence_type": zod.enum(['SURVEY_PLAN', 'TITLE_DOCUMENT', 'IDENTITY_DOCUMENT', 'OTHER']).describe('Mirrors `app.contexts.evidence.domain.evidence_record.EVIDENCE_TYPES`\nexactly (ADR-026) — kept in sync by the assertion in\ntests\/test_evidence_api.py, not by import, since the domain layer uses\na plain frozenset (no framework coupling), not an enum.'),
+  "status": zod.enum(['RECEIVED', 'HASHED', 'SEALED']).describe('Mirrors `evidence_record.STATUS_\*` — IMVP-5 only ever produces\nRECEIVED\/HASHED; SEALED exists on the domain model but no code path\nin this slice ever reaches it (seal() is not called anywhere in the\nupload path, and no endpoint exposes it).'),
+  "sha256": zod.union([zod.string(),zod.null()]).optional(),
+  "created_at": zod.string()
+}).describe('Response shape for both Evidence endpoints. Mirrors\n`evidence_service._evidence_view`\'s field-for-field truth for the\nfields a client needs — see module docstring for what\'s omitted and\nwhy.')
+export const ListParcelEvidenceResponse = zod.array(ListParcelEvidenceResponseItem)
+
+

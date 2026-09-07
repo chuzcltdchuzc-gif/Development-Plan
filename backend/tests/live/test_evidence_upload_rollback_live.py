@@ -51,7 +51,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 import app.contexts.identity.adapters.orm  # noqa: F401 — registers identity_users/tenants
 import app.contexts.registry.adapters.orm  # noqa: F401 — registers parcels
 from app.contexts.evidence.adapters.orm import EvidenceRecordModel
-from app.contexts.evidence.adapters.postgres_repositories import PostgresEvidenceRepository
+from app.contexts.evidence.adapters.postgres_repositories import (
+    PostgresEvidenceRepository,
+    PostgresParcelExistenceAdapter,
+)
 from app.contexts.evidence.application.evidence_service import EvidenceService
 from app.contexts.evidence.domain.evidence_record import EvidenceRecord
 from app.kernel import uow
@@ -173,7 +176,9 @@ async def test_evidence_upload_persists_and_rolls_back_on_live_postgres() -> Non
         agen = uow.get_db_session(ctx=ctx)
         session = await anext(agen)
         service = EvidenceService(
-            evidence=PostgresEvidenceRepository(session), storage=InMemoryStoragePort()
+            evidence=PostgresEvidenceRepository(session),
+            storage=InMemoryStoragePort(),
+            parcel_existence=PostgresParcelExistenceAdapter(session),
         )
         result = await service.upload_evidence(
             ctx=ctx,

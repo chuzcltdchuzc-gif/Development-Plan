@@ -848,6 +848,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/parcels/{parcel_id}/evidence:
+    post:
+      tags:
+      - evidence
+      summary: Upload Parcel Evidence
+      operationId: uploadParcelEvidence
+      security:
+      - SupabaseBearerAuth: []
+      parameters:
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Parcel Id
+      - name: filename
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 255
+          title: Filename
+      - name: evidence_type
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/EvidenceType'
+      - name: basis
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 500
+          title: Basis
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              contentMediaType: application/octet-stream
+              title: Data
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - evidence
+      summary: List Parcel Evidence
+      operationId: listParcelEvidence
+      security:
+      - SupabaseBearerAuth: []
+      parameters:
+      - name: parcel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Parcel Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EvidenceResponse'
+                title: Response Listparcelevidence
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     AcceptInvitationRequest:
@@ -1156,6 +1243,90 @@ components:
         shape `create_delegation`/`revoke_delegation`/`extend_delegation`
 
         actually return.'
+    EvidenceResponse:
+      properties:
+        evidence_id:
+          type: string
+          title: Evidence Id
+        parcel_id:
+          type: string
+          title: Parcel Id
+        uploaded_by:
+          type: string
+          title: Uploaded By
+        filename:
+          type: string
+          title: Filename
+        mime_type:
+          type: string
+          title: Mime Type
+        size_bytes:
+          type: number
+          title: Size Bytes
+        basis:
+          type: string
+          title: Basis
+        evidence_type:
+          $ref: '#/components/schemas/EvidenceType'
+        status:
+          $ref: '#/components/schemas/EvidenceStatus'
+        sha256:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sha256
+        created_at:
+          type: string
+          title: Created At
+      type: object
+      required:
+      - evidence_id
+      - parcel_id
+      - uploaded_by
+      - filename
+      - mime_type
+      - size_bytes
+      - basis
+      - evidence_type
+      - status
+      - created_at
+      title: EvidenceResponse
+      description: 'Response shape for both Evidence endpoints. Mirrors
+
+        `evidence_service._evidence_view`''s field-for-field truth for the
+
+        fields a client needs — see module docstring for what''s omitted and
+
+        why.'
+    EvidenceStatus:
+      type: string
+      enum:
+      - RECEIVED
+      - HASHED
+      - SEALED
+      title: EvidenceStatus
+      description: 'Mirrors `evidence_record.STATUS_*` — IMVP-5 only ever produces
+
+        RECEIVED/HASHED; SEALED exists on the domain model but no code path
+
+        in this slice ever reaches it (seal() is not called anywhere in the
+
+        upload path, and no endpoint exposes it).'
+    EvidenceType:
+      type: string
+      enum:
+      - SURVEY_PLAN
+      - TITLE_DOCUMENT
+      - IDENTITY_DOCUMENT
+      - OTHER
+      title: EvidenceType
+      description: 'Mirrors `app.contexts.evidence.domain.evidence_record.EVIDENCE_TYPES`
+
+        exactly (ADR-026) — kept in sync by the assertion in
+
+        tests/test_evidence_api.py, not by import, since the domain layer uses
+
+        a plain frozenset (no framework coupling), not an enum.'
     ExtendDelegationRequest:
       properties:
         expires_at:
