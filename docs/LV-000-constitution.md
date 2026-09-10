@@ -354,6 +354,18 @@ authorise that implementation. Any future deviation from `EXECUTION_PLAN.md`'s p
 including any B5 slice beyond B5.0–B5.3, requires its own explicit Governance Authority decision
 under this same mechanism before implementation begins.
 
+**GD-008 — Surveyor Network Phase 0 Principles and Authorization Boundary.** *(Ratified 8
+September 2026; full operative text at
+`docs/GD-008-surveyor-network-phase-0-principles-and-authorization-boundary.md`.)* Governance
+establishes the constitutional, sequencing, tenant and programme boundaries for the future
+Surveyor Professional Network. The Partner/Professional Network and Marketplace two-context model
+is directional Phase 0 guidance only and does not close either programme's outstanding discovery
+gate. Existing tenant isolation and ADR-026 Evidence independence remain authoritative. GD-008
+authorizes only the drafting of ADR-028 for Evidence actor and commissioning provenance. It does
+not authorize implementation of Marketplace, Partner, Job/Assignment, payments, scoring,
+Rights/licensing, Historical Evidence monetisation, Surveyor Dashboard or related commercial
+functionality.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
