@@ -455,6 +455,102 @@ async def test_adr028_database_invariants_on_live_postgres() -> None:
                 actor_name="Cross Tenant Actor By Name Only",
             )
             assert snapshot_only
+
+            # --- Invariant 7: evidence/tenant binding — a row's own
+            # tenant_id must match the tenant_id of the evidence_records
+            # row its evidence_id names. RLS alone protects a row's own
+            # tenant scope from being read by another tenant; it does not
+            # verify that a row's tenant_id and evidence_id are mutually
+            # consistent. Proven necessary directly: without this
+            # trigger, the ordinary landvault_app role, scoped to
+            # other_tenant via RLS exactly as a real request would be,
+            # could INSERT a row claiming tenant_id=other_tenant against
+            # `ids["evidence_id"]` (which belongs to `ids["tenant_id"]`,
+            # a different tenant), and it persisted. ---
+            other_parcel = uuid.uuid4()
+            other_evidence = uuid.uuid4()
+            async with owning_engine.begin() as conn:
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO parcels (id, tenant_id, country_code, origin, "
+                        "parcel_number, title, status, created_by) VALUES "
+                        "(:id, :tenant, 'NG', 'field_survey', :pnum, 'Other Parcel', "
+                        "'ACTIVE', :created_by)"
+                    ),
+                    {
+                        "id": other_parcel, "tenant": other_tenant,
+                        "pnum": f"OT-{uuid.uuid4().hex[:8]}", "created_by": other_user,
+                    },
+                )
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO evidence_records (id, tenant_id, parcel_id, "
+                        "uploaded_by, filename, mime_type, size_bytes, storage_key, "
+                        "basis, evidence_type, status) VALUES (:id, :tenant, :parcel_id, "
+                        ":uploaded_by, 'other.pdf', 'application/pdf', 512, :sk, 'x', "
+                        "'SURVEY_PLAN', 'RECEIVED')"
+                    ),
+                    {
+                        "id": other_evidence, "tenant": other_tenant,
+                        "parcel_id": other_parcel, "uploaded_by": other_user,
+                        "sk": f"evidence/{other_tenant}/{other_parcel}/x",
+                    },
+                )
+
+            # The ordinary application role, not the schema-owning admin
+            # role — this attack must be proven against the same
+            # least-privilege role a real request actually uses.
+            app_role_url = sa.engine.url.make_url(db_url).set(
+                username="landvault_app",
+                password=os.environ.get("POSTGRES_APP_PASSWORD"),
+            )
+            attack_id = uuid.uuid4()
+            attack_engine = create_async_engine(app_role_url)
+            try:
+                with pytest.raises(Exception) as evidence_tenant_exc:
+                    async with attack_engine.begin() as conn:
+                        await conn.execute(
+                            sa.text("SELECT set_config('app.tenant_id', :t, false)"),
+                            {"t": ids["tenant_id"]},
+                        )
+                        await conn.execute(
+                            sa.text("SELECT set_config('app.is_super_admin', 'false', false)")
+                        )
+                        await conn.execute(
+                            sa.text(
+                                "INSERT INTO evidence_actor_attributions (id, tenant_id, "
+                                "evidence_id, attribution_role, actor_reference_kind, "
+                                "actor_name, actor_type, basis, recorded_by) VALUES "
+                                "(:id, :tenant_id, :evidence_id, 'ORIGINATED_BY', "
+                                "'EXTERNAL_NAMED', 'Attack Actor', 'INDIVIDUAL', "
+                                "'cross-tenant evidence binding attempt', :recorded_by)"
+                            ),
+                            {
+                                "id": attack_id, "tenant_id": ids["tenant_id"],
+                                "evidence_id": str(other_evidence),
+                                "recorded_by": ids["user_id"],
+                            },
+                        )
+                assert "must match the referenced evidence_records.tenant_id" in str(
+                    evidence_tenant_exc.value
+                )
+            finally:
+                await attack_engine.dispose()
+
+            async with owning_engine.begin() as conn:
+                check = await conn.execute(
+                    sa.text(
+                        "SELECT count(*) AS n FROM evidence_actor_attributions WHERE id = :id"
+                    ),
+                    {"id": attack_id},
+                )
+                assert check.one().n == 0, "cross-tenant evidence-binding attempt must not persist"
+
+            # Positive control: same tenant_id as the row's own evidence_id
+            # must still succeed (proves this is tenant BINDING, not a
+            # blanket rejection).
+            control_id = await _insert_attribution(owning_engine, ids=ids, actor_name="Bound OK")
+            assert control_id
         finally:
             await owning_engine.dispose()
     finally:

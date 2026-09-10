@@ -31,9 +31,34 @@ referenced values differ). This revision adds two genuinely new database
 objects to close that gap and the related actor-state gap the same review
 found; nothing above this note changes.
 
-Four invariants beyond migration 0011's own precedent, per ADR-028's
-explicit "Supersession integrity" and "Actor-state representation"
-decisions (requirements ADR-023 itself never needed to state):
+**Revision note 2 (pre-merge remediation, same day):** a follow-up
+database-boundary review found two further gaps in the *first*
+remediation, both now closed below. First, nothing enforced
+`evidence_actor_attributions.tenant_id` matching the `tenant_id` of the
+`evidence_records` row its `evidence_id` names — proven directly: as the
+ordinary `landvault_app` role scoped to tenant A (no RLS bypass), an
+`INSERT` claiming `tenant_id = A` but `evidence_id` belonging to tenant B
+persisted successfully, including when the row's `actor_principal_id`
+was itself a legitimate same-tenant-A reference (the actor-reference
+check alone cannot catch a mismatch between the row's own tenant and the
+Evidence it claims to describe — they are independent facts). A third
+`BEFORE INSERT` trigger, `evidence_actor_attributions_check_evidence_tenant`,
+closes this by rejecting any insert whose `tenant_id` does not match the
+referenced `evidence_records.tenant_id`. Second, the cycle-rejection
+trigger's `depth < 10000` guard silently permitted an insert whenever the
+ancestry walk was truncated by that bound before reaching either a
+natural chain end or the new row's own id — a fail-*open* ceiling that
+would have missed a cycle whose closing reference lay beyond the bound.
+The trigger now distinguishes "the walk reached a natural end without
+seeing the new row's id" (safe) from
+"the walk was still going when the bound was hit" (unproven, and now
+rejected rather than assumed safe) — see "Cycle-depth ceiling: fails
+closed, not silently" below.
+
+Five invariants beyond migration 0011's own precedent, per ADR-028's
+explicit "Supersession integrity", "Actor-state representation", and
+"Tenant isolation" decisions (requirements ADR-023 itself never needed to
+state):
 
   1. CHECK (id <> supersedes_id) — no row may supersede itself.
   2. UNIQUE (supersedes_id) — at most one row may supersede any given
@@ -57,6 +82,21 @@ decisions (requirements ADR-023 itself never needed to state):
      trigger owned entirely by this table's own migration, mirroring
      `PostgresPrincipalTenantAdapter`'s own read-only cross-context
      lookup at the database layer instead of the application layer.
+  5. A BEFORE INSERT trigger
+     (`evidence_actor_attributions_check_evidence_tenant`) that rejects an
+     insert whose `tenant_id` does not match the `tenant_id` of the
+     `evidence_records` row named by its own `evidence_id` — a durable
+     attribution row must never disagree with the Evidence it claims to
+     describe about which tenant it belongs to; RLS alone only protects
+     rows whose own `tenant_id` is already correct, it does not verify
+     that the row's `tenant_id` and `evidence_id` are mutually
+     consistent. Proven necessary directly: without this trigger, the
+     ordinary application role, scoped to tenant A via RLS exactly as a
+     real request would be, could `INSERT` a row claiming `tenant_id = A`
+     against tenant B's own `evidence_id`, and it persisted — including
+     when the row's `actor_principal_id` was itself a legitimate,
+     same-tenant-A reference, since that check has no visibility into
+     whether the row's tenant matches its named Evidence at all.
 
 Why a plain `AFTER`/`BEFORE` row trigger, not a `CHECK` or a `CONSTRAINT
 TRIGGER`, for cycle detection: a `CHECK` constraint cannot express a
@@ -86,11 +126,27 @@ the original reason (append-only: no existing row can ever be `UPDATE`d
 to retarget its `supersedes_id`), which the append-only trigger continues
 to guarantee unconditionally.
 
-The recursive walk is bounded (depth < 10,000, matching the application
-service's own `_MAX_LINEAGE_WALK` defensive bound) — not a business rule,
-purely a guard against runaway recursion in the face of a genuine
-data-integrity anomaly; no valid lineage in this system's design comes
-anywhere close to that depth.
+**Cycle-depth ceiling: fails closed, not silently.** The recursive walk
+is bounded (depth < 10,000, matching the application service's own
+`_MAX_LINEAGE_WALK` defensive bound) purely to keep the worst-case cost
+of one insert finite even under a pathologically long lineage — not a
+business rule, and no valid lineage in this system's design comes
+anywhere close to that depth. The first version of this guard let the
+walk simply stop at the bound and permit the insert whenever it had
+neither found the new row's own id nor reached a natural chain end
+(`supersedes_id IS NULL`) by then — a cycle whose closing reference
+happened to lie beyond the bound would have been missed and silently
+allowed. The trigger now computes both facts from the same walk — whether
+the new row's id was found (a real cycle: always rejected, at any depth
+up to the bound) and whether the walk was still going, unresolved, when
+it hit the bound (an *unproven* lineage: also rejected, deliberately, on
+the same principle ADR-028's own "does not prescribe an ordinary SQL
+CHECK constraint for an invariant the database engine cannot enforce
+that way" already established — a check that cannot prove safety must
+not default to assuming it). A lineage that happens to end in exactly
+10,000 hops is rejected too, indistinguishably from one that merely looks
+that long from where the walk stopped; that is an intentional, safe
+trade-off given no real lineage in this design approaches that depth.
 
 No backfill of any kind, mirroring migration 0011's own stated
 discipline: existing evidence_records receive zero attribution rows
@@ -253,22 +309,55 @@ def upgrade() -> None:
     op.execute(
         f"""
         CREATE FUNCTION {TABLE}_reject_cycle() RETURNS trigger AS $$
+        DECLARE
+            visited_count integer;
+            found_self boolean;
         BEGIN
             IF NEW.supersedes_id IS NOT NULL THEN
-                IF EXISTS (
-                    WITH RECURSIVE ancestry(id, depth) AS (
-                        SELECT NEW.supersedes_id, 1
-                        UNION ALL
-                        SELECT e.supersedes_id, a.depth + 1
-                        FROM {TABLE} e
-                        JOIN ancestry a ON e.id = a.id
-                        WHERE a.depth < 10000 AND e.supersedes_id IS NOT NULL
-                    )
-                    SELECT 1 FROM ancestry WHERE id = NEW.id
-                ) THEN
+                -- ancestry.id is a POINTER VALUE being followed backward
+                -- (starting at NEW.supersedes_id itself), not necessarily
+                -- an id this trigger has looked up as an existing row —
+                -- the very value that closes a 2-row cycle (the second
+                -- member's own id) is discovered as a VALUE (the first
+                -- member's stored supersedes_id) without ever needing to
+                -- look up the second member's row, which — for a cycle
+                -- assembled inside one multi-row INSERT — usually does
+                -- not exist yet at the point this trigger runs. Comparing
+                -- against NEW.id must stay a value comparison for this
+                -- reason; an earlier draft of this trigger required the
+                -- pointer to resolve to an existing row before comparing
+                -- it, which silently missed exactly the single-statement
+                -- multi-row cycle this trigger exists to catch (caught by
+                -- this migration's own regression test before merge).
+                WITH RECURSIVE ancestry(id, depth) AS (
+                    SELECT NEW.supersedes_id, 1
+                    UNION ALL
+                    SELECT e.supersedes_id, a.depth + 1
+                    FROM {TABLE} e
+                    JOIN ancestry a ON e.id = a.id
+                    WHERE a.depth < 10000 AND e.supersedes_id IS NOT NULL
+                )
+                SELECT count(*), bool_or(id = NEW.id) INTO visited_count, found_self
+                FROM ancestry;
+
+                IF found_self THEN
                     RAISE EXCEPTION
                         'evidence_actor_attributions: supersedes_id lineage would cycle back to %',
                         NEW.id;
+                END IF;
+                -- Fails CLOSED, not silently: the recursive term's own
+                -- "e.supersedes_id IS NOT NULL" filter means the walk only
+                -- ever stops short of the depth bound when it has reached
+                -- a genuine, natural chain end. Reaching the bound instead
+                -- (visited_count at or past it) means safety was never
+                -- proven — reject rather than assume the unseen remainder
+                -- is safe. See the module docstring's "Cycle-depth
+                -- ceiling" note.
+                IF visited_count >= 10000 THEN
+                    RAISE EXCEPTION
+                        'evidence_actor_attributions: supersedes_id lineage exceeds the depth '
+                        'this trigger can verify (%); rejected rather than assumed safe',
+                        visited_count;
                 END IF;
             END IF;
             RETURN NEW;
@@ -316,11 +405,48 @@ def upgrade() -> None:
         """
     )
 
+    # --- Evidence/tenant binding enforcement — a durable attribution row
+    # must never disagree with the Evidence it names about which tenant
+    # it belongs to. RLS alone protects a row's OWN tenant_id from being
+    # read by another tenant; it says nothing about whether that
+    # tenant_id actually matches the evidence_id the row claims to
+    # describe. Unconditional (evidence_id is always NOT NULL), unlike
+    # the same-tenant-principal trigger above (actor_principal_id is
+    # optional). ---
+    op.execute(
+        f"""
+        CREATE FUNCTION {TABLE}_check_evidence_tenant() RETURNS trigger AS $$
+        DECLARE
+            evidence_tenant text;
+        BEGIN
+            SELECT tenant_id INTO evidence_tenant
+            FROM evidence_records WHERE id = NEW.evidence_id;
+            IF evidence_tenant IS NULL OR evidence_tenant <> NEW.tenant_id THEN
+                RAISE EXCEPTION
+                    'evidence_actor_attributions: tenant_id (%) must match the referenced '
+                    'evidence_records.tenant_id',
+                    NEW.tenant_id;
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql
+        """
+    )
+    op.execute(
+        f"""
+        CREATE TRIGGER {TABLE}_check_evidence_tenant
+        BEFORE INSERT ON {TABLE}
+        FOR EACH ROW EXECUTE FUNCTION {TABLE}_check_evidence_tenant()
+        """
+    )
+
 
 def downgrade() -> None:
     # Drops only the triggers/functions this migration created — never the
     # shared registry_history_reject_mutation() function, which migration
     # 0011's own tables still depend on.
+    op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_check_evidence_tenant ON {TABLE}")
+    op.execute(f"DROP FUNCTION IF EXISTS {TABLE}_check_evidence_tenant()")
     op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_check_same_tenant ON {TABLE}")
     op.execute(f"DROP FUNCTION IF EXISTS {TABLE}_check_same_tenant()")
     op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_reject_cycle ON {TABLE}")
