@@ -9,16 +9,46 @@ or concurrent-transaction behavior, because it never exercises Postgres at
 all. This module does, following that same module's exact "throwaway
 database, real migration chain via subprocess, drop at the end" pattern.
 
+**Regression history:** the first version of this module proved only
+append-only rejection, self-supersession rejection, and one-successor
+concurrency. A subsequent Governance-directed red-team tested the
+database invariant directly (not merely through the application service)
+and found that a single multi-row `INSERT` could persist a two-row
+`supersedes_id` cycle — the `UNIQUE (supersedes_id)` constraint does not
+catch a mutual pair (the two referenced values differ), and Postgres
+checks a `NOT DEFERRABLE` foreign key at end-of-statement, not per-row
+within a multi-row statement. Migration 0014 was remediated with two new
+`BEFORE INSERT` triggers (cycle rejection via a bounded recursive ancestry
+walk; same-tenant `actor_principal_id` enforcement) and a `CHECK`
+constraint expressing ADR-028's actor-representation shape. Every case
+that red-team found is now a permanent regression test below — most
+importantly Case C, the one that actually escaped the original
+implementation.
+
 Proves, against a real Postgres:
   1. the append-only trigger rejects UPDATE and DELETE unconditionally,
      including as the schema-owning role (mirroring migration 0011's own
      rehearsal for parcel_ownership_history);
   2. the CHECK (id <> supersedes_id) constraint rejects self-supersession;
-  3. the UNIQUE (supersedes_id) constraint enforces ADR-028's "one direct
+  3. the evidence_actor_attributions_reject_cycle trigger rejects a
+     sequential two-row cycle attempt, a cycle assembled inside one
+     multi-row INSERT statement (Case C — the actual regression), a
+     longer (3-row) cycle attempt, and permits ordinary valid linear
+     succession;
+  4. the UNIQUE (supersedes_id) constraint enforces ADR-028's "one direct
      successor per superseded attribution" invariant under REAL
      concurrent writes — two concurrent transactions each attempting to
      supersede the same row; exactly one must succeed, the other must
-     fail with a unique-violation, not silently corrupt state.
+     fail with a unique-violation, not silently corrupt state;
+  5. the ck_evidence_actor_attributions_actor_shape CHECK rejects every
+     actor-representation violation the domain constructor also rejects,
+     even when the domain constructor and application service are
+     bypassed entirely via direct SQL;
+  6. the evidence_actor_attributions_check_same_tenant trigger rejects a
+     live actor_principal_id belonging to a different tenant than the
+     attribution, even via direct SQL — while a cross-tenant actor
+     represented as a free-text snapshot (no live reference) still
+     succeeds, exactly as ADR-028 permits.
 
 Skipped unless LIVE_ATTRIBUTION_ADMIN_URL is set (a superuser/schema-
 owning asyncpg URL) — never runs by default, so it cannot break the
@@ -122,23 +152,42 @@ async def _seed_fixture_rows(engine: AsyncEngine) -> dict[str, str]:
 
 
 async def _insert_attribution(
-    engine: AsyncEngine, *, ids: dict[str, str], supersedes_id: str | None = None
+    engine: AsyncEngine,
+    *,
+    ids: dict[str, str],
+    supersedes_id: str | None = None,
+    attribution_id: uuid.UUID | None = None,
+    actor_reference_kind: str = "EXTERNAL_NAMED",
+    actor_principal_id: str | None = None,
+    actor_name: str | None = "Test Actor",
+    actor_organization_name: str | None = None,
+    actor_type: str = "INDIVIDUAL",
+    attribution_role: str = "ORIGINATED_BY",
+    tenant_id: str | None = None,
 ) -> str:
-    attribution_id = uuid.uuid4()
+    attribution_id = attribution_id or uuid.uuid4()
     async with engine.begin() as conn:
         await conn.execute(
             sa.text(
                 "INSERT INTO evidence_actor_attributions "
                 "(id, tenant_id, evidence_id, attribution_role, actor_reference_kind, "
-                " actor_name, actor_type, basis, recorded_by, supersedes_id) "
-                "VALUES (:id, :tenant_id, :evidence_id, 'ORIGINATED_BY', 'EXTERNAL_NAMED', "
-                " 'Test Actor', 'INDIVIDUAL', 'live rehearsal row', :recorded_by, "
-                " :supersedes_id)"
+                " actor_principal_id, actor_name, actor_organization_name, actor_type, "
+                " basis, recorded_by, supersedes_id) "
+                "VALUES (:id, :tenant_id, :evidence_id, :attribution_role, "
+                " :actor_reference_kind, :actor_principal_id, :actor_name, "
+                " :actor_organization_name, :actor_type, 'live rehearsal row', "
+                " :recorded_by, :supersedes_id)"
             ),
             {
                 "id": attribution_id,
-                "tenant_id": ids["tenant_id"],
+                "tenant_id": tenant_id or ids["tenant_id"],
                 "evidence_id": ids["evidence_id"],
+                "attribution_role": attribution_role,
+                "actor_reference_kind": actor_reference_kind,
+                "actor_principal_id": actor_principal_id,
+                "actor_name": actor_name,
+                "actor_organization_name": actor_organization_name,
+                "actor_type": actor_type,
                 "recorded_by": ids["user_id"],
                 "supersedes_id": supersedes_id,
             },
@@ -206,40 +255,121 @@ async def test_adr028_database_invariants_on_live_postgres() -> None:
                     )
             assert "append-only" in str(delete_exc.value)
 
-            # --- Invariant 2: CHECK (id <> supersedes_id) rejects
-            # self-supersession. ---
+            # --- Invariant 2: self-supersession is rejected (Case A).
+            # BEFORE ROW triggers fire before CHECK constraints are
+            # evaluated, so evidence_actor_attributions_reject_cycle's
+            # ancestry walk (which trivially finds NEW.id at depth 1 when
+            # supersedes_id = id) is what actually raises here — the
+            # CHECK (id <> supersedes_id) constraint remains in the
+            # schema as an independent, cheaper guard, but this specific
+            # case is caught by the trigger first. Both existing;
+            # asserting on whichever fires is the accurate claim. ---
             self_superseding_id = uuid.uuid4()
-            with pytest.raises(IntegrityError) as self_supersede_exc:
+            with pytest.raises(Exception) as self_supersede_exc:
+                await _insert_attribution(
+                    owning_engine, ids=ids, attribution_id=self_superseding_id,
+                    supersedes_id=str(self_superseding_id), actor_name="Self Superseder",
+                )
+            assert (
+                "ck_evidence_actor_attributions_no_self_supersede" in str(self_supersede_exc.value)
+                or "cycle back to" in str(self_supersede_exc.value)
+            )
+
+            # --- Invariant 3: cycle rejection (Cases B, C, D, E) ---
+
+            # Case B: sequential two-row cycle attempted via UPDATE — the
+            # append-only trigger alone already blocks this (no row can
+            # ever be retargeted after insert), proven again here for
+            # completeness of the cycle-specific regression suite.
+            row_x = await _insert_attribution(owning_engine, ids=ids, actor_name="X")
+            row_y = await _insert_attribution(
+                owning_engine, ids=ids, supersedes_id=row_x, actor_name="Y"
+            )
+            with pytest.raises(Exception) as seq_cycle_exc:
+                async with owning_engine.begin() as conn:
+                    await conn.execute(
+                        sa.text(
+                            "UPDATE evidence_actor_attributions SET supersedes_id = :y "
+                            "WHERE id = :x"
+                        ),
+                        {"y": row_y, "x": row_x},
+                    )
+            assert "append-only" in str(seq_cycle_exc.value)
+
+            # Case C: THE regression — a two-row cycle assembled entirely
+            # inside one multi-row INSERT statement. This is the exact
+            # case that escaped the original implementation; it must now
+            # be rejected by evidence_actor_attributions_reject_cycle.
+            row_p = uuid.uuid4()
+            row_q = uuid.uuid4()
+            with pytest.raises(Exception) as multi_row_cycle_exc:
                 async with owning_engine.begin() as conn:
                     await conn.execute(
                         sa.text(
                             "INSERT INTO evidence_actor_attributions "
                             "(id, tenant_id, evidence_id, attribution_role, "
                             " actor_reference_kind, actor_name, actor_type, basis, "
-                            " recorded_by, supersedes_id) "
-                            "VALUES (:id, :tenant_id, :evidence_id, 'ORIGINATED_BY', "
-                            " 'EXTERNAL_NAMED', 'Self Superseder', 'INDIVIDUAL', "
-                            " 'attempted self-supersession', :recorded_by, :id)"
+                            " recorded_by, supersedes_id) VALUES "
+                            "(:p, :tenant_id, :evidence_id, 'ORIGINATED_BY', "
+                            " 'EXTERNAL_NAMED', 'P', 'INDIVIDUAL', 'rt', :recorded_by, :q), "
+                            "(:q2, :tenant_id, :evidence_id, 'ORIGINATED_BY', "
+                            " 'EXTERNAL_NAMED', 'Q', 'INDIVIDUAL', 'rt', :recorded_by, :p2)"
                         ),
                         {
-                            "id": self_superseding_id,
-                            "tenant_id": ids["tenant_id"],
-                            "evidence_id": ids["evidence_id"],
+                            "p": row_p, "q": row_q, "p2": row_p, "q2": row_q,
+                            "tenant_id": ids["tenant_id"], "evidence_id": ids["evidence_id"],
                             "recorded_by": ids["user_id"],
                         },
                     )
-            assert "ck_evidence_actor_attributions_no_self_supersede" in str(
-                self_supersede_exc.value
-            )
+            assert "cycle" in str(multi_row_cycle_exc.value)
+            # Confirm neither half of the attempted cycle persisted.
+            async with owning_engine.begin() as conn:
+                check = await conn.execute(
+                    sa.text(
+                        "SELECT count(*) AS n FROM evidence_actor_attributions "
+                        "WHERE id IN (:p, :q)"
+                    ),
+                    {"p": row_p, "q": row_q},
+                )
+                assert check.one().n == 0, "cyclic INSERT must not partially persist"
 
-            # --- Invariant 3: UNIQUE (supersedes_id) enforces "one direct
+            # Case D: longer (3-row) cycle attempt via UPDATE rewiring —
+            # blocked by append-only regardless of cycle length.
+            row_1 = await _insert_attribution(owning_engine, ids=ids, actor_name="1")
+            row_2 = await _insert_attribution(
+                owning_engine, ids=ids, supersedes_id=row_1, actor_name="2"
+            )
+            row_3 = await _insert_attribution(
+                owning_engine, ids=ids, supersedes_id=row_2, actor_name="3"
+            )
+            with pytest.raises(Exception) as long_cycle_exc:
+                async with owning_engine.begin() as conn:
+                    await conn.execute(
+                        sa.text(
+                            "UPDATE evidence_actor_attributions SET supersedes_id = :three "
+                            "WHERE id = :one"
+                        ),
+                        {"three": row_3, "one": row_1},
+                    )
+            assert "append-only" in str(long_cycle_exc.value)
+
+            # Case E: valid linear succession must still succeed —
+            # cycle rejection must not be overzealous about ordinary,
+            # non-cyclic corrections.
+            valid_head = await _insert_attribution(owning_engine, ids=ids, actor_name="Valid 1")
+            valid_next = await _insert_attribution(
+                owning_engine, ids=ids, supersedes_id=valid_head, actor_name="Valid 2"
+            )
+            assert valid_next
+
+            # --- Invariant 4: UNIQUE (supersedes_id) enforces "one direct
             # successor per superseded attribution" under REAL concurrent
-            # writes — two concurrent transactions each try to supersede
-            # `original_id`; exactly one must succeed. ---
+            # writes (Case F) — two concurrent transactions each try to
+            # supersede `original_id`; exactly one must succeed. ---
             async def _try_supersede() -> str | None:
                 try:
                     return await _insert_attribution(
-                        owning_engine, ids=ids, supersedes_id=original_id
+                        owning_engine, ids=ids, supersedes_id=original_id, actor_name="Racer"
                     )
                 except IntegrityError:
                     return None
@@ -257,9 +387,74 @@ async def test_adr028_database_invariants_on_live_postgres() -> None:
             # (mirrors test_registry_history_rollback_live.py's own
             # "not poisoned" check).
             third_id = await _insert_attribution(
-                owning_engine, ids=ids, supersedes_id=successes[0]
+                owning_engine, ids=ids, supersedes_id=successes[0], actor_name="After Race"
             )
             assert third_id
+
+            # --- Invariant 5: actor-representation CHECK rejects every
+            # domain-layer violation even when the domain constructor and
+            # the application service are bypassed entirely. ---
+            async def _expect_actor_shape_rejection(**overrides: object) -> None:
+                with pytest.raises(IntegrityError) as exc_info:
+                    await _insert_attribution(owning_engine, ids=ids, **overrides)  # type: ignore[arg-type]
+                assert "ck_evidence_actor_attributions_actor_shape" in str(
+                    exc_info.value
+                ) or "ck_evidence_actor_attributions_reference_kind_bounded" in str(
+                    exc_info.value
+                )
+
+            await _expect_actor_shape_rejection(
+                actor_reference_kind="INTERNAL_PRINCIPAL", actor_name=None,
+                actor_principal_id=ids["user_id"],
+            )
+            await _expect_actor_shape_rejection(
+                actor_reference_kind="INTERNAL_PRINCIPAL", actor_name="X",
+                actor_principal_id=None,
+            )
+            await _expect_actor_shape_rejection(
+                actor_reference_kind="EXTERNAL_NAMED", actor_name="X",
+                actor_principal_id=ids["user_id"],
+            )
+            await _expect_actor_shape_rejection(
+                actor_reference_kind="UNKNOWN", actor_name="Fabricated",
+            )
+            await _expect_actor_shape_rejection(
+                actor_reference_kind="TOTALLY_MADE_UP",
+            )
+
+            # --- Invariant 6: same-tenant enforcement rejects a live
+            # cross-tenant actor_principal_id even via direct SQL, while
+            # a snapshot-only cross-tenant actor still succeeds. ---
+            other_tenant = f"tenant-other-{uuid.uuid4().hex[:8]}"
+            other_user = uuid.uuid4()
+            async with owning_engine.begin() as conn:
+                await conn.execute(
+                    sa.text("INSERT INTO tenants (id, name, status) VALUES (:id, :n, 'ACTIVE')"),
+                    {"id": other_tenant, "n": "Other Tenant"},
+                )
+                await conn.execute(
+                    sa.text(
+                        "INSERT INTO identity_users (id, identity_subject, email, full_name, "
+                        "country, tenant_id, roles) VALUES (:id, :sub, :email, 'Other', 'NG', "
+                        ":tenant, '[]'::jsonb)"
+                    ),
+                    {
+                        "id": other_user, "sub": f"sub-{uuid.uuid4().hex[:8]}",
+                        "email": f"{uuid.uuid4().hex[:8]}@example.test", "tenant": other_tenant,
+                    },
+                )
+            with pytest.raises(Exception) as cross_tenant_exc:
+                await _insert_attribution(
+                    owning_engine, ids=ids, actor_reference_kind="INTERNAL_PRINCIPAL",
+                    actor_principal_id=str(other_user), actor_name="Cross Tenant",
+                )
+            assert "same tenant" in str(cross_tenant_exc.value)
+
+            snapshot_only = await _insert_attribution(
+                owning_engine, ids=ids, actor_reference_kind="HISTORICAL_ASSERTED",
+                actor_name="Cross Tenant Actor By Name Only",
+            )
+            assert snapshot_only
         finally:
             await owning_engine.dispose()
     finally:

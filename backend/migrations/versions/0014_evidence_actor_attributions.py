@@ -18,25 +18,79 @@ TG_TABLE_NAME, no table-specific logic), so this migration attaches a new
 TRIGGER to it and must not drop that shared function on downgrade, since
 0011's own tables still depend on it.
 
-Two invariants beyond migration 0011's own precedent, per ADR-028's
-explicit "Supersession integrity" decision (a governance requirement
-ADR-023 itself never needed to state):
+**Revision note (pre-merge remediation, same day):** the first draft of
+this migration claimed cycles in the `supersedes_id` chain were "already
+structurally impossible" from the FK-must-preexist-plus-append-only
+combination alone. That claim was tested directly against real Postgres
+and disproved: a single multi-row `INSERT` can set up two (or more) rows
+that mutually reference each other as `supersedes_id`, because Postgres
+checks a `NOT DEFERRABLE` foreign key at the end of the SQL statement, not
+synchronously as each row of a multi-row statement is processed, and the
+`UNIQUE (supersedes_id)` constraint does not catch a mutual pair (the two
+referenced values differ). This revision adds two genuinely new database
+objects to close that gap and the related actor-state gap the same review
+found; nothing above this note changes.
+
+Four invariants beyond migration 0011's own precedent, per ADR-028's
+explicit "Supersession integrity" and "Actor-state representation"
+decisions (requirements ADR-023 itself never needed to state):
 
   1. CHECK (id <> supersedes_id) — no row may supersede itself.
   2. UNIQUE (supersedes_id) — at most one row may supersede any given
      attribution, so a concurrent double-correction of the same row
      cannot both succeed (Postgres UNIQUE permits unlimited NULLs, so
-     ordinary, non-superseding rows are unaffected).
+     ordinary, non-superseding rows are unaffected). Verified live under
+     genuine concurrent transactions.
+  3. A BEFORE INSERT trigger (`evidence_actor_attributions_reject_cycle`)
+     that walks the new row's `supersedes_id` ancestry and rejects the
+     insert if that ancestry ever reaches the new row's own id — see
+     "Why a plain trigger, not a CHECK or a CONSTRAINT TRIGGER" below.
+  4. A BEFORE INSERT trigger
+     (`evidence_actor_attributions_check_same_tenant`) that rejects an
+     insert whose `actor_principal_id` resolves (via a read-only lookup
+     against `identity_users`) to a different tenant than the row's own
+     `tenant_id` — ADR-028 "Tenant isolation" §2's same-tenant rule,
+     previously enforced only in `EvidenceActorAttributionService`
+     (application-layer only, bypassable by any direct repository/SQL
+     write). This does not alter `identity_users` or the identity/tenant
+     architecture in any way — it only adds a read-only query inside a
+     trigger owned entirely by this table's own migration, mirroring
+     `PostgresPrincipalTenantAdapter`'s own read-only cross-context
+     lookup at the database layer instead of the application layer.
 
-No self-supersession, and no fork, are enforced this way rather than by
-an ordinary SQL CHECK alone where the invariant is genuinely cross-row
-(ADR-028's own text: acceptance "does not prescribe an ordinary SQL CHECK
-constraint for an invariant the database engine cannot enforce that way").
-Cycles (A supersedes B supersedes A) are not separately enforced by a
-trigger here because they are already structurally impossible given (a)
-supersedes_id's FK requires the referenced row to already exist at INSERT
-time, and (b) rows are never UPDATEd after insert — so no row can ever be
-retargeted to point at a row that did not yet exist when it was written.
+Why a plain `AFTER`/`BEFORE` row trigger, not a `CHECK` or a `CONSTRAINT
+TRIGGER`, for cycle detection: a `CHECK` constraint cannot express a
+cross-row ancestry walk (it sees only the one row being written).
+PostgreSQL's own foreign-key enforcement uses `CONSTRAINT TRIGGER`
+semantics specifically so it can be deferred to end-of-transaction when
+declared `DEFERRABLE INITIALLY DEFERRED` — that is precisely the
+mechanism that let the disproved claim's cycle slip through, because
+`NOT DEFERRABLE` FK constraint triggers are still queued and fire at
+end-of-*statement*, by which point every row of a multi-row `INSERT` is
+already visible to every other row's check, in whichever order they
+happen to be queued — not usefully orderable for a "was I already an
+ancestor of myself" question. A plain (non-constraint) row-level trigger
+instead fires synchronously, per row, in the exact order PostgreSQL
+processes a multi-row statement's `VALUES` list, incrementing the command
+counter after each row — so each already-processed row of the *same*
+statement is genuinely visible to every later row's trigger. For a cycle
+of any length created entirely inside one multi-row statement, the
+*last*-inserted member of that cycle is always the one whose trigger
+fires with every other member of the cycle already present, and it is
+that member's own ancestry walk that closes the loop and gets rejected —
+proven directly against Postgres for a 2-row single-statement mutual
+reference (this migration's own regression coverage, plus
+`tests/live/test_evidence_actor_attribution_live.py`), not merely
+reasoned about. Cross-statement cycles remain additionally impossible for
+the original reason (append-only: no existing row can ever be `UPDATE`d
+to retarget its `supersedes_id`), which the append-only trigger continues
+to guarantee unconditionally.
+
+The recursive walk is bounded (depth < 10,000, matching the application
+service's own `_MAX_LINEAGE_WALK` defensive bound) — not a business rule,
+purely a guard against runaway recursion in the face of a genuine
+data-integrity anomaly; no valid lineage in this system's design comes
+anywhere close to that depth.
 
 No backfill of any kind, mirroring migration 0011's own stated
 discipline: existing evidence_records receive zero attribution rows
@@ -57,6 +111,14 @@ depends_on = None
 
 APP_ROLE = "landvault_app"
 TABLE = "evidence_actor_attributions"
+
+_ATTRIBUTION_ROLES = ("ORIGINATED_BY", "REVIEWED_BY", "COMMISSIONED_BY")
+_ACTOR_REFERENCE_KINDS = ("INTERNAL_PRINCIPAL", "EXTERNAL_NAMED", "HISTORICAL_ASSERTED", "UNKNOWN")
+_ACTOR_TYPES = ("INDIVIDUAL", "ORGANIZATION", "UNKNOWN")
+
+
+def _sql_list(values: tuple[str, ...]) -> str:
+    return ", ".join(f"'{v}'" for v in values)
 
 
 def upgrade() -> None:
@@ -106,6 +168,58 @@ def upgrade() -> None:
         "ck_evidence_actor_attributions_no_self_supersede", TABLE, "id <> supersedes_id"
     )
 
+    # Bounded-value CHECKs — the same "reject an unknown member at the
+    # persistence boundary" discipline migration 0012 leaves to the
+    # domain layer alone for evidence_type, made explicit here at
+    # Governance's instruction because ADR-028 states these three as
+    # structural, bounded roles/kinds/types, not free text.
+    op.create_check_constraint(
+        "ck_evidence_actor_attributions_role_bounded", TABLE,
+        f"attribution_role IN ({_sql_list(_ATTRIBUTION_ROLES)})",
+    )
+    op.create_check_constraint(
+        "ck_evidence_actor_attributions_reference_kind_bounded", TABLE,
+        f"actor_reference_kind IN ({_sql_list(_ACTOR_REFERENCE_KINDS)})",
+    )
+    op.create_check_constraint(
+        "ck_evidence_actor_attributions_actor_type_bounded", TABLE,
+        f"actor_type IN ({_sql_list(_ACTOR_TYPES)})",
+    )
+    # review_method is meaningful only for REVIEWED_BY (ADR-028).
+    op.create_check_constraint(
+        "ck_evidence_actor_attributions_review_method_scoped", TABLE,
+        "review_method IS NULL OR attribution_role = 'REVIEWED_BY'",
+    )
+    # Actor-representation shape (ADR-028 "Actor-state representation" +
+    # "Immutable snapshot requirement") — the same five red-team cases
+    # tested directly against this table before this constraint existed:
+    # INTERNAL_PRINCIPAL requires both a principal reference AND its
+    # immutable name snapshot; EXTERNAL_NAMED/HISTORICAL_ASSERTED forbid a
+    # live principal reference and require at least one snapshot field;
+    # UNKNOWN forbids every identity field, so no identity is ever
+    # fabricated for an actor that cannot be identified.
+    op.create_check_constraint(
+        "ck_evidence_actor_attributions_actor_shape", TABLE,
+        """
+        (
+            actor_reference_kind = 'INTERNAL_PRINCIPAL'
+            AND actor_principal_id IS NOT NULL
+            AND actor_name IS NOT NULL
+        )
+        OR (
+            actor_reference_kind IN ('EXTERNAL_NAMED', 'HISTORICAL_ASSERTED')
+            AND actor_principal_id IS NULL
+            AND (actor_name IS NOT NULL OR actor_organization_name IS NOT NULL)
+        )
+        OR (
+            actor_reference_kind = 'UNKNOWN'
+            AND actor_principal_id IS NULL
+            AND actor_name IS NULL
+            AND actor_organization_name IS NULL
+        )
+        """,
+    )
+
     op.create_index("ix_evidence_actor_attributions_tenant", TABLE, ["tenant_id"])
     op.create_index("ix_evidence_actor_attributions_evidence", TABLE, ["evidence_id"])
 
@@ -134,11 +248,83 @@ def upgrade() -> None:
         """
     )
 
+    # --- Cycle rejection (see module docstring for why BEFORE INSERT, not
+    # a CHECK or a CONSTRAINT TRIGGER) ---
+    op.execute(
+        f"""
+        CREATE FUNCTION {TABLE}_reject_cycle() RETURNS trigger AS $$
+        BEGIN
+            IF NEW.supersedes_id IS NOT NULL THEN
+                IF EXISTS (
+                    WITH RECURSIVE ancestry(id, depth) AS (
+                        SELECT NEW.supersedes_id, 1
+                        UNION ALL
+                        SELECT e.supersedes_id, a.depth + 1
+                        FROM {TABLE} e
+                        JOIN ancestry a ON e.id = a.id
+                        WHERE a.depth < 10000 AND e.supersedes_id IS NOT NULL
+                    )
+                    SELECT 1 FROM ancestry WHERE id = NEW.id
+                ) THEN
+                    RAISE EXCEPTION
+                        'evidence_actor_attributions: supersedes_id lineage would cycle back to %',
+                        NEW.id;
+                END IF;
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql
+        """
+    )
+    op.execute(
+        f"""
+        CREATE TRIGGER {TABLE}_reject_cycle
+        BEFORE INSERT ON {TABLE}
+        FOR EACH ROW EXECUTE FUNCTION {TABLE}_reject_cycle()
+        """
+    )
+
+    # --- Same-tenant live-reference enforcement (ADR-028 "Tenant
+    # isolation" §2) — a read-only lookup against identity_users; no
+    # change to identity_users or the identity/tenant architecture. ---
+    op.execute(
+        f"""
+        CREATE FUNCTION {TABLE}_check_same_tenant() RETURNS trigger AS $$
+        DECLARE
+            principal_tenant text;
+        BEGIN
+            IF NEW.actor_principal_id IS NOT NULL THEN
+                SELECT tenant_id INTO principal_tenant
+                FROM identity_users WHERE id = NEW.actor_principal_id;
+                IF principal_tenant IS NULL OR principal_tenant <> NEW.tenant_id THEN
+                    RAISE EXCEPTION
+                        'evidence_actor_attributions: actor_principal_id must reference a '
+                        'principal in the same tenant (%) as the attribution',
+                        NEW.tenant_id;
+                END IF;
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql
+        """
+    )
+    op.execute(
+        f"""
+        CREATE TRIGGER {TABLE}_check_same_tenant
+        BEFORE INSERT ON {TABLE}
+        FOR EACH ROW EXECUTE FUNCTION {TABLE}_check_same_tenant()
+        """
+    )
+
 
 def downgrade() -> None:
-    # Drops only the trigger this migration created — never the shared
-    # registry_history_reject_mutation() function, which migration 0011's
-    # own tables still depend on.
+    # Drops only the triggers/functions this migration created — never the
+    # shared registry_history_reject_mutation() function, which migration
+    # 0011's own tables still depend on.
+    op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_check_same_tenant ON {TABLE}")
+    op.execute(f"DROP FUNCTION IF EXISTS {TABLE}_check_same_tenant()")
+    op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_reject_cycle ON {TABLE}")
+    op.execute(f"DROP FUNCTION IF EXISTS {TABLE}_reject_cycle()")
     op.execute(f"DROP TRIGGER IF EXISTS {TABLE}_append_only ON {TABLE}")
     op.execute(f"DROP POLICY IF EXISTS {TABLE}_tenant_isolation ON {TABLE}")
     op.drop_index("ix_evidence_actor_attributions_evidence", table_name=TABLE)

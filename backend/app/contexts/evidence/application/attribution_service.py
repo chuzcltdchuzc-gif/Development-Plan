@@ -41,10 +41,14 @@ from app.kernel.audit import audit
 from app.kernel.context import ExecutionContext
 
 # A defensive bound on lineage-walking (see _resolve_active_head below) —
-# not a business rule. Cycles are already structurally impossible (a
-# supersedes_id FK must reference an already-existing row, and rows are
-# never UPDATEd after insert), so this exists only to fail loudly, rather
-# than hang, in the face of a genuine data-integrity anomaly.
+# not a business rule. The database itself rejects a cyclic supersedes_id
+# lineage (migrations/versions/0014_evidence_actor_attributions.py's
+# evidence_actor_attributions_reject_cycle trigger, added after a direct
+# Postgres test proved a single multi-row INSERT could otherwise create
+# one — see that migration's revision note), so this bound exists only to
+# fail loudly, rather than hang, in the face of a genuine data-integrity
+# anomaly the database's own guard did not anticipate, not as this
+# service's own cycle protection.
 _MAX_LINEAGE_WALK = 10_000
 
 

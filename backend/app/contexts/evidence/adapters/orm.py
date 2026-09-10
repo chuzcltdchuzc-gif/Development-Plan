@@ -104,7 +104,15 @@ class EvidenceActorAttributionModel(Base):
 
     `supersedes_id` carries a UNIQUE constraint — ADR-028's own "one direct
     successor per superseded attribution" invariant, enforced so a
-    concurrent double-correction of the same row cannot both succeed."""
+    concurrent double-correction of the same row cannot both succeed —
+    plus a BEFORE INSERT trigger that rejects any lineage a new row's
+    supersedes_id ancestry would cycle back into, including a cycle
+    assembled entirely inside one multi-row INSERT statement (a UNIQUE
+    constraint alone does not catch that case — see migrations/versions/
+    0014_evidence_actor_attributions.py's revision note for the direct
+    Postgres evidence this was tested against). A second BEFORE INSERT
+    trigger enforces ADR-028's same-tenant `actor_principal_id` rule at
+    the database layer, not only in EvidenceActorAttributionService."""
 
     __tablename__ = "evidence_actor_attributions"
 
@@ -149,5 +157,35 @@ class EvidenceActorAttributionModel(Base):
         ),
         CheckConstraint(
             "id <> supersedes_id", name="ck_evidence_actor_attributions_no_self_supersede"
+        ),
+        CheckConstraint(
+            "attribution_role IN ('ORIGINATED_BY', 'REVIEWED_BY', 'COMMISSIONED_BY')",
+            name="ck_evidence_actor_attributions_role_bounded",
+        ),
+        CheckConstraint(
+            "actor_reference_kind IN "
+            "('INTERNAL_PRINCIPAL', 'EXTERNAL_NAMED', 'HISTORICAL_ASSERTED', 'UNKNOWN')",
+            name="ck_evidence_actor_attributions_reference_kind_bounded",
+        ),
+        CheckConstraint(
+            "actor_type IN ('INDIVIDUAL', 'ORGANIZATION', 'UNKNOWN')",
+            name="ck_evidence_actor_attributions_actor_type_bounded",
+        ),
+        CheckConstraint(
+            "review_method IS NULL OR attribution_role = 'REVIEWED_BY'",
+            name="ck_evidence_actor_attributions_review_method_scoped",
+        ),
+        # Mirrors migration 0014's ck_evidence_actor_attributions_actor_shape
+        # exactly — kept here for documentation parity with the migration,
+        # which is the actual source of truth Alembic applies.
+        CheckConstraint(
+            "(actor_reference_kind = 'INTERNAL_PRINCIPAL' AND actor_principal_id IS NOT NULL "
+            "AND actor_name IS NOT NULL) "
+            "OR (actor_reference_kind IN ('EXTERNAL_NAMED', 'HISTORICAL_ASSERTED') "
+            "AND actor_principal_id IS NULL "
+            "AND (actor_name IS NOT NULL OR actor_organization_name IS NOT NULL)) "
+            "OR (actor_reference_kind = 'UNKNOWN' AND actor_principal_id IS NULL "
+            "AND actor_name IS NULL AND actor_organization_name IS NULL)",
+            name="ck_evidence_actor_attributions_actor_shape",
         ),
     )
