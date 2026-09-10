@@ -41,6 +41,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Protocol
 
+from app.contexts.evidence.domain.attribution import EvidenceActorAttribution
 from app.contexts.evidence.domain.evidence_record import EvidenceRecord
 
 WormGrade = Literal["governance", "compliance"]
@@ -151,3 +152,35 @@ class EvidenceRepository(Protocol):
     async def mark_hashed(self, record: EvidenceRecord) -> EvidenceRecord: ...
     async def seal(self, record: EvidenceRecord) -> EvidenceRecord: ...
     async def set_legal_hold(self, record: EvidenceRecord) -> EvidenceRecord: ...
+
+
+class EvidenceActorAttributionRepository(Protocol):
+    """The EvidenceActorAttribution value object's persistence port (ADR-028
+    "EvidenceActorAttribution relationship"). Deliberately narrow, mirroring
+    app.contexts.registry.ports.ParcelHistoryRepository's shape: no
+    generic update/delete method exists on this Protocol at all — rows are
+    append-only by construction, not only by the database grant/trigger
+    (migrations/versions/0014). `get_successor` exists so the application
+    service can walk a lineage forward to its current active head without
+    itself tracking history state — the same "ask the repository, don't
+    duplicate its state" shape ParcelHistoryRepository already established
+    (`latest_ownership`/`latest_status`)."""
+
+    async def record(self, attribution: EvidenceActorAttribution) -> EvidenceActorAttribution: ...
+    async def get(self, attribution_id: str) -> EvidenceActorAttribution | None: ...
+    async def list_for_evidence(self, evidence_id: str) -> list[EvidenceActorAttribution]: ...
+    async def get_successor(self, attribution_id: str) -> EvidenceActorAttribution | None: ...
+
+
+class PrincipalTenantPort(Protocol):
+    """Read-only tenant lookup for an Identity principal — the one place
+    Evidence's attribution service reads across the Identity context
+    boundary, mirroring ParcelExistencePort's exact shape and reasoning
+    (a minimal, read-only, Evidence-defined port; Identity is never
+    imported directly). Used only to enforce ADR-028's same-tenant rule
+    for `actor_principal_id`: a live internal reference is permitted only
+    when it resolves to a principal in the same tenant as the Evidence
+    being attributed. Returns `None` if `principal_id` does not resolve to
+    any known principal."""
+
+    async def get_tenant_id(self, principal_id: str) -> str | None: ...

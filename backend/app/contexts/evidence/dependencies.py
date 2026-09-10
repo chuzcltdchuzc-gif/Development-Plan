@@ -21,11 +21,22 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.evidence.adapters.postgres_repositories import (
+    PostgresEvidenceActorAttributionRepository,
     PostgresEvidenceRepository,
     PostgresParcelExistenceAdapter,
+    PostgresPrincipalTenantAdapter,
+)
+from app.contexts.evidence.application.attribution_service import (
+    EvidenceActorAttributionService,
 )
 from app.contexts.evidence.application.evidence_service import EvidenceService
-from app.contexts.evidence.ports import EvidenceRepository, ParcelExistencePort, StoragePort
+from app.contexts.evidence.ports import (
+    EvidenceActorAttributionRepository,
+    EvidenceRepository,
+    ParcelExistencePort,
+    PrincipalTenantPort,
+    StoragePort,
+)
 from app.kernel.uow import get_db_session
 
 
@@ -56,3 +67,31 @@ def get_evidence_service(
     parcel_existence: ParcelExistencePort = Depends(get_evidence_parcel_existence_port),
 ) -> EvidenceService:
     return EvidenceService(evidence=evidence, storage=storage, parcel_existence=parcel_existence)
+
+
+def get_evidence_actor_attribution_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> EvidenceActorAttributionRepository:
+    return PostgresEvidenceActorAttributionRepository(session)
+
+
+def get_principal_tenant_port(
+    session: AsyncSession = Depends(get_db_session),
+) -> PrincipalTenantPort:
+    return PostgresPrincipalTenantAdapter(session)
+
+
+def get_evidence_actor_attribution_service(
+    attributions: EvidenceActorAttributionRepository = Depends(
+        get_evidence_actor_attribution_repository
+    ),
+    evidence: EvidenceRepository = Depends(get_evidence_repository),
+    parcel_existence: ParcelExistencePort = Depends(get_evidence_parcel_existence_port),
+    principal_tenant: PrincipalTenantPort = Depends(get_principal_tenant_port),
+) -> EvidenceActorAttributionService:
+    return EvidenceActorAttributionService(
+        attributions=attributions,
+        evidence=evidence,
+        parcel_existence=parcel_existence,
+        principal_tenant=principal_tenant,
+    )
