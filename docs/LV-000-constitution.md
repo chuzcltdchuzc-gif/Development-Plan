@@ -366,6 +366,42 @@ not authorize implementation of Marketplace, Partner, Job/Assignment, payments, 
 Rights/licensing, Historical Evidence monetisation, Surveyor Dashboard or related commercial
 functionality.
 
+**GD-009 — Audit Transaction Semantics Implementation Authorization and ADR-007 Regularisation.**
+*(Ratified 11 September 2026; full operative text at `docs/GD-009-audit-transaction-semantics-implementation-authorization-and-adr-007-regularisation.md`.)*
+Operative authority: **Article XVI §2** — GD-009 is a later numbered decision that explicitly names
+and qualifies `docs/adr/ADR-007-audit-trail-evidence-model.md` Decision 1 and relies on `docs/adr/
+ADR-029-audit-transaction-semantics-and-outcome-integrity.md` (Accepted, 2026-09-11) as its governing
+architecture; it is not proposed under Article XIV and does not amend this Constitution.
+
+`ADR-007` Decision 1's literal "written atomically" text was contradicted, in production, by the
+audit kernel's deliberate eager-independent-commit design — proven directly against real Postgres by
+`docs/AUDIT_KERNEL_ATOMICITY_REALITY_AUDIT.md` and resolved at the architecture level by `ADR-029`'s
+two class-specific invariants (successful-mutation audit commits/rolls back with its mutation;
+denial/failure audit remains independently durable). `ADR-007` Decisions 2–5, and `ADR-007` itself,
+are unaffected; no historical audit record is rewritten, and no historical record is newly claimed to
+have possessed a transactional guarantee it did not have at the time it was written.
+
+**Decision.** Implementation of `ADR-029`'s accepted split-transaction architecture is authorized,
+strictly bounded to Batch 1: a transaction-coupled successful-mutation audit capability using the
+caller's existing session, selected explicitly, per call, at each authorized site only — never
+through ambient, default, or global rebinding of the existing `audit()` path — and migration of
+exactly `evidence.actor_attribution.recorded` and `evidence.actor_attribution.corrected` (the two
+call sites gating `docs/adr/ADR-028`'s future HTTP surface) to that path. Denial/failure auditing,
+and every other successful-mutation call site (29 of 31 total, per the verified 54-call-site
+inventory), remain unchanged pending their own, separately governed batches. Batch 1 must
+additionally prove, against real PostgreSQL, that this capability does not introduce a fork,
+duplicate predecessor reference, or other audit-chain integrity violation under concurrent writers; a
+proven violation halts implementation and returns to Governance rather than being engineered around
+within Batch 1's own authority.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise migration of any call
+site beyond the two named above; a transactional outbox, Kafka, CQRS, or event sourcing; any new
+background-worker infrastructure or runtime dependency; any schema migration (none is required); any
+redesign of Supabase Storage or `ADR-026`'s orphaned-object compensation semantics; or exposure of any
+`ADR-028` HTTP endpoint (including its router, DTOs, OpenAPI surface, generated clients, or frontend).
+`ADR-028`'s HTTP gate remains independently conditioned on Batch 1's full implementation, test,
+review, merge, and post-merge verification — this Log entry does not itself lift that gate.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
