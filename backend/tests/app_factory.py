@@ -13,6 +13,12 @@ from dataclasses import dataclass
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
+from app.contexts.evidence.api import evidence_router
+from app.contexts.evidence.dependencies import (
+    get_evidence_parcel_existence_port,
+    get_evidence_repository,
+    get_storage_port,
+)
 from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_context_hydrator
 from app.contexts.identity.dependencies import (
@@ -26,8 +32,14 @@ from app.contexts.identity.dependencies import (
 from app.contexts.registry.api import parcel_router
 from app.contexts.registry.dependencies import (
     get_geometry_port,
+    get_parcel_history_repository,
     get_parcel_number_allocator,
     get_parcel_repository,
+)
+from app.contexts.spatial.api import spatial_router
+from app.contexts.spatial.dependencies import (
+    get_parcel_existence_port,
+    get_parcel_geometry_repository,
 )
 from app.kernel.audit import configure_audit_store
 from app.kernel.authorization.pep import configure_pep, current_context_dep, require_role
@@ -36,6 +48,7 @@ from app.kernel.errors import register_error_handlers
 from app.kernel.security.http_hardening import configure_security
 from app.kernel.security.jwt import JwtVerifier
 from tests.fakes.audit_store import InMemoryAuditStore
+from tests.fakes.evidence import FakeEvidenceParcelExistencePort, InMemoryEvidenceRepository
 from tests.fakes.identity import (
     FakeIdentityProvider,
     InMemoryDelegationRepository,
@@ -47,9 +60,13 @@ from tests.fakes.identity import (
 from tests.fakes.jwks import FakeKeycloak
 from tests.fakes.registry import (
     FakeGeometryPort,
+    InMemoryParcelHistoryRepository,
     InMemoryParcelNumberAllocator,
     InMemoryParcelRepository,
 )
+from tests.fakes.spatial import FakeParcelExistencePort, InMemoryParcelGeometryRepository
+from tests.fakes.storage import InMemoryStoragePort
+from tests.fakes.supabase_jwks import FakeSupabase
 
 
 @dataclass
@@ -63,12 +80,18 @@ class AppHarness:
     delegations: InMemoryDelegationRepository
     parcels: InMemoryParcelRepository
     parcel_numbers: InMemoryParcelNumberAllocator
+    parcel_history: InMemoryParcelHistoryRepository
     geometry: FakeGeometryPort
+    parcel_geometries: InMemoryParcelGeometryRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
+    evidence: InMemoryEvidenceRepository
+    storage: InMemoryStoragePort
 
 
-def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
+def build_test_app(
+    *, rate_limit_enabled: bool = True, supabase: FakeSupabase | None = None
+) -> AppHarness:
     keycloak = FakeKeycloak()
     users = InMemoryUserRepository()
     sessions = InMemorySessionRepository()
@@ -77,13 +100,30 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     delegations = InMemoryDelegationRepository()
     parcels = InMemoryParcelRepository()
     parcel_numbers = InMemoryParcelNumberAllocator()
+    parcel_history = InMemoryParcelHistoryRepository()
     geometry = FakeGeometryPort()
+    parcel_geometries = InMemoryParcelGeometryRepository()
+    parcel_existence = FakeParcelExistencePort(parcels)
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
+    evidence = InMemoryEvidenceRepository()
+    storage = InMemoryStoragePort()
 
     configure_audit_store(audit_store)
 
-    verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
+    # IMVP-3A: production's PEP verifier trusts Supabase exclusively
+    # (app.main), not Keycloak — Keycloak's fake stays wired below either
+    # way (AuthService.__init__ still requires an IdentityProvider for the
+    # historical register/login/refresh endpoints), but which verifier the
+    # PEP itself checks incoming tokens against must match whichever
+    # provider a given test's tokens actually come from.
+    if supabase is not None:
+        verifier = JwtVerifier(
+            jwks=supabase, issuer=supabase.issuer, audience=supabase.audience,
+            algorithms=["ES256"],
+        )
+    else:
+        verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
     configure_pep(verifier, build_context_hydrator(users, tenants, delegations))
 
     app = FastAPI(title="landvault-api-test")
@@ -92,6 +132,8 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.include_router(auth_router.router)
     app.include_router(admin_router.router)
     app.include_router(parcel_router.router)
+    app.include_router(spatial_router.router)
+    app.include_router(evidence_router.router)
 
     # Same DI seam production uses (app.contexts.identity.dependencies) —
     # tests never touch get_db_session at all, since these overrides short-
@@ -104,7 +146,18 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_delegation_repository] = lambda: delegations
     app.dependency_overrides[get_parcel_repository] = lambda: parcels
     app.dependency_overrides[get_parcel_number_allocator] = lambda: parcel_numbers
+    app.dependency_overrides[get_parcel_history_repository] = lambda: parcel_history
     app.dependency_overrides[get_geometry_port] = lambda: geometry
+    app.dependency_overrides[get_parcel_geometry_repository] = lambda: parcel_geometries
+    app.dependency_overrides[get_parcel_existence_port] = lambda: parcel_existence
+    # IMVP-5: evidence_router.router is included above; wire its repository,
+    # storage, and parcel-existence ports to hermetic fakes, exactly the
+    # same override shape as every other context in this harness.
+    app.dependency_overrides[get_evidence_repository] = lambda: evidence
+    app.dependency_overrides[get_storage_port] = lambda: storage
+    app.dependency_overrides[get_evidence_parcel_existence_port] = (
+        lambda: FakeEvidenceParcelExistencePort(parcels)
+    )
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -132,7 +185,11 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         delegations=delegations,
         parcels=parcels,
         parcel_numbers=parcel_numbers,
+        parcel_history=parcel_history,
         geometry=geometry,
+        parcel_geometries=parcel_geometries,
         identity_provider=identity_provider,
         audit_store=audit_store,
+        evidence=evidence,
+        storage=storage,
     )

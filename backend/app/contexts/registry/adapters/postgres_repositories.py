@@ -12,7 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.contexts.registry.adapters.orm import ParcelRecord, RegistryParcelCounterRecord
+from app.contexts.registry.adapters.orm import (
+    ParcelOwnershipHistoryRecord,
+    ParcelRecord,
+    ParcelStatusHistoryRecord,
+    RegistryParcelCounterRecord,
+)
+from app.contexts.registry.domain.history import OwnershipAssertion, StatusAssertion
 from app.contexts.registry.domain.parcel import Parcel
 
 
@@ -121,6 +127,97 @@ class PostgresParcelRepository:
         record.geometry_reference = parcel.geometry_reference
         await self._session.flush()
         return _parcel_from_record(record)
+
+
+def _ownership_from_record(record: ParcelOwnershipHistoryRecord) -> OwnershipAssertion:
+    return OwnershipAssertion(
+        id=str(record.id),
+        tenant_id=record.tenant_id,
+        parcel_id=str(record.parcel_id),
+        asserted_holder_ref=record.asserted_holder_ref,
+        basis=record.basis,
+        recorded_by=str(record.recorded_by),
+        audit_ref=record.audit_ref,
+        supersedes_id=str(record.supersedes_id) if record.supersedes_id else None,
+        recorded_at=record.recorded_at.isoformat(),
+    )
+
+
+def _status_from_record(record: ParcelStatusHistoryRecord) -> StatusAssertion:
+    return StatusAssertion(
+        id=str(record.id),
+        tenant_id=record.tenant_id,
+        parcel_id=str(record.parcel_id),
+        asserted_status=record.asserted_status or "",
+        basis=record.basis,
+        recorded_by=str(record.recorded_by),
+        audit_ref=record.audit_ref,
+        supersedes_id=str(record.supersedes_id) if record.supersedes_id else None,
+        recorded_at=record.recorded_at.isoformat(),
+    )
+
+
+class PostgresParcelHistoryRepository:
+    """Append-only by construction, not only by the database grant/trigger
+    (migrations/versions/0011) — this class simply never issues an UPDATE
+    or DELETE against either table; there is no method here that could.
+    Constructed from the SAME AsyncSession as PostgresParcelRepository
+    (app.contexts.registry.dependencies), so a history write and the parcel
+    mutation that produced it flush into, and commit with, the identical
+    per-request transaction (docs/adr/ADR-023 "Same Unit of Work")."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def record_ownership(self, assertion: OwnershipAssertion) -> OwnershipAssertion:
+        record = ParcelOwnershipHistoryRecord(
+            id=uuid.UUID(assertion.id),
+            tenant_id=assertion.tenant_id,
+            parcel_id=uuid.UUID(assertion.parcel_id),
+            asserted_holder_ref=assertion.asserted_holder_ref,
+            basis=assertion.basis,
+            recorded_by=uuid.UUID(assertion.recorded_by),
+            audit_ref=assertion.audit_ref,
+            supersedes_id=uuid.UUID(assertion.supersedes_id) if assertion.supersedes_id else None,
+        )
+        self._session.add(record)
+        await self._session.flush()
+        return _ownership_from_record(record)
+
+    async def record_status(self, assertion: StatusAssertion) -> StatusAssertion:
+        record = ParcelStatusHistoryRecord(
+            id=uuid.UUID(assertion.id),
+            tenant_id=assertion.tenant_id,
+            parcel_id=uuid.UUID(assertion.parcel_id),
+            asserted_status=assertion.asserted_status,
+            basis=assertion.basis,
+            recorded_by=uuid.UUID(assertion.recorded_by),
+            audit_ref=assertion.audit_ref,
+            supersedes_id=uuid.UUID(assertion.supersedes_id) if assertion.supersedes_id else None,
+        )
+        self._session.add(record)
+        await self._session.flush()
+        return _status_from_record(record)
+
+    async def latest_ownership(self, parcel_id: str) -> OwnershipAssertion | None:
+        result = await self._session.execute(
+            select(ParcelOwnershipHistoryRecord)
+            .where(ParcelOwnershipHistoryRecord.parcel_id == uuid.UUID(parcel_id))
+            .order_by(ParcelOwnershipHistoryRecord.recorded_at.desc())
+            .limit(1)
+        )
+        record = result.scalar_one_or_none()
+        return _ownership_from_record(record) if record else None
+
+    async def latest_status(self, parcel_id: str) -> StatusAssertion | None:
+        result = await self._session.execute(
+            select(ParcelStatusHistoryRecord)
+            .where(ParcelStatusHistoryRecord.parcel_id == uuid.UUID(parcel_id))
+            .order_by(ParcelStatusHistoryRecord.recorded_at.desc())
+            .limit(1)
+        )
+        record = result.scalar_one_or_none()
+        return _status_from_record(record) if record else None
 
 
 class PostgresParcelNumberAllocator:

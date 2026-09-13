@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from app.contexts.registry.domain.history import OwnershipAssertion, StatusAssertion
 from app.contexts.registry.domain.parcel import Parcel
 
 
@@ -15,6 +16,23 @@ class ParcelRepository(Protocol):
     async def get(self, parcel_id: str) -> Parcel | None: ...
     async def list_for_tenant(self, tenant_id: str) -> list[Parcel]: ...
     async def update(self, parcel: Parcel) -> Parcel: ...
+
+
+class ParcelHistoryRepository(Protocol):
+    """Append-only ownership/status assertion history (B3, docs/adr/ADR-023).
+    `record_ownership`/`record_status` are the only write path — there is
+    no update/delete method on this Protocol at all, matching the two-layer
+    database enforcement (migrations/versions/0011): the absence of an
+    update/delete method here is a mirror of that guarantee in the port
+    shape, not a substitute for it. `latest_ownership`/`latest_status` exist
+    so ParcelService can resolve `supersedes_id` without ParcelService
+    itself tracking history state — the same "ask the repository, don't
+    duplicate its state" shape ParcelRepository already has."""
+
+    async def record_ownership(self, assertion: OwnershipAssertion) -> OwnershipAssertion: ...
+    async def record_status(self, assertion: StatusAssertion) -> StatusAssertion: ...
+    async def latest_ownership(self, parcel_id: str) -> OwnershipAssertion | None: ...
+    async def latest_status(self, parcel_id: str) -> StatusAssertion | None: ...
 
 
 class ParcelNumberAllocator(Protocol):
@@ -39,6 +57,16 @@ class GeometryPort(Protocol):
     PlaceholderGeometryAdapter` satisfies this with zero business logic;
     a future Spatial Intelligence context (B4) supplies the first real
     implementation without any change to ParcelService, Parcel, or this
-    protocol."""
+    protocol.
 
-    async def reference_is_valid(self, *, geometry_reference: str) -> bool: ...
+    `tenant_id`/`parcel_id` (docs/adr/ADR-019, amending ADR-016) are the
+    caller's own already-authorized context, passed through so a real
+    adapter can verify a reference actually belongs to the tenant/parcel
+    attaching it — without them, a real adapter could only confirm a
+    `geometry_reference` exists *somewhere*, not that it belongs to this
+    caller, letting one tenant attach another tenant's reference merely by
+    guessing or observing a valid-looking value."""
+
+    async def reference_is_valid(
+        self, *, geometry_reference: str, tenant_id: str, parcel_id: str
+    ) -> bool: ...

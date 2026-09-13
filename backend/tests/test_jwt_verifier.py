@@ -6,6 +6,13 @@ from jwt import InvalidTokenError
 from app.kernel.security.jwt import JwtVerifier
 from tests.fakes.jwks import FakeKeycloak
 
+# This is the only file in the suite with async test functions. backend/pyproject.toml sets
+# asyncio_mode = "auto", but that config is only discovered when pytest's rootdir resolves to
+# backend/ — running `pytest` from the repo root (the documented invocation, since Settings'
+# env_file=".env" is repo-root-relative) resolves rootdir there instead, leaving pytest-asyncio
+# in its STRICT default, which requires each async test explicitly marked.
+pytestmark = pytest.mark.asyncio
+
 
 @pytest.fixture
 def keycloak() -> FakeKeycloak:
