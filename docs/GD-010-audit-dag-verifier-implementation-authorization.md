@@ -23,21 +23,52 @@ already relied on.
 Ratified by Governance Authority for AquaSavannah LandVault, **2026-09-14**. This record does not
 alter the draft; it identifies what ratification covers:
 
-- **Architecture authority: `ADR-030`.** Implementation authority granted: implementation of the
-  `ADR-030`-conforming DAG-aware audit verifier only — exactly the six invariants §3 states (genesis/
-  root validity, per-entry hash validity, referential validity, reachability, acyclicity, branch
-  legitimacy), replacing `verify_chain()`'s current strict-linear walk.
-- **No write-path change** (§13): `audit()`, `EagerPostgresAuditStore`, the suspended
+- **Architecture authority: `ADR-030`** (Accepted, 2026-09-13). Implementation authority granted:
+  implementation of the `ADR-030`-conforming DAG-aware audit verifier **only** — no broader scope.
+- **Six invariants** (§3): genesis/root validity, per-entry hash validity, referential validity,
+  reachability, acyclicity, and branch legitimacy, replacing `verify_chain()`'s current strict-linear
+  walk. All six, not a subset, are required.
+- **Multiple valid genesis children** (§5): two or more entries independently and directly
+  referencing `GENESIS_HASH` — the shape two concurrent first-writes on an empty history would
+  actually produce — must verify as valid, not be rejected by an implicit at-most-one-root rule.
+- **Reachability's relationship to referential validity/acyclicity** (§8): for this finite,
+  one-predecessor-per-row model, referential validity together with acyclicity already logically
+  guarantee reachability; it remains a named, separately-checked invariant anyway, for conceptual
+  clarity and defense-in-depth, not because it is independently testable in isolation from those two.
+- **Realistic cycle-test treatment** (§9): a cryptographically self-consistent cycle is not a
+  constructible fixture (it would require a SHA-256 fixed point); cycle-safety must instead be proven
+  via deliberately corrupted synthetic fixtures or direct testing of an internal graph-traversal
+  helper, with the only required outcomes being a safe/bounded traversal and a final invalid result —
+  not that cycle-detection fire in isolation from per-entry hash-validity failure.
+- **Duplicate-hash handling** (§3): the implementation must not silently overwrite or discard an entry
+  when building its lookup structure on a duplicate-hash input — it must explicitly reject such input
+  as invalid, or rely only on, and document reliance on, the store's own `UNIQUE(hash)` guarantee.
+- **Empty-history validity** (§4): the current behavior — an empty `audit_log` verifies `True` — must
+  be preserved exactly; no physical genesis row may be manufactured to give the six invariants
+  "something to check."
+- **Single-snapshot verification** (§17): the verifier fetches the entry set exactly once and
+  validates that one fixed, in-memory snapshot; it must never re-query individual predecessors or any
+  subset of the data mid-traversal, which could manufacture a false dangling-reference or
+  unreachability finding purely from mixing two database-visibility moments under concurrent writers.
+- **O(V + E) expected validation shape** (§17): approximately `O(V + E)`, effectively `O(V)` for this
+  one-predecessor-per-row model, using an indexed (`hash → entry`) lookup rather than re-querying per
+  entry or repeatedly rescanning the full entry list per predecessor lookup. No caching or external
+  infrastructure is authorized or needed for this.
+- **Completeness limitation** (§10): the verifier does not, and must never be documented or tested to
+  claim to, prove complete-history inclusion — terminal-leaf deletion, whole-branch pruning, and tail
+  truncation can remain undetectable where nothing surviving references what was removed. No anchor,
+  checkpoint, or manifest mechanism is authorized.
+- **No write-path authority** (§13): `audit()`, `EagerPostgresAuditStore`, the suspended
   `audit_staged()` design, predecessor selection, hash generation, and every transaction boundary are
-  unaffected.
-- **No schema migration and no new runtime dependency** are authorized (§14, §15); either stop
-  condition, if triggered, halts implementation and returns to Governance rather than being engineered
-  around within this Decision's own authority.
-- **GD-009 Batch 1 remains suspended** (§20): ratification and implementation of this Decision do not,
-  by themselves, resume it — resumption requires a further, separate, explicit Governance act after
-  the verifier is implemented, formally reviewed, squash merged, and post-merge verified.
-- **`ADR-028` HTTP/API authority remains ungranted** (§22): no router, DTO, OpenAPI change, generated
-  client, frontend, or Surveyor Dashboard work is authorized.
+  unaffected — this is a read-path/verification change only.
+- **No migration or dependency authority** (§14, §15): no schema migration and no new runtime
+  dependency are authorized; either stop condition, if triggered, halts implementation and returns to
+  Governance rather than being engineered around within this Decision's own authority.
+- **GD-009 remains suspended** (§20): ratification and implementation of this Decision do not, by
+  themselves, resume GD-009 Batch 1 — resumption requires a further, separate, explicit Governance act
+  after the verifier is implemented, formally reviewed, squash merged, and post-merge verified.
+- **ADR-028 remains blocked** (§22): no router, DTO, OpenAPI change, generated client, frontend, or
+  Surveyor Dashboard work is authorized.
 - **The preserved branch** `feat/gd009-batch1-transactional-audit` (§21) remains reproduction evidence
   only; implementation proceeds from a clean branch/worktree off `origin/main`, never incorporating
   that branch's files.
