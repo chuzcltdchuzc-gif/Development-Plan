@@ -13,7 +13,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.kernel.audit import GENESIS_HASH, AuditEntry, _compute_hash, configure_audit_store, verify_chain
+from app.kernel.audit import (
+    GENESIS_HASH,
+    AuditEntry,
+    _compute_hash,
+    configure_audit_store,
+    verify_chain,
+)
 from tests.fakes.audit_store import InMemoryAuditStore
 
 
