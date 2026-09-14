@@ -41,19 +41,34 @@ def _entry(
     """Builds a real, hash-consistent AuditEntry unless `hash_override` is
     given, in which case the stored `hash` deliberately does not match
     `recompute_hash()` (used only by the tampered-hash tests, §6)."""
-    kwargs = dict(
+    resource_type = "test_resource"
+    resource_id = entry_id
+    decision = None
+    principal_id = "principal-1"
+    payload = {"note": entry_id}
+    computed = _compute_hash(
         entry_id=entry_id,
         action=action,
-        resource_type="test_resource",
-        resource_id=entry_id,
-        decision=None,
-        principal_id="principal-1",
-        payload={"note": entry_id},
+        resource_type=resource_type,
+        resource_id=resource_id,
+        decision=decision,
+        principal_id=principal_id,
+        payload=payload,
         created_at=created_at,
         prev_hash=prev_hash,
     )
-    computed = _compute_hash(**kwargs)
-    return AuditEntry(**kwargs, hash=hash_override if hash_override is not None else computed)
+    return AuditEntry(
+        entry_id=entry_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        decision=decision,
+        principal_id=principal_id,
+        payload=payload,
+        created_at=created_at,
+        prev_hash=prev_hash,
+        hash=hash_override if hash_override is not None else computed,
+    )
 
 
 async def _seed(store: InMemoryAuditStore, *entries: AuditEntry) -> None:
