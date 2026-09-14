@@ -402,6 +402,29 @@ redesign of Supabase Storage or `ADR-026`'s orphaned-object compensation semanti
 `ADR-028`'s HTTP gate remains independently conditioned on Batch 1's full implementation, test,
 review, merge, and post-merge verification — this Log entry does not itself lift that gate.
 
+**GD-010 — Audit DAG Verifier Implementation Authorization.** *(Ratified 14 September 2026; full
+operative text at `docs/GD-010-audit-dag-verifier-implementation-authorization.md`.)* Operative
+authority: **Article XVI §2** — GD-010 is a later numbered decision that explicitly relies on
+`docs/adr/ADR-030-audit-chain-concurrency-ordering-and-linearization.md` (Accepted, 2026-09-13) as its
+governing architecture, and explicitly names `docs/GD-009-audit-transaction-semantics-implementation-
+authorization-and-adr-007-regularisation.md` to state what it does not do to it; it is not proposed
+under Article XIV and does not amend this Constitution.
+
+**Decision.** Implementation of a DAG-aware audit-chain verifier, enforcing exactly the six
+invariants `ADR-030` §2 decided (genesis/root validity, per-entry hash validity, referential
+validity, reachability, acyclicity, branch legitimacy), replacing `app.kernel.audit.verify_chain()`'s
+current strict single-predecessor linear walk, is authorized. No schema migration, no new runtime
+dependency, and no change to any audit write path (`audit()`, `EagerPostgresAuditStore`, the suspended
+transaction-coupled design, hash generation, or any transaction boundary) is authorized or required.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise resumption of
+`GD-009`'s Batch 1 implementation; any transactional/successful-mutation audit work; any lock,
+serialization, retry, or sequence mechanism; any external completeness anchor or checkpoint; any
+repair or mutation operation against a persistent environment; any `ADR-028` HTTP/API exposure; or any
+frontend work. GD-009 remains Accepted/In Force with Batch 1 suspended; resumption requires this
+Decision's implementation to be merged and post-merge verified, followed by a further, separate,
+explicit Governance act — this Log entry does not itself grant that resumption authority.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
