@@ -425,6 +425,32 @@ frontend work. GD-009 remains Accepted/In Force with Batch 1 suspended; resumpti
 Decision's implementation to be merged and post-merge verified, followed by a further, separate,
 explicit Governance act — this Log entry does not itself grant that resumption authority.
 
+**GD-011 — GD-009 Batch 1 Resumption Authorization.** *(Ratified 15 September 2026; full operative
+text at `docs/GD-011-gd009-batch1-resumption-authorization.md`.)* Operative authority: **Article XVI
+§2** — GD-011 is a later numbered decision that explicitly names `docs/GD-009-audit-transaction-
+semantics-implementation-authorization-and-adr-007-regularisation.md` (to lift its concurrency-related
+execution suspension only) and relies on `docs/adr/ADR-030-audit-chain-concurrency-ordering-and-
+linearization.md` (Accepted, 2026-09-13) and `docs/GD-010-audit-dag-verifier-implementation-
+authorization.md` (Accepted, 2026-09-14; implementation merged and post-merge verified) as satisfying
+`GD-009` §11's own stop-and-return condition; it is not proposed under Article XIV and does not amend
+this Constitution.
+
+**Decision.** `GD-009` Batch 1's concurrency-related execution suspension is lifted. `GD-009`'s
+original Batch 1 implementation authority (its own §5) may resume, exactly as originally scoped: a
+transaction-coupled successful-mutation audit capability, explicit per-call opt-in only, migrating
+exactly `evidence.actor_attribution.recorded` and `evidence.actor_attribution.corrected`. No schema
+migration, no new runtime dependency, and no change to `verify_chain()`, `_compute_hash`, or
+`GENESIS_HASH` is authorized or required. The resumed implementation must independently prove, under
+`ADR-030`/`GD-010`'s DAG-aware verification semantics, that legitimate concurrent forks verify valid
+and genuine defects (invalid hash, dangling reference, cycle) still verify invalid.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise migration of any call
+site beyond the two named above; any `ADR-028` HTTP/API exposure; any lock, serialization, retry, or
+sequence mechanism; any external completeness anchor or checkpoint; or any of the programmes
+`GD-009`/`GD-008`/`ADR-026`/`ADR-028` already exclude. `ADR-028`'s HTTP gate remains independently
+conditioned on this resumed Batch 1's full implementation, test, formal review, squash merge, and
+post-merge verification.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
