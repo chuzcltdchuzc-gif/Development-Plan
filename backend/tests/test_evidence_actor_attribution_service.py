@@ -1,5 +1,9 @@
 """EvidenceActorAttributionService — application-layer use cases (docs/adr/
-ADR-028-evidence-actor-and-commissioning-provenance.md).
+ADR-028-evidence-actor-and-commissioning-provenance.md; the two
+successful-mutation audit events' transaction-coupled staging is GD-009
+Batch 1, docs/adr/ADR-029, docs/GD-009-audit-transaction-semantics-
+implementation-authorization-and-adr-007-regularisation.md, resumed under
+docs/GD-011-gd009-batch1-resumption-authorization.md).
 
 No HTTP surface exists yet, so these tests exercise the service directly
 against ExecutionContext and in-memory fakes — the identical pattern
@@ -10,11 +14,24 @@ RLS, the append-only trigger, and the one-successor-per-row constraint are
 DB-level guarantees rehearsed live separately (tests/live/
 test_evidence_actor_attribution_live.py), the identical split ADR-023 and
 ADR-026 already established for their own history/aggregate tables.
-"""
+
+The two migrated events no longer go through the ambient `audit()`/
+`InMemoryAuditStore` path at all (GD-009 §5's explicit opt-in) — they call
+`app.kernel.audit_postgres.audit_staged()` directly against the service's
+own explicit `session`. This suite proves that staging occurs, with the
+right event name/metadata, using a minimal fake `AsyncSession`
+(`_FakeSession` below) — it does NOT, and cannot, prove real transactional
+atomicity (that the staged row and the attribution row actually share one
+Postgres commit/rollback). That guarantee is proven separately, live,
+against a real database (tests/live/
+test_attribution_transactional_audit_live.py)."""
 from __future__ import annotations
+
+from typing import cast
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.evidence.application.attribution_service import (
     EvidenceActorAttributionService,
@@ -33,9 +50,8 @@ from app.contexts.evidence.domain.attribution import (
 )
 from app.contexts.evidence.domain.evidence_record import EvidenceRecord
 from app.contexts.evidence.ports import ParcelAuthorityInfo
-from app.kernel.audit import configure_audit_store
+from app.kernel.audit_orm import AuditLogRecord
 from app.kernel.context import ExecutionContext
-from tests.fakes.audit_store import InMemoryAuditStore
 from tests.fakes.evidence import (
     InMemoryEvidenceActorAttributionRepository,
     InMemoryEvidenceRepository,
@@ -51,11 +67,47 @@ class _StaticParcelExistence:
         return self._parcels.get(parcel_id)
 
 
+class _FakeResult:
+    """Just enough of SQLAlchemy's Result surface for `PostgresAuditStore.
+    last_hash()`'s `result.scalar_one_or_none()` call — always reports no
+    prior row, so a staged entry always chains onto GENESIS_HASH in this
+    hermetic suite. The real chain-linkage guarantee is proven live (see
+    `_FakeSession`'s own docstring)."""
+
+    def scalar_one_or_none(self) -> None:
+        return None
+
+
+class _FakeSession:
+    """Just enough of AsyncSession's surface for `app.kernel.audit_postgres.
+    audit_staged()`/`PostgresAuditStore.append_staged()` (GD-009 Batch 1) to
+    run against a session that never touches a real database — this
+    hermetic suite's own long-standing premise (module docstring above):
+    every repository here is an in-memory fake, and
+    `record_attribution`/`correct_attribution`'s tests below exercise
+    authorization/validation/lineage/event-emission logic, not real
+    transactional durability. That guarantee — the attribution row and its
+    staged audit row actually sharing one Postgres transaction — is proven
+    separately, live, against a real database (tests/live/
+    test_attribution_transactional_audit_live.py)."""
+
+    def __init__(self) -> None:
+        self.added: list[object] = []
+        self.flush_count = 0
+
+    def add(self, instance: object) -> None:
+        self.added.append(instance)
+
+    async def flush(self) -> None:
+        self.flush_count += 1
+
+    async def execute(self, *args: object, **kwargs: object) -> _FakeResult:
+        return _FakeResult()
+
+
 @pytest.fixture
-def audit_store() -> InMemoryAuditStore:
-    store = InMemoryAuditStore()
-    configure_audit_store(store)
-    return store
+def fake_session() -> _FakeSession:
+    return _FakeSession()
 
 
 @pytest.fixture
@@ -94,12 +146,14 @@ def service(
     evidence_repo: InMemoryEvidenceRepository,
     parcel_existence: _StaticParcelExistence,
     principal_tenant: StaticPrincipalTenantPort,
+    fake_session: _FakeSession,
 ) -> EvidenceActorAttributionService:
     return EvidenceActorAttributionService(
         attributions=attribution_repo,
         evidence=evidence_repo,
         parcel_existence=parcel_existence,
         principal_tenant=principal_tenant,
+        session=cast(AsyncSession, fake_session),
     )
 
 
@@ -132,7 +186,6 @@ async def _seed_evidence(
 async def test_historical_evidence_records_four_independent_facts(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     """User A uploaded a 1998 survey plan created by Surveyor B, commissioned
     by Client/Organisation C, later reviewed by Professional D — all four
@@ -182,13 +235,105 @@ async def test_historical_evidence_records_four_independent_facts(
     assert all(row["is_active"] for row in all_rows)
 
 
+# -- GD-009 Batch 1: transaction-coupled audit staging -----------------------
+
+
+async def test_record_attribution_stages_recorded_event_via_explicit_session(
+    service: EvidenceActorAttributionService,
+    evidence_repo: InMemoryEvidenceRepository,
+    fake_session: _FakeSession,
+) -> None:
+    """The success event is staged into the service's own explicit
+    `session` (`fake_session.added`), not into any ambient/global audit
+    store — proving the explicit, non-ambient opt-in GD-009 §5 requires."""
+    record = await _seed_evidence(evidence_repo)
+    ctx = _ctx()
+
+    result = await service.record_attribution(
+        ctx=ctx, evidence_id=record.evidence_id, attribution_role=ORIGINATED_BY,
+        actor_reference_kind=EXTERNAL_NAMED, actor_type=ACTOR_TYPE_INDIVIDUAL,
+        actor_name="Surveyor B", basis="named in the plan's own title block",
+    )
+
+    staged = [row for row in fake_session.added if isinstance(row, AuditLogRecord)]
+    assert len(staged) == 1
+    assert staged[0].action == "evidence.actor_attribution.recorded"
+    assert staged[0].resource_type == "evidence_actor_attribution"
+    assert staged[0].resource_id == result["attribution_id"]
+    assert staged[0].decision == "PERMIT"
+    assert staged[0].payload["attribution_role"] == ORIGINATED_BY
+    assert staged[0].payload["evidence_id"] == record.evidence_id
+    # Staged, not eagerly committed — flush() proves the row was durable
+    # enough to detect a real constraint violation immediately, without
+    # this fake session ever being asked to commit anything.
+    assert fake_session.flush_count >= 1
+
+
+async def test_correct_attribution_stages_corrected_event_via_explicit_session(
+    service: EvidenceActorAttributionService,
+    evidence_repo: InMemoryEvidenceRepository,
+    fake_session: _FakeSession,
+) -> None:
+    record = await _seed_evidence(evidence_repo)
+    ctx = _ctx()
+    original = await service.record_attribution(
+        ctx=ctx, evidence_id=record.evidence_id, attribution_role=ORIGINATED_BY,
+        actor_reference_kind=EXTERNAL_NAMED, actor_type=ACTOR_TYPE_INDIVIDUAL,
+        actor_name="Wrong Name", basis="initial, mistaken assertion",
+    )
+    fake_session.added.clear()  # isolate the correction's own staged event
+
+    correction = await service.correct_attribution(
+        ctx=ctx, attribution_id=original["attribution_id"], attribution_role=ORIGINATED_BY,
+        actor_reference_kind=EXTERNAL_NAMED, actor_type=ACTOR_TYPE_INDIVIDUAL,
+        actor_name="Correct Name", basis="corrected after review",
+    )
+
+    staged = [row for row in fake_session.added if isinstance(row, AuditLogRecord)]
+    assert len(staged) == 1
+    assert staged[0].action == "evidence.actor_attribution.corrected"
+    assert staged[0].resource_id == correction["attribution_id"]
+    assert staged[0].payload["supersedes_id"] == original["attribution_id"]
+
+
+async def test_migrated_events_require_no_ambient_audit_store_configuration(
+    evidence_repo: InMemoryEvidenceRepository,
+    attribution_repo: InMemoryEvidenceActorAttributionRepository,
+    parcel_existence: _StaticParcelExistence,
+    principal_tenant: StaticPrincipalTenantPort,
+) -> None:
+    """Proves the explicit-opt-in claim directly: a service built and
+    exercised without ever calling `configure_audit_store()` (the ambient
+    ContextVar `audit()` needs) still succeeds — the two migrated events
+    never touch that mechanism at all, GD-009 §5's ban on ambient/global
+    rebinding by construction, not merely by convention."""
+    record = await _seed_evidence(evidence_repo)
+    fresh_session = _FakeSession()
+    svc = EvidenceActorAttributionService(
+        attributions=attribution_repo,
+        evidence=evidence_repo,
+        parcel_existence=parcel_existence,
+        principal_tenant=principal_tenant,
+        session=cast(AsyncSession, fresh_session),
+    )
+
+    result = await svc.record_attribution(
+        ctx=_ctx(), evidence_id=record.evidence_id, attribution_role=ORIGINATED_BY,
+        actor_reference_kind=EXTERNAL_NAMED, actor_type=ACTOR_TYPE_INDIVIDUAL,
+        actor_name="Someone", basis="no ambient audit store configured anywhere in this test",
+    )
+
+    assert result["attribution_id"]
+    staged = [row for row in fresh_session.added if isinstance(row, AuditLogRecord)]
+    assert len(staged) == 1
+
+
 # -- Multi-actor tests --------------------------------------------------------
 
 
 async def test_two_originators_joint_authorship(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     record = await _seed_evidence(evidence_repo)
     ctx = _ctx()
@@ -214,7 +359,6 @@ async def test_two_originators_joint_authorship(
 async def test_unknown_originator_does_not_force_false_precision(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     record = await _seed_evidence(evidence_repo)
     ctx = _ctx()
@@ -234,7 +378,6 @@ async def test_unknown_originator_does_not_force_false_precision(
 async def test_correction_supersedes_without_modifying_unrelated_attributions(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     record = await _seed_evidence(evidence_repo)
     ctx = _ctx()
@@ -268,7 +411,6 @@ async def test_correction_supersedes_without_modifying_unrelated_attributions(
 async def test_correction_of_a_stale_reference_resolves_to_current_head(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     """ADR-028: 'a later correction must supersede the currently active
     row in the lineage, never the original' — even when the caller passes
@@ -326,7 +468,6 @@ async def test_unauthorized_caller_cannot_record_attribution(
 async def test_unauthorized_caller_cannot_correct_attribution(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     record = await _seed_evidence(evidence_repo)
     owner_ctx = _ctx()
@@ -349,7 +490,7 @@ async def test_unauthorized_caller_cannot_correct_attribution(
 async def test_denied_operation_creates_no_audit_event_representing_success(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
+    fake_session: _FakeSession,
 ) -> None:
     record = await _seed_evidence(evidence_repo)
     stranger = _ctx(principal_id="usr_stranger", roles=())
@@ -360,14 +501,15 @@ async def test_denied_operation_creates_no_audit_event_representing_success(
             actor_reference_kind=EXTERNAL_NAMED, actor_type=ACTOR_TYPE_INDIVIDUAL,
             actor_name="Anyone", basis="denied",
         )
-    entries = await audit_store.all_entries()
-    assert not any(e.action == "evidence.actor_attribution.recorded" for e in entries)
+    # GD-009 Batch 1: denial happens in _authorize_mutation, before any
+    # write — nothing was staged into the session at all (not merely "no
+    # *recorded* event": no attribution row and no audit row either).
+    assert fake_session.added == []
 
 
 async def test_being_named_as_originator_grants_no_access(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     """ADR-028 'Tenant isolation' §3: attribution never grants
     authorization. usr_2 is named as ORIGINATED_BY but is not the
@@ -420,7 +562,6 @@ async def test_cross_tenant_actor_cannot_be_linked_via_live_internal_reference(
 async def test_cross_tenant_actor_via_snapshot_grants_no_disclosure_or_access(
     service: EvidenceActorAttributionService,
     evidence_repo: InMemoryEvidenceRepository,
-    audit_store: InMemoryAuditStore,
 ) -> None:
     record = await _seed_evidence(evidence_repo, tenant_id="ten_1", parcel_id="par_1")
     ctx = _ctx(tenant_id="ten_1", principal_id="usr_1")
@@ -462,6 +603,7 @@ async def test_nonexistent_internal_principal_rejected() -> None:
         evidence=ev_repo,
         parcel_existence=_StaticParcelExistence({"par_1": ParcelAuthorityInfo("ten_1", "usr_1")}),
         principal_tenant=_PT({}),  # no principals known at all
+        session=cast(AsyncSession, _FakeSession()),
     )
     with pytest.raises(HTTPException) as exc_info:
         await svc.record_attribution(

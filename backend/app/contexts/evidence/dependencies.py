@@ -88,10 +88,17 @@ def get_evidence_actor_attribution_service(
     evidence: EvidenceRepository = Depends(get_evidence_repository),
     parcel_existence: ParcelExistencePort = Depends(get_evidence_parcel_existence_port),
     principal_tenant: PrincipalTenantPort = Depends(get_principal_tenant_port),
+    # GD-009 Batch 1: the identical request-scoped session every dependency
+    # above is already built from (FastAPI caches get_db_session per
+    # request, so this is the SAME session instance, not a second one) —
+    # passed through so the service can call audit_staged() explicitly for
+    # its two authorized successful-mutation audit events.
+    session: AsyncSession = Depends(get_db_session),
 ) -> EvidenceActorAttributionService:
     return EvidenceActorAttributionService(
         attributions=attributions,
         evidence=evidence,
         parcel_existence=parcel_existence,
         principal_tenant=principal_tenant,
+        session=session,
     )
