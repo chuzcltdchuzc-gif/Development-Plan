@@ -17,12 +17,24 @@ trigger to promote this into the kernel" reasoning ADR-013/ADR-026 already
 established) — attribution itself is never treated as an authorization
 input (ADR-028 "Tenant isolation" §3: attribution never grants
 authorization), and no new authorization mechanism is introduced.
+
+`record_attribution`/`correct_attribution`'s two successful-mutation audit
+events (`evidence.actor_attribution.recorded`/`corrected`) are staged via
+`app.kernel.audit_postgres.audit_staged()`, not `app.kernel.audit.audit()`
+(docs/adr/ADR-029, docs/GD-009-audit-transaction-semantics-implementation-
+authorization-and-adr-007-regularisation.md Batch 1, resumed under
+docs/GD-011-gd009-batch1-resumption-authorization.md) — the only two call
+sites in this codebase currently authorized for that transaction-coupled
+path. Every denial/failure path in this file (`_bad_request`/`_forbidden`/
+`_not_found*`) is unaffected and unchanged: no audit call happens on any of
+those paths at all today, exactly as before this change.
 """
 from __future__ import annotations
 
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.evidence.domain.attribution import (
     INTERNAL_PRINCIPAL,
@@ -37,7 +49,7 @@ from app.contexts.evidence.ports import (
     PrincipalTenantPort,
 )
 from app.contexts.identity.domain.value_objects import GOVERNANCE_ROLES
-from app.kernel.audit import audit
+from app.kernel.audit_postgres import audit_staged
 from app.kernel.context import ExecutionContext
 
 # A defensive bound on lineage-walking (see _resolve_active_head below) —
@@ -115,11 +127,20 @@ class EvidenceActorAttributionService:
         evidence: EvidenceRepository,
         parcel_existence: ParcelExistencePort,
         principal_tenant: PrincipalTenantPort,
+        session: AsyncSession,
     ) -> None:
         self.attributions = attributions
         self.evidence = evidence
         self.parcel_existence = parcel_existence
         self.principal_tenant = principal_tenant
+        # GD-009 Batch 1 (docs/adr/ADR-029): the same request-scoped session
+        # every repository above is built from (app.contexts.evidence.
+        # dependencies.get_evidence_actor_attribution_service) — used ONLY to
+        # call app.kernel.audit_postgres.audit_staged() explicitly, below, for
+        # this service's two successful-mutation audit events. Never used for
+        # any ambient/global rebinding of app.kernel.audit.audit(), which
+        # every other call in this codebase continues to use unchanged.
+        self.session = session
 
     async def _load_evidence_in_scope(
         self, *, ctx: ExecutionContext, evidence_id: str
@@ -232,7 +253,13 @@ class EvidenceActorAttributionService:
             raise _bad_request(str(exc)) from exc
 
         attribution = await self.attributions.record(attribution)
-        await audit(
+        # GD-009 Batch 1: transaction-coupled, not the eager/independent
+        # audit() every other call in this codebase still uses — stages into
+        # self.session (the same one attributions.record() just flushed
+        # into), so this row commits or rolls back together with the
+        # attribution row above, at this request's own single commit point.
+        await audit_staged(
+            self.session,
             "evidence.actor_attribution.recorded",
             entry_id=audit_id,
             resource_type="evidence_actor_attribution",
@@ -296,7 +323,10 @@ class EvidenceActorAttributionService:
             raise _bad_request(str(exc)) from exc
 
         correction = await self.attributions.record(correction)
-        await audit(
+        # GD-009 Batch 1 — see the identical comment in record_attribution
+        # above; same mechanism, same session, same reasoning.
+        await audit_staged(
+            self.session,
             "evidence.actor_attribution.corrected",
             entry_id=audit_id,
             resource_type="evidence_actor_attribution",
