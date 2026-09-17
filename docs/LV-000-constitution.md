@@ -451,6 +451,40 @@ sequence mechanism; any external completeness anchor or checkpoint; or any of th
 conditioned on this resumed Batch 1's full implementation, test, formal review, squash merge, and
 post-merge verification.
 
+**GD-012 — Evidence Actor Attribution HTTP Implementation Authorization.** *(Ratified 17 September
+2026; full operative text at `docs/GD-012-evidence-actor-attribution-http-implementation-
+authorization.md`.)* Operative authority: **Article XVI §2** — GD-012 is a later numbered decision
+that explicitly names `docs/adr/ADR-028-evidence-actor-and-commissioning-provenance.md` (to supply the
+API-contract and authorization decisions it explicitly deferred) and relies on `docs/GD-009-...md` and
+`docs/GD-011-...md` (both satisfied, per PR #35's squash merge and post-merge verification) as jointly
+discharging `GD-009` §14's prerequisite; it is not proposed under Article XIV and does not amend this
+Constitution.
+
+**Decision.** Implementation of exactly two authenticated HTTP endpoints —
+`POST /v1/evidence/{evidence_id}/attributions` and
+`POST /v1/evidence/attributions/{attribution_id}/corrections` — calling the existing, unmodified
+`EvidenceActorAttributionService.record_attribution`/`correct_attribution` is authorized. Authorization
+reuses the application service's existing creator-or-governance-role gate (`ADR-013`/`ADR-026`
+precedent) unchanged; no new role or permission is created. Each endpoint discloses only the single
+row it just wrote, to the caller who wrote it — no list, detail, or third-party-disclosure endpoint is
+authorized, leaving `ADR-028`'s personal-data disclosure question to its own future, separate
+Governance act. As a narrowly bounded exception identified during formal Governance review,
+`_verify_actor_reference`'s two `actor_principal_id` failure messages (nonexistent vs. cross-tenant)
+must be normalized into one externally indistinguishable response before either endpoint is exposed,
+closing a pre-existing cross-tenant principal-existence oracle this Decision would otherwise make
+newly reachable via a public HTTP surface; no other application-service logic, and no authorization,
+tenant-membership, or audit-transaction rule, may change under this exception. No schema migration,
+no new runtime dependency, and no other change to the audit kernel, `verify_chain()`,
+tenant-isolation architecture, or any frontend surface is authorized or required.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise any `GET`/list/detail
+attribution endpoint; any frontend page, component, or Surveyor Dashboard work; bulk or anonymous
+attribution; attribution deletion or direct editing; migration of any of the 52 audit call sites
+`GD-009`/`GD-011` already exclude; or any of the programmes `GD-008`/`ADR-026`/`ADR-028` already
+exclude. Implementation must still complete this repository's standing feature-branch, testing,
+human-review, squash-merge, and post-merge-verification process before either endpoint is considered
+complete — ratification of this Decision authorizes that work to begin, not its completion.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
