@@ -485,6 +485,38 @@ exclude. Implementation must still complete this repository's standing feature-b
 human-review, squash-merge, and post-merge-verification process before either endpoint is considered
 complete — ratification of this Decision authorizes that work to begin, not its completion.
 
+**GD-013 — GD-012 Commit-Boundary and Concurrent-Correction Exception Authorization.** *(Ratified 19
+September 2026; full operative text at `docs/GD-013-gd012-commit-boundary-and-concurrent-correction-
+exception-authorization.md`.)* Operative authority: **Article XVI §2** — GD-013 is a later numbered
+decision that explicitly names `docs/GD-012-evidence-actor-attribution-http-implementation-
+authorization.md` to grant two narrow, additional implementation-mechanism exceptions its own text did
+not anticipate; it is not proposed under Article XIV and does not amend this Constitution.
+
+**Decision.** `GD-012`'s two authorized attribution endpoints may (1) construct
+`EvidenceActorAttributionService` via five new, endpoint-local dependency-provider functions declaring
+`Depends(get_db_session, scope="function")` in place of `GD-012` §9's literal
+`Depends(get_evidence_actor_attribution_service)` clause — provided all five share identical scope
+(exactly one session per request), and neither `backend/app/contexts/evidence/dependencies.py` nor
+`app/kernel/uow.py` is edited — closing a proven, pre-existing framework-level defect under which a
+final commit failure could otherwise reach the client as a false HTTP success; and (2) catch a
+violation of the specifically named `uq_evidence_actor_attributions_supersedes_once` database
+constraint — identified by both its SQLSTATE (`23505`) and its exact constraint name, via structured
+driver diagnostics rather than message-parsing, so the unrelated self-supersession `CHECK` constraint
+is never misclassified — and translate it to `HTTPException(409)`, entirely within the new router
+module, with no change to the application service or repository adapter — supplying the coherent 4xx
+`GD-012` §7/§10 already required for a losing concurrent correction but did not itself make
+achievable. Neither exception claims a guaranteed rollback from `get_db_session`'s branch selection;
+each requires its own independent, real-PostgreSQL proof of the externally observable safety property
+(no phantom row, no phantom audit event) before implementation may be considered complete.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise any change to
+`dependencies.py`'s five existing provider functions, `get_db_session`'s own definition, any unrelated
+route's dependency scope, any general database-exception-translation mechanism beyond the one named
+constraint, or anything `GD-012` §4/§5/§6/§9/§11/§13 already exclude. All other `GD-012` provisions
+remain in force, unaffected and unamended. This ratification does not authorize implementation
+execution, a Git commit, push, pull request, or merge — those require separate, subsequent
+authorization.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
