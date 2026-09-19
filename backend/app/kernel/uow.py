@@ -68,7 +68,19 @@ async def get_db_session(
         raise RuntimeError("Unit of Work not configured — call configure_uow() at startup")
 
     async with _session_factory() as session:
-        if ctx.is_anonymous or ctx.has_any_role("super_admin"):
+        # IMVP-3A: an authenticated-but-unprovisioned Supabase principal
+        # (a verified JWT, but no local User row yet — ctx.tenant_id is
+        # None) is the SAME "no tenant established yet" situation the
+        # anonymous branch already exists for, reached a new way. Before
+        # IMVP-3A nothing authenticated (require_auth) ever queried a
+        # tenant-scoped table before having a tenant — accept_invitation
+        # (Keycloak) redeemed its invitation over an UNauthenticated
+        # request, hitting the ctx.is_anonymous branch instead. This
+        # principal is still role-less (require_role gates every governance/
+        # mutation endpoint identically either way), so this only widens
+        # which ROWS a query can see for someone every other check already
+        # blocks from doing anything with them.
+        if ctx.is_anonymous or ctx.tenant_id is None or ctx.has_any_role("super_admin"):
             await session.execute(text("SELECT set_config('app.is_super_admin', 'true', true)"))
         else:
             await session.execute(

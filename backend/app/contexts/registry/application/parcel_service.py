@@ -13,15 +13,33 @@ already use, not a parallel geometry-specific authorization rule.
 """
 from __future__ import annotations
 
+import uuid
+
 from fastapi import HTTPException, status
 
 from app.contexts.identity.domain.value_objects import GOVERNANCE_ROLES, CountryCode
+from app.contexts.registry.domain.history import OwnershipAssertion, StatusAssertion
 from app.contexts.registry.domain.parcel import Parcel, ParcelArchivedError
-from app.contexts.registry.ports import GeometryPort, ParcelNumberAllocator, ParcelRepository
+from app.contexts.registry.ports import (
+    GeometryPort,
+    ParcelHistoryRepository,
+    ParcelNumberAllocator,
+    ParcelRepository,
+)
 from app.kernel.audit import audit
 from app.kernel.context import ExecutionContext
 
 DEFAULT_COUNTRY = "NG"
+
+
+def _asserted_holder_ref(name: str | None, contact: str | None) -> str | None:
+    """ADR-023 "Schema": asserted_holder_ref is current_owner_name/contact,
+    joined. Neither supplied writes no ownership-history row at all — the
+    caller checks this function's result for None, it never writes an
+    empty-string assertion."""
+    if name and contact:
+        return f"{name} ({contact})"
+    return name or contact or None
 
 
 def _bad_request(detail: str) -> HTTPException:
@@ -111,10 +129,12 @@ class ParcelService:
         parcels: ParcelRepository,
         allocator: ParcelNumberAllocator,
         geometry: GeometryPort,
+        history: ParcelHistoryRepository,
     ) -> None:
         self.parcels = parcels
         self.allocator = allocator
         self.geometry = geometry
+        self.history = history
 
     async def create_parcel(
         self,
@@ -179,8 +199,55 @@ class ParcelService:
         parcel.allocate_parcel_number(parcel_number)
 
         parcel = await self.parcels.add(parcel)
+
+        # History (docs/adr/ADR-023): entry ids are pre-generated so each
+        # history row's audit_ref is set *before* the corresponding audit()
+        # call, whose underlying store commits eagerly and independently
+        # (app.kernel.audit_postgres.PostgresAuditStore.append()) — this is
+        # what lets the history row and the audit entry it references
+        # resolve consistently no matter which of the two becomes durable
+        # first. History rows themselves flush into this same request's
+        # AsyncSession as the parcel insert above, so both commit together,
+        # or both roll back together, at the end of this request.
+        holder_ref = _asserted_holder_ref(parcel.current_owner_name, parcel.current_owner_contact)
+        ownership_audit_id = uuid.uuid4().hex if holder_ref is not None else None
+        if ownership_audit_id is not None:
+            await self.history.record_ownership(
+                OwnershipAssertion.new(
+                    tenant_id=parcel.tenant_id,
+                    parcel_id=parcel.parcel_id,
+                    asserted_holder_ref=holder_ref,
+                    basis="initial registration",
+                    recorded_by=ctx.principal_id,
+                    audit_ref=ownership_audit_id,
+                )
+            )
+
+        created_audit_id = uuid.uuid4().hex
+        await self.history.record_status(
+            StatusAssertion.new(
+                tenant_id=parcel.tenant_id,
+                parcel_id=parcel.parcel_id,
+                asserted_status=parcel.status,
+                basis="initial registration",
+                recorded_by=ctx.principal_id,
+                audit_ref=created_audit_id,
+            )
+        )
+
+        if ownership_audit_id is not None:
+            await audit(
+                "registry.parcel_ownership.recorded",
+                entry_id=ownership_audit_id,
+                resource_type="parcel",
+                resource_id=parcel.parcel_id,
+                decision="PERMIT",
+                payload={"tenant_id": parcel.tenant_id, "asserted_holder_ref": holder_ref},
+            )
+
         await audit(
             "registry.parcel.created",
+            entry_id=created_audit_id,
             resource_type="parcel",
             resource_id=parcel.parcel_id,
             decision="PERMIT",
@@ -251,12 +318,46 @@ class ParcelService:
         parcel = await self._load_in_scope(ctx=ctx, parcel_id=parcel_id)
         await self._authorize_mutation(ctx=ctx, parcel=parcel)
 
+        previous_holder_ref = _asserted_holder_ref(
+            parcel.current_owner_name, parcel.current_owner_contact
+        )
+
         try:
             parcel.update_details(updated_by=ctx.principal_id, fields=fields)
         except ParcelArchivedError as exc:
             raise _conflict(str(exc)) from exc
 
         parcel = await self.parcels.update(parcel)
+
+        # History (docs/adr/ADR-023): a row is written only when the
+        # ownership reference actually changed — an address/title-only
+        # update writes zero ownership-history rows, exactly as today.
+        new_holder_ref = _asserted_holder_ref(
+            parcel.current_owner_name, parcel.current_owner_contact
+        )
+        if new_holder_ref != previous_holder_ref:
+            prior = await self.history.latest_ownership(parcel.parcel_id)
+            ownership_audit_id = uuid.uuid4().hex
+            await self.history.record_ownership(
+                OwnershipAssertion.new(
+                    tenant_id=parcel.tenant_id,
+                    parcel_id=parcel.parcel_id,
+                    asserted_holder_ref=new_holder_ref,
+                    basis="registrant declaration via update_parcel",
+                    recorded_by=ctx.principal_id,
+                    audit_ref=ownership_audit_id,
+                    supersedes_id=prior.id if prior else None,
+                )
+            )
+            await audit(
+                "registry.parcel_ownership.changed",
+                entry_id=ownership_audit_id,
+                resource_type="parcel",
+                resource_id=parcel.parcel_id,
+                decision="PERMIT",
+                payload={"tenant_id": parcel.tenant_id, "asserted_holder_ref": new_holder_ref},
+            )
+
         await audit(
             "registry.parcel.updated",
             resource_type="parcel",
@@ -281,6 +382,32 @@ class ParcelService:
             raise _conflict(str(exc)) from exc
 
         parcel = await self.parcels.update(parcel)
+
+        # History (docs/adr/ADR-023): archive_parcel always writes a status
+        # row (the ACTIVE -> ARCHIVED transition) — unlike ownership, there
+        # is no "no-op" case here, since archiving always changes status.
+        prior_status = await self.history.latest_status(parcel.parcel_id)
+        status_audit_id = uuid.uuid4().hex
+        await self.history.record_status(
+            StatusAssertion.new(
+                tenant_id=parcel.tenant_id,
+                parcel_id=parcel.parcel_id,
+                asserted_status=parcel.status,
+                basis="registrant declaration via archive_parcel",
+                recorded_by=ctx.principal_id,
+                audit_ref=status_audit_id,
+                supersedes_id=prior_status.id if prior_status else None,
+            )
+        )
+        await audit(
+            "registry.parcel_status.changed",
+            entry_id=status_audit_id,
+            resource_type="parcel",
+            resource_id=parcel.parcel_id,
+            decision="PERMIT",
+            payload={"tenant_id": parcel.tenant_id, "asserted_status": parcel.status},
+        )
+
         await audit(
             "registry.parcel.archived",
             resource_type="parcel",
@@ -303,12 +430,24 @@ class ParcelService:
         a new field the same rule applies to. Registry never learns what
         `geometry_reference` means; it only asks the injected GeometryPort
         whether the string is one worth storing, never PostGIS or any
-        concrete GIS technology directly."""
+        concrete GIS technology directly. `tenant_id`/`parcel_id` are
+        passed through (docs/adr/ADR-019) so a real adapter can verify the
+        reference actually belongs to the parcel being mutated —
+        `parcel.tenant_id`, not `ctx.tenant_id`: the question is "does
+        this reference belong to the tenant that owns this parcel," which
+        for a `super_admin` acting cross-tenant is not necessarily the
+        acting principal's own (possibly unrelated) tenant.
+        `parcel.tenant_id` is always defined, unlike `ctx.tenant_id`
+        (`str | None` on `ExecutionContext`)."""
         parcel = await self._load_in_scope(ctx=ctx, parcel_id=parcel_id)
         await self._authorize_mutation(ctx=ctx, parcel=parcel)
 
         if geometry_reference is not None:
-            valid = await self.geometry.reference_is_valid(geometry_reference=geometry_reference)
+            valid = await self.geometry.reference_is_valid(
+                geometry_reference=geometry_reference,
+                tenant_id=parcel.tenant_id,
+                parcel_id=parcel_id,
+            )
             if not valid:
                 raise _bad_request("geometry_reference failed validation")
 

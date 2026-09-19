@@ -30,7 +30,7 @@ class UserRecord(Base):
     __tablename__ = "identity_users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    keycloak_subject: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    identity_subject: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     full_name: Mapped[str] = mapped_column(String, nullable=False)
     country: Mapped[str] = mapped_column(String(2), nullable=False)
