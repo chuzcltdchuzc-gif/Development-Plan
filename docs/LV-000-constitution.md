@@ -517,6 +517,31 @@ remain in force, unaffected and unamended. This ratification does not authorize 
 execution, a Git commit, push, pull request, or merge — those require separate, subsequent
 authorization.
 
+**GD-014 — GD-013 ORM Rollback Exception Authorization.** *(Ratified 23 September 2026; full operative
+text at `docs/GD-014-gd013-orm-rollback-exception-authorization.md`.)* Operative authority: **Article
+XVI §2** — GD-014 is a later numbered decision that explicitly names `docs/GD-013-gd012-commit-boundary-
+and-concurrent-correction-exception-authorization.md` to grant one narrow, additional implementation-
+mechanism exception its own text explicitly foreclosed, and to correct one factual assumption in its own
+drafting about SQLAlchemy ORM `Session` behavior; it is not proposed under Article XIV and does not
+amend this Constitution.
+
+**Decision.** `GD-013` §4's statement that no rollback mechanism "is authorized to add" is amended
+solely to permit the correction endpoint's existing, `GD-013`-authorized `IntegrityError` handler to
+call `await service.session.rollback()` — on the single, function-scoped session `GD-013` §3 already
+authorizes, only inside the branch already gated by the existing dual-diagnostic predicate (SQLSTATE
+`23505` and constraint name `uq_evidence_actor_attributions_supersedes_once`), with no general rollback
+policy, no second session, no additional mutation, and no concealment of a rollback failure behind a
+false 409. This corrects `GD-013`'s own incomplete verification, which exercised a raw Core connection
+rather than the ORM `Session` the actual repository code uses, and did not discover that a failed
+`Session.flush()` requires an explicit `rollback()` before any further use — including `get_db_session`'s
+own subsequent commit — can succeed.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise any change to
+`dependencies.py`, `uow.py`, any database migration, any audit-kernel or verifier change, any
+authentication/authorization/tenant-isolation change, any frontend work, any broadening of `GD-012`'s
+two-endpoint scope, or any of the programmes `GD-008`/`ADR-026`/`ADR-028`/`GD-009`/`GD-011` already
+exclude. All other `GD-012` and `GD-013` provisions remain in force, unaffected and unamended.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
