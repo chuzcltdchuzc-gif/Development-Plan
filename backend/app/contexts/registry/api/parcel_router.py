@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends
 
 from app.contexts.registry.api.dtos import (
     CreateParcelRequest,
+    Parcel,
     SetGeometryReferenceRequest,
     UpdateParcelRequest,
 )
@@ -35,7 +36,7 @@ from app.kernel.context import ExecutionContext
 router = APIRouter(prefix="/v1/parcels", tags=["registry"])
 
 
-@router.post("", status_code=201)
+@router.post("", status_code=201, response_model=Parcel, operation_id="createParcel")
 async def create_parcel(
     body: CreateParcelRequest,
     ctx: ExecutionContext = Depends(require_role(*PARCEL_REGISTRANT_ROLES)),
@@ -44,7 +45,7 @@ async def create_parcel(
     return await parcel_service.create_parcel(ctx=ctx, **body.model_dump())
 
 
-@router.patch("/{parcel_id}")
+@router.patch("/{parcel_id}", response_model=Parcel, operation_id="updateParcel")
 async def update_parcel(
     parcel_id: str,
     body: UpdateParcelRequest,
@@ -56,7 +57,9 @@ async def update_parcel(
     )
 
 
-@router.post("/{parcel_id}/archive")
+@router.post(
+    "/{parcel_id}/archive", response_model=Parcel, operation_id="archiveParcel"
+)
 async def archive_parcel(
     parcel_id: str,
     ctx: ExecutionContext = Depends(require_role(*PARCEL_REGISTRANT_ROLES)),
@@ -65,7 +68,11 @@ async def archive_parcel(
     return await parcel_service.archive_parcel(ctx=ctx, parcel_id=parcel_id)
 
 
-@router.put("/{parcel_id}/geometry")
+@router.put(
+    "/{parcel_id}/geometry",
+    response_model=Parcel,
+    operation_id="setParcelGeometryReference",
+)
 async def set_geometry_reference(
     parcel_id: str,
     body: SetGeometryReferenceRequest,
@@ -77,7 +84,7 @@ async def set_geometry_reference(
     )
 
 
-@router.get("")
+@router.get("", response_model=list[Parcel], operation_id="listParcels")
 async def list_parcels(
     ctx: ExecutionContext = Depends(require_auth),
     parcel_service: ParcelService = Depends(get_parcel_service),
@@ -85,7 +92,7 @@ async def list_parcels(
     return await parcel_service.list_parcels(ctx=ctx)
 
 
-@router.get("/{parcel_id}")
+@router.get("/{parcel_id}", response_model=Parcel, operation_id="getParcel")
 async def get_parcel(
     parcel_id: str,
     ctx: ExecutionContext = Depends(require_auth),

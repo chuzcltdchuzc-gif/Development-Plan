@@ -12,6 +12,7 @@ import logging
 
 from fastapi import HTTPException, status
 
+from app.contexts.identity.domain.invitation import Invitation
 from app.contexts.identity.domain.session import Session, utcnow
 from app.contexts.identity.domain.tenant import Tenant
 from app.contexts.identity.domain.user import User
@@ -63,14 +64,10 @@ class AuthService:
         self.tenants = tenants
 
     # ---- Shared validation / IdP provisioning ------------------------------
-    def _validate_credentials(
-        self, *, password: str, full_name: str, country: str | None
-    ) -> tuple[str, str]:
-        """Shared by register_local and accept_invitation — both create a
-        brand-new local account and IdP credential, differing only in where
-        the email and role come from."""
-        if not password or len(password) < 8:
-            raise _bad_request("password must be at least 8 characters")
+    def _validate_profile(self, *, full_name: str, country: str | None) -> tuple[str, str]:
+        """The full_name/country half of account creation — shared by every
+        path that creates a User, including the password-free Supabase one
+        (IMVP-3A), where there is no password to validate at all."""
         if not full_name or not full_name.strip():
             raise _bad_request("full_name required")
         country_code = (country or DEFAULT_COUNTRY).upper()
@@ -79,6 +76,16 @@ class AuthService:
         except ValueError as exc:
             raise _bad_request(str(exc)) from exc
         return full_name.strip(), country_code
+
+    def _validate_credentials(
+        self, *, password: str, full_name: str, country: str | None
+    ) -> tuple[str, str]:
+        """Shared by register_local and accept_invitation — both create a
+        brand-new local account and IdP credential, differing only in where
+        the email and role come from."""
+        if not password or len(password) < 8:
+            raise _bad_request("password must be at least 8 characters")
+        return self._validate_profile(full_name=full_name, country=country)
 
     async def _create_idp_user(self, *, email: str, password: str, full_name: str) -> str:
         try:
@@ -124,7 +131,7 @@ class AuthService:
         # Self-registration ALWAYS gets the default role — there is no role
         # field on the register request for a caller to send (ADR-004 pt. 4).
         user = User.new(
-            keycloak_subject=subject,
+            identity_subject=subject,
             email=normalized_email,
             full_name=full_name_clean,
             country=country_code,
@@ -145,22 +152,21 @@ class AuthService:
             email=normalized_email, password=password, user_agent=None, ip=None
         )
 
-    # ---- Invitation acceptance (B2 — tenant membership provisioning) ------
-    async def accept_invitation(
-        self,
-        *,
-        token: str,
-        password: str,
-        full_name: str,
-        country: str | None,
-        user_agent: str | None,
-        ip: str | None,
-    ) -> dict:
-        """Redemption-time validation re-checks the inviter's account and
-        rank (below) AND the target tenant's own status (B2 slice 3) — not
-        just the invitation's own status/expiry. Both are re-checked
-        against their CURRENT state, not the state captured when the
-        invitation was created."""
+    # ---- Invitation acceptance (B2 — tenant membership provisioning;
+    # IMVP-3A — provider-neutral core reused by the Keycloak and Supabase
+    # paths below) -----------------------------------------------------
+    async def _authorize_invitation_redemption(self, token: str) -> Invitation:
+        """Provider-neutral: validate the invitation itself and re-check the
+        inviter's current authority. Nothing here depends on which identity
+        provider the invitee ends up authenticated through — the Keycloak
+        (accept_invitation) and Supabase (accept_invitation_supabase) paths
+        both call this unchanged.
+
+        Redemption-time validation re-checks the inviter's account and rank
+        (below) AND the target tenant's own status (B2 slice 3) — not just
+        the invitation's own status/expiry. Both are re-checked against
+        their CURRENT state, not the state captured when the invitation was
+        created."""
         if not token:
             raise _unauthenticated("Invalid or expired invitation")
         invitation = await self.invitations.get_by_token_hash(hash_token(token))
@@ -215,31 +221,73 @@ class AuthService:
                 payload={"reason": authority_lost_reason},
             )
             raise _unauthenticated("Invalid or expired invitation")
+        return invitation
 
-        full_name_clean, country_code = self._validate_credentials(
-            password=password, full_name=full_name, country=country
-        )
+    async def _provision_user_from_invitation(
+        self,
+        *,
+        invitation: Invitation,
+        identity_subject: str,
+        email: str,
+        full_name: str,
+        country: str,
+    ) -> User:
+        """Provider-neutral tail: attach an already-verified
+        (identity_subject, email) pair to the tenant+role the invitation
+        authorizes. `identity_subject` and `email` must already be verified
+        by the caller (a freshly-created Keycloak credential for
+        accept_invitation; an already-verified Supabase JWT's own claims for
+        accept_invitation_supabase) — this method trusts them as given and
+        does no verification of its own.
+
+        Tenant and role come from the invitation, never from the caller —
+        the hierarchy check already happened once, at creation time
+        (AdminService.create_invitation), against the inviter's rank. There
+        is no acting principal here to re-check against: the invitee has no
+        account yet.
+        """
+        # Email binding (IMVP-3A): the verified identity's email must match
+        # the invitation's, case-normalized the same way create_invitation
+        # normalized it — a Supabase user authenticated as person-b@... must
+        # not be able to redeem an invitation issued to person-a@....
+        if email != invitation.invited_email:
+            await audit(
+                "identity.invitation.redemption_denied",
+                resource_type="invitation",
+                resource_id=invitation.invitation_id,
+                decision="DENY",
+                payload={"reason": "email_mismatch"},
+            )
+            raise _unauthenticated("Invalid or expired invitation")
+
+        # Duplicate-identity protection (IMVP-3A): a Supabase subject that
+        # already has a LandVault account must never get a second one, and
+        # must never silently acquire a *different* invitation's tenant/role
+        # by redeeming another invitation. (For the Keycloak path this is
+        # unreachable in practice — _create_idp_user always mints a brand
+        # new subject — but the check is provider-neutral and cheap, so it
+        # guards both paths uniformly rather than being Supabase-only.)
+        if await self.users.get_by_identity_subject(identity_subject):
+            await audit(
+                "identity.invitation.redemption_denied",
+                resource_type="invitation",
+                resource_id=invitation.invitation_id,
+                decision="DENY",
+                payload={"reason": "identity_already_provisioned"},
+            )
+            raise _conflict("This identity is already a registered LandVault user")
 
         # Re-check even though create_invitation already checked at invite
         # time — someone could have registered with this email in the
         # window between invitation creation and acceptance.
-        if await self.users.get_by_email(invitation.invited_email):
+        if await self.users.get_by_email(email):
             raise _conflict("Email already registered")
 
-        subject = await self._create_idp_user(
-            email=invitation.invited_email, password=password, full_name=full_name_clean
-        )
-
-        # Tenant and role come from the invitation, not from the caller —
-        # the hierarchy check already happened once, at creation time
-        # (AdminService.create_invitation), against the inviter's rank.
-        # There is no acting principal here to re-check against: the
-        # invitee has no account yet.
         user = User.new(
-            keycloak_subject=subject,
-            email=invitation.invited_email,
-            full_name=full_name_clean,
-            country=country_code,
+            identity_subject=identity_subject,
+            email=email,
+            full_name=full_name,
+            country=country,
             tenant_id=invitation.tenant_id,
         )
         user.roles = [invitation.role]
@@ -248,11 +296,26 @@ class AuthService:
         invitation.accept()
         await self.invitations.update(invitation)
 
+        # resource_id/payload below are always the internal LandVault user
+        # id — never identity_subject — matching every other audit call in
+        # this codebase (docs/adr/ADR-004 point 5). audit()'s own
+        # principal_id, by contrast, is stamped from the AMBIENT
+        # ExecutionContext (app.kernel.context.current_context()), not
+        # passed explicitly here — for the Supabase path specifically, that
+        # ambient context is still the raw verified subject at this exact
+        # moment, because the internal id these two audit calls create is
+        # the OUTCOME of this call, not a precondition of it; no internal id
+        # could exist yet for principal_id to be. Every subsequent action
+        # this same user takes resolves principal_id to their internal id
+        # normally, once the context hydrator finds their new User row.
+        # Reviewed and accepted as correct during the IMVP-3A merge-gate
+        # review — not something to "fix" by restructuring how audit()
+        # sources principal_id.
         await audit(
             "identity.user.registered",
             resource_type="user",
             resource_id=user.user_id,
-            payload={"country": country_code, "via_invitation": invitation.invitation_id},
+            payload={"country": country, "via_invitation": invitation.invitation_id},
         )
         await audit(
             "identity.invitation.accepted",
@@ -261,8 +324,95 @@ class AuthService:
             decision="PERMIT",
             payload={"user_id": user.user_id},
         )
+        return user
+
+    async def accept_invitation(
+        self,
+        *,
+        token: str,
+        password: str,
+        full_name: str,
+        country: str | None,
+        user_agent: str | None,
+        ip: str | None,
+    ) -> dict:
+        """Keycloak path (historical — B2). Creates a brand-new Keycloak
+        credential for the invitee, then hands off to the shared
+        provider-neutral provisioning tail, then logs in via Keycloak to
+        issue this side's own session (refresh cookie etc.) — none of which
+        applies to the Supabase path below, which has no password to create
+        an IdP credential from and no session for this side to issue."""
+        invitation = await self._authorize_invitation_redemption(token)
+        full_name_clean, country_code = self._validate_credentials(
+            password=password, full_name=full_name, country=country
+        )
+
+        # Re-check even though create_invitation already checked at invite
+        # time — someone could have registered with this email in the
+        # window between invitation creation and acceptance. (The shared
+        # tail below repeats this check too; it's cheap and keeps that
+        # method correct standalone — but doing it before minting a Keycloak
+        # credential also avoids provisioning an orphaned IdP account for an
+        # email that's about to be rejected anyway.)
+        if await self.users.get_by_email(invitation.invited_email):
+            raise _conflict("Email already registered")
+
+        subject = await self._create_idp_user(
+            email=invitation.invited_email, password=password, full_name=full_name_clean
+        )
+
+        await self._provision_user_from_invitation(
+            invitation=invitation,
+            identity_subject=subject,
+            email=invitation.invited_email,
+            full_name=full_name_clean,
+            country=country_code,
+        )
+
         return await self.login_local(
             email=invitation.invited_email, password=password, user_agent=user_agent, ip=ip
+        )
+
+    async def accept_invitation_supabase(
+        self,
+        *,
+        token: str,
+        identity_subject: str,
+        verified_email: str,
+        full_name: str,
+        country: str | None,
+    ) -> User:
+        """Supabase path (ADR-025, IMVP-3A). `identity_subject` and
+        `verified_email` must come from an already-verified Supabase JWT
+        (the router only reaches this method via the `require_auth` PEP
+        dependency, never from the request body) — this is what makes
+        tenant/role/identity-substitution attempts structurally impossible
+        rather than merely checked-for: there is no field in the request
+        DTO a caller could even put them in.
+
+        No Keycloak account is created and no session is issued here —
+        Supabase already authenticated the caller and already owns their
+        session; this method only ever attaches governed LandVault state
+        (tenant, role) to an identity that's already verified.
+        """
+        invitation = await self._authorize_invitation_redemption(token)
+        full_name_clean, country_code = self._validate_profile(
+            full_name=full_name, country=country
+        )
+        try:
+            normalized_email = Email.parse(verified_email).value
+        except ValueError as exc:
+            # No sufficiently verified email on the Supabase identity to
+            # bind against the invitation model — fail closed, same generic
+            # message as every other redemption failure.
+            raise _unauthenticated("Invalid or expired invitation") from exc
+
+        return await self._provision_user_from_invitation(
+            invitation=invitation,
+            identity_subject=identity_subject,
+            email=normalized_email,
+            full_name=full_name_clean,
+            country=country_code,
         )
 
     # ---- Login --------------------------------------------------------
@@ -283,7 +433,7 @@ class AuthService:
             )
             raise _unauthenticated("Invalid email or password") from exc
 
-        user = await self.users.get_by_keycloak_subject(idp_tokens.subject)
+        user = await self.users.get_by_identity_subject(idp_tokens.subject)
         if not user or not user.can_authenticate():
             await audit(
                 "identity.login.failed",
