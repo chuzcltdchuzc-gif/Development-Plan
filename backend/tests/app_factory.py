@@ -13,7 +13,10 @@ from dataclasses import dataclass
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
-from app.contexts.evidence.api import evidence_router
+from app.contexts.evidence.api import attribution_router, evidence_router
+from app.contexts.evidence.application.attribution_service import (
+    EvidenceActorAttributionService,
+)
 from app.contexts.evidence.dependencies import (
     get_evidence_parcel_existence_port,
     get_evidence_repository,
@@ -48,7 +51,11 @@ from app.kernel.errors import register_error_handlers
 from app.kernel.security.http_hardening import configure_security
 from app.kernel.security.jwt import JwtVerifier
 from tests.fakes.audit_store import InMemoryAuditStore
-from tests.fakes.evidence import FakeEvidenceParcelExistencePort, InMemoryEvidenceRepository
+from tests.fakes.evidence import (
+    FakeEvidenceParcelExistencePort,
+    InMemoryEvidenceActorAttributionRepository,
+    InMemoryEvidenceRepository,
+)
 from tests.fakes.identity import (
     FakeIdentityProvider,
     InMemoryDelegationRepository,
@@ -69,6 +76,47 @@ from tests.fakes.storage import InMemoryStoragePort
 from tests.fakes.supabase_jwks import FakeSupabase
 
 
+class _UserBackedPrincipalTenantPort:
+    """PrincipalTenantPort backed by the SAME InMemoryUserRepository the
+    harness already seeds via `_seed_user_with_role` — so an
+    actor_principal_id referencing any user a test has created resolves to
+    that user's real tenant_id, exactly as PostgresPrincipalTenantAdapter
+    would in production. Test-only; production wires the real adapter."""
+
+    def __init__(self, users: InMemoryUserRepository) -> None:
+        self._users = users
+
+    async def get_tenant_id(self, principal_id: str) -> str | None:
+        user = await self._users.get(principal_id)
+        return user.tenant_id if user else None
+
+
+class _FakeAuditSession:
+    """Just enough of AsyncSession's surface for `audit_staged()`/
+    `PostgresAuditStore.append_staged()` (GD-009 Batch 1) to run without a
+    real database — mirrors
+    tests/test_evidence_actor_attribution_service.py's own `_FakeSession`
+    exactly, duplicated here (not imported) since that class is private to
+    its own test module."""
+
+    def __init__(self) -> None:
+        self.added: list[object] = []
+        self.flush_count = 0
+
+    def add(self, instance: object) -> None:
+        self.added.append(instance)
+
+    async def flush(self) -> None:
+        self.flush_count += 1
+
+    async def execute(self, *args: object, **kwargs: object) -> object:
+        class _Result:
+            def scalar_one_or_none(self) -> None:
+                return None
+
+        return _Result()
+
+
 @dataclass
 class AppHarness:
     app: FastAPI
@@ -87,6 +135,8 @@ class AppHarness:
     audit_store: InMemoryAuditStore
     evidence: InMemoryEvidenceRepository
     storage: InMemoryStoragePort
+    evidence_attributions: InMemoryEvidenceActorAttributionRepository
+    attribution_audit_session: _FakeAuditSession
 
 
 def build_test_app(
@@ -108,6 +158,7 @@ def build_test_app(
     audit_store = InMemoryAuditStore()
     evidence = InMemoryEvidenceRepository()
     storage = InMemoryStoragePort()
+    evidence_attributions = InMemoryEvidenceActorAttributionRepository()
 
     configure_audit_store(audit_store)
 
@@ -134,6 +185,7 @@ def build_test_app(
     app.include_router(parcel_router.router)
     app.include_router(spatial_router.router)
     app.include_router(evidence_router.router)
+    app.include_router(attribution_router.router)
 
     # Same DI seam production uses (app.contexts.identity.dependencies) —
     # tests never touch get_db_session at all, since these overrides short-
@@ -157,6 +209,33 @@ def build_test_app(
     app.dependency_overrides[get_storage_port] = lambda: storage
     app.dependency_overrides[get_evidence_parcel_existence_port] = (
         lambda: FakeEvidenceParcelExistencePort(parcels)
+    )
+    # GD-012/GD-013: attribution_router.py deliberately does NOT use
+    # get_evidence_actor_attribution_service (dependencies.py's shared,
+    # default-scope provider) — it builds the service via its own five
+    # endpoint-local, function-scoped providers (GD-013 §3). Overriding
+    # the router's own private service provider directly is therefore the
+    # correct override seam here, not the individual sub-providers above.
+    #
+    # GD-014 obligation 7: `attribution_session` is created once and shared
+    # across every request this harness serves (not re-instantiated per
+    # request), and exposed below as `AppHarness.attribution_audit_session`
+    # — the only hermetically-observable record of whether
+    # `audit_staged()`'s `session.add()` (the successful-mutation audit
+    # event's staging call) was ever reached for a given request, since
+    # `audit_staged()` writes to the service's own `.session` directly
+    # (via `PostgresAuditStore(session).append_staged()`), never through
+    # `configure_audit_store()`/`InMemoryAuditStore` (that store only
+    # observes the separate, eager `audit()` denial path).
+    attribution_session = _FakeAuditSession()
+    app.dependency_overrides[attribution_router._get_attribution_service] = (
+        lambda: EvidenceActorAttributionService(
+            attributions=evidence_attributions,
+            evidence=evidence,
+            parcel_existence=FakeEvidenceParcelExistencePort(parcels),
+            principal_tenant=_UserBackedPrincipalTenantPort(users),
+            session=attribution_session,  # type: ignore[arg-type]
+        )
     )
 
     @app.get("/v1/test/protected")
@@ -192,4 +271,6 @@ def build_test_app(
         audit_store=audit_store,
         evidence=evidence,
         storage=storage,
+        evidence_attributions=evidence_attributions,
+        attribution_audit_session=attribution_session,
     )

@@ -757,3 +757,75 @@ export const ListParcelEvidenceResponseItem = zod.object({
 export const ListParcelEvidenceResponse = zod.array(ListParcelEvidenceResponseItem)
 
 
+/**
+ * @summary Record Evidence Attribution
+ */
+export const RecordEvidenceAttributionParams = zod.object({
+  "evidence_id": zod.coerce.string()
+})
+
+export const RecordEvidenceAttributionBody = zod.object({
+  "attribution_role": zod.enum(['ORIGINATED_BY', 'REVIEWED_BY', 'COMMISSIONED_BY']),
+  "actor_reference_kind": zod.enum(['INTERNAL_PRINCIPAL', 'EXTERNAL_NAMED', 'HISTORICAL_ASSERTED', 'UNKNOWN']),
+  "actor_type": zod.enum(['INDIVIDUAL', 'ORGANIZATION', 'UNKNOWN']),
+  "basis": zod.string(),
+  "actor_principal_id": zod.union([zod.string(),zod.null()]).optional(),
+  "actor_name": zod.union([zod.string(),zod.null()]).optional(),
+  "actor_organization_name": zod.union([zod.string(),zod.null()]).optional(),
+  "review_method": zod.union([zod.string(),zod.null()]).optional()
+}).describe('Request body for `POST \/v1\/evidence\/{evidence_id}\/attributions`.')
+
+export const RecordEvidenceAttributionResponse = zod.object({
+  "attribution_id": zod.string(),
+  "evidence_id": zod.string(),
+  "attribution_role": zod.enum(['ORIGINATED_BY', 'REVIEWED_BY', 'COMMISSIONED_BY']),
+  "actor_reference_kind": zod.enum(['INTERNAL_PRINCIPAL', 'EXTERNAL_NAMED', 'HISTORICAL_ASSERTED', 'UNKNOWN']),
+  "actor_principal_id": zod.union([zod.string(),zod.null()]),
+  "actor_name": zod.union([zod.string(),zod.null()]),
+  "actor_organization_name": zod.union([zod.string(),zod.null()]),
+  "actor_type": zod.enum(['INDIVIDUAL', 'ORGANIZATION', 'UNKNOWN']),
+  "basis": zod.string(),
+  "review_method": zod.union([zod.string(),zod.null()]),
+  "recorded_by": zod.string(),
+  "recorded_at": zod.string(),
+  "supersedes_id": zod.union([zod.string(),zod.null()]),
+  "is_active": zod.boolean()
+}).describe('Response shape for both attribution endpoints — mirrors\n`_attribution_view`\'s field set exactly (GD-012 §6.3), omitting\n`tenant_id` (implicit in the authenticated session) and `audit_ref`\n(audit-internal).')
+
+
+/**
+ * @summary Correct Evidence Attribution
+ */
+export const CorrectEvidenceAttributionParams = zod.object({
+  "attribution_id": zod.coerce.string()
+})
+
+export const CorrectEvidenceAttributionBody = zod.object({
+  "attribution_role": zod.enum(['ORIGINATED_BY', 'REVIEWED_BY', 'COMMISSIONED_BY']),
+  "actor_reference_kind": zod.enum(['INTERNAL_PRINCIPAL', 'EXTERNAL_NAMED', 'HISTORICAL_ASSERTED', 'UNKNOWN']),
+  "actor_type": zod.enum(['INDIVIDUAL', 'ORGANIZATION', 'UNKNOWN']),
+  "basis": zod.string(),
+  "actor_principal_id": zod.union([zod.string(),zod.null()]).optional(),
+  "actor_name": zod.union([zod.string(),zod.null()]).optional(),
+  "actor_organization_name": zod.union([zod.string(),zod.null()]).optional(),
+  "review_method": zod.union([zod.string(),zod.null()]).optional()
+}).describe('Request body for\n`POST \/v1\/evidence\/attributions\/{attribution_id}\/corrections`. Carries\nno `evidence_id` — `correct_attribution` resolves it from the\nattribution\'s own lineage (GD-012 §4).')
+
+export const CorrectEvidenceAttributionResponse = zod.object({
+  "attribution_id": zod.string(),
+  "evidence_id": zod.string(),
+  "attribution_role": zod.enum(['ORIGINATED_BY', 'REVIEWED_BY', 'COMMISSIONED_BY']),
+  "actor_reference_kind": zod.enum(['INTERNAL_PRINCIPAL', 'EXTERNAL_NAMED', 'HISTORICAL_ASSERTED', 'UNKNOWN']),
+  "actor_principal_id": zod.union([zod.string(),zod.null()]),
+  "actor_name": zod.union([zod.string(),zod.null()]),
+  "actor_organization_name": zod.union([zod.string(),zod.null()]),
+  "actor_type": zod.enum(['INDIVIDUAL', 'ORGANIZATION', 'UNKNOWN']),
+  "basis": zod.string(),
+  "review_method": zod.union([zod.string(),zod.null()]),
+  "recorded_by": zod.string(),
+  "recorded_at": zod.string(),
+  "supersedes_id": zod.union([zod.string(),zod.null()]),
+  "is_active": zod.boolean()
+}).describe('Response shape for both attribution endpoints — mirrors\n`_attribution_view`\'s field set exactly (GD-012 §6.3), omitting\n`tenant_id` (implicit in the authenticated session) and `audit_ref`\n(audit-internal).')
+
+

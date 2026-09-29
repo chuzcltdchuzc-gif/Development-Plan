@@ -7,7 +7,12 @@
 
 export * from './acceptInvitationRequest';
 export * from './acceptInvitationSupabaseRequest';
+export * from './actorReferenceKind';
+export * from './actorType';
 export * from './assignRoleRequest';
+export * from './attributionResponse';
+export * from './attributionRole';
+export * from './correctAttributionRequest';
 export * from './createDelegationRequest';
 export * from './createInvitationRequest';
 export * from './createParcelRequest';
@@ -27,6 +32,7 @@ export * from './loginRequest';
 export * from './parcel';
 export * from './parcelStatus';
 export * from './readinessCheck200';
+export * from './recordAttributionRequest';
 export * from './registerRequest';
 export * from './roleAssignmentResponse';
 export * from './setGeometryReferenceRequest';

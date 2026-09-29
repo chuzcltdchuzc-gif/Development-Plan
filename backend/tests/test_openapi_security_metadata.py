@@ -87,10 +87,24 @@ def test_evidence_operations_exist_with_stable_ids_and_bearer_auth() -> None:
 def test_no_fictional_evidence_operations_returned() -> None:
     """The previously-removed fictional Evidence endpoints
     (/v1/evidence/{evidenceId}, and any GET-by-id) must not reappear —
-    IMVP-5's minimum API surface is upload + list only (Section 15)."""
+    IMVP-5's minimum API surface is upload + list only (Section 15), now
+    joined by exactly the two GD-012/GD-013-authorized attribution mutation
+    endpoints. In particular, no GET/list/detail attribution endpoint may
+    appear (GD-012 §6.2/§9's own deliberate exclusion)."""
     schema = _schema()
-    evidence_paths = [p for p in schema["paths"] if "evidence" in p]
-    assert evidence_paths == ["/v1/parcels/{parcel_id}/evidence"]
+    evidence_paths = {p for p in schema["paths"] if "evidence" in p}
+    assert evidence_paths == {
+        "/v1/parcels/{parcel_id}/evidence",
+        "/v1/evidence/{evidence_id}/attributions",
+        "/v1/evidence/attributions/{attribution_id}/corrections",
+    }
+    for path in (
+        "/v1/evidence/{evidence_id}/attributions",
+        "/v1/evidence/attributions/{attribution_id}/corrections",
+    ):
+        assert set(schema["paths"][path].keys()) == {"post"}, (
+            f"{path} must expose exactly POST — no GET/list/detail/delete operation"
+        )
 
 
 def test_no_double_v1_prefix_anywhere() -> None:
