@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.contexts.evidence.adapters.supabase_storage import SupabaseStorageAdapter
-from app.contexts.evidence.api import evidence_router
+from app.contexts.evidence.api import attribution_router, evidence_router
 from app.contexts.evidence.dependencies import get_storage_port
 from app.contexts.evidence.ports import StoragePort
 from app.contexts.identity.adapters.keycloak import KeycloakIdentityProvider
@@ -97,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(parcel_router.router)
     app.include_router(spatial_router.router)
     app.include_router(evidence_router.router)
+    app.include_router(attribution_router.router)
 
     # Composition-root-only wiring (docs/adr/ADR-019/ADR-022): connects
     # Registry's GeometryPort to Spatial's real adapter via

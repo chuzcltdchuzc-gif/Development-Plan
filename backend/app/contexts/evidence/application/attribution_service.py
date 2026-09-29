@@ -172,20 +172,26 @@ class EvidenceActorAttributionService:
         attributed — never a cross-tenant live reference. A cross-tenant
         or nonexistent principal is a client input error (400), not an
         authorization failure, since the caller themselves is already
-        authorized at this point; the problem is the referenced actor."""
+        authorized at this point; the problem is the referenced actor.
+
+        GD-012 §6.4 (formal Governance review finding, remediated at
+        ratification): a nonexistent actor_principal_id and one that exists
+        in a different tenant previously raised two distinguishable
+        messages — both already 400, but the distinct text let an
+        authenticated caller use this field as a cross-tenant
+        principal-existence oracle, newly reachable once this service is
+        exposed over HTTP. Both conditions now raise the identical message
+        below — this is the only change GD-012 §9's narrow exception
+        authorizes in this file."""
         if actor_reference_kind != INTERNAL_PRINCIPAL:
             return
         if not actor_principal_id:
             return  # domain-layer validation already rejects this; defensive no-op here
         actor_tenant_id = await self.principal_tenant.get_tenant_id(actor_principal_id)
-        if actor_tenant_id is None:
-            raise _bad_request(f"actor_principal_id {actor_principal_id!r} does not exist")
-        if actor_tenant_id != ctx.tenant_id:
+        if actor_tenant_id is None or actor_tenant_id != ctx.tenant_id:
             raise _bad_request(
-                "actor_principal_id must reference a principal in the same tenant as the "
-                "Evidence being attributed — a cross-tenant actor must be recorded as a "
-                "free-text snapshot (EXTERNAL_NAMED/HISTORICAL_ASSERTED), never a live "
-                "internal reference"
+                "actor_principal_id must reference an existing principal in the caller's own "
+                "tenant"
             )
 
     async def _resolve_active_head(self, attribution_id: str) -> EvidenceActorAttribution:

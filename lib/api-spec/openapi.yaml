@@ -935,6 +935,74 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/evidence/{evidence_id}/attributions:
+    post:
+      tags:
+      - evidence-attribution
+      summary: Record Evidence Attribution
+      operationId: recordEvidenceAttribution
+      security:
+      - SupabaseBearerAuth: []
+      parameters:
+      - name: evidence_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Evidence Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordAttributionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/evidence/attributions/{attribution_id}/corrections:
+    post:
+      tags:
+      - evidence-attribution
+      summary: Correct Evidence Attribution
+      operationId: correctEvidenceAttribution
+      security:
+      - SupabaseBearerAuth: []
+      parameters:
+      - name: attribution_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Attribution Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectAttributionRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     AcceptInvitationRequest:
@@ -990,6 +1058,21 @@ components:
         access token (require_auth); tenant/role come exclusively from the
 
         invitation itself.'
+    ActorReferenceKind:
+      type: string
+      enum:
+      - INTERNAL_PRINCIPAL
+      - EXTERNAL_NAMED
+      - HISTORICAL_ASSERTED
+      - UNKNOWN
+      title: ActorReferenceKind
+    ActorType:
+      type: string
+      enum:
+      - INDIVIDUAL
+      - ORGANIZATION
+      - UNKNOWN
+      title: ActorType
     AssignRoleRequest:
       properties:
         role:
@@ -1000,6 +1083,133 @@ components:
       required:
       - role
       title: AssignRoleRequest
+    AttributionResponse:
+      properties:
+        attribution_id:
+          type: string
+          title: Attribution Id
+        evidence_id:
+          type: string
+          title: Evidence Id
+        attribution_role:
+          $ref: '#/components/schemas/AttributionRole'
+        actor_reference_kind:
+          $ref: '#/components/schemas/ActorReferenceKind'
+        actor_principal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Principal Id
+        actor_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Name
+        actor_organization_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Organization Name
+        actor_type:
+          $ref: '#/components/schemas/ActorType'
+        basis:
+          type: string
+          title: Basis
+        review_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Review Method
+        recorded_by:
+          type: string
+          title: Recorded By
+        recorded_at:
+          type: string
+          title: Recorded At
+        supersedes_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Supersedes Id
+        is_active:
+          type: boolean
+          title: Is Active
+      type: object
+      required:
+      - attribution_id
+      - evidence_id
+      - attribution_role
+      - actor_reference_kind
+      - actor_principal_id
+      - actor_name
+      - actor_organization_name
+      - actor_type
+      - basis
+      - review_method
+      - recorded_by
+      - recorded_at
+      - supersedes_id
+      - is_active
+      title: AttributionResponse
+      description: 'Response shape for both attribution endpoints — mirrors
+
+        `_attribution_view`''s field set exactly (GD-012 §6.3), omitting
+
+        `tenant_id` (implicit in the authenticated session) and `audit_ref`
+
+        (audit-internal).'
+    AttributionRole:
+      type: string
+      enum:
+      - ORIGINATED_BY
+      - REVIEWED_BY
+      - COMMISSIONED_BY
+      title: AttributionRole
+    CorrectAttributionRequest:
+      properties:
+        attribution_role:
+          $ref: '#/components/schemas/AttributionRole'
+        actor_reference_kind:
+          $ref: '#/components/schemas/ActorReferenceKind'
+        actor_type:
+          $ref: '#/components/schemas/ActorType'
+        basis:
+          type: string
+          title: Basis
+        actor_principal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Principal Id
+        actor_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Name
+        actor_organization_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Organization Name
+        review_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Review Method
+      type: object
+      required:
+      - attribution_role
+      - actor_reference_kind
+      - actor_type
+      - basis
+      title: CorrectAttributionRequest
+      description: 'Request body for
+
+        `POST /v1/evidence/attributions/{attribution_id}/corrections`. Carries
+
+        no `evidence_id` — `correct_attribution` resolves it from the
+
+        attribution''s own lineage (GD-012 §4).'
     CreateDelegationRequest:
       properties:
         delegate_user_id:
@@ -1598,6 +1808,45 @@ components:
         can ever hold (STATUS_ACTIVE/STATUS_ARCHIVED) — one-way, no third
 
         value, no code path constructs anything else (ADR-013).'
+    RecordAttributionRequest:
+      properties:
+        attribution_role:
+          $ref: '#/components/schemas/AttributionRole'
+        actor_reference_kind:
+          $ref: '#/components/schemas/ActorReferenceKind'
+        actor_type:
+          $ref: '#/components/schemas/ActorType'
+        basis:
+          type: string
+          title: Basis
+        actor_principal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Principal Id
+        actor_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Name
+        actor_organization_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Organization Name
+        review_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Review Method
+      type: object
+      required:
+      - attribution_role
+      - actor_reference_kind
+      - actor_type
+      - basis
+      title: RecordAttributionRequest
+      description: Request body for `POST /v1/evidence/{evidence_id}/attributions`.
     RegisterRequest:
       properties:
         email:

@@ -25,8 +25,76 @@ export interface AcceptInvitationSupabaseRequest {
   country?: string | null;
 }
 
+export type ActorReferenceKind = typeof ActorReferenceKind[keyof typeof ActorReferenceKind];
+
+
+export const ActorReferenceKind = {
+  INTERNAL_PRINCIPAL: 'INTERNAL_PRINCIPAL',
+  EXTERNAL_NAMED: 'EXTERNAL_NAMED',
+  HISTORICAL_ASSERTED: 'HISTORICAL_ASSERTED',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ActorType = typeof ActorType[keyof typeof ActorType];
+
+
+export const ActorType = {
+  INDIVIDUAL: 'INDIVIDUAL',
+  ORGANIZATION: 'ORGANIZATION',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
 export interface AssignRoleRequest {
   role: string;
+}
+
+export type AttributionRole = typeof AttributionRole[keyof typeof AttributionRole];
+
+
+export const AttributionRole = {
+  ORIGINATED_BY: 'ORIGINATED_BY',
+  REVIEWED_BY: 'REVIEWED_BY',
+  COMMISSIONED_BY: 'COMMISSIONED_BY',
+} as const;
+
+/**
+ * Response shape for both attribution endpoints — mirrors
+ * `_attribution_view`'s field set exactly (GD-012 §6.3), omitting
+ * `tenant_id` (implicit in the authenticated session) and `audit_ref`
+ * (audit-internal).
+ */
+export interface AttributionResponse {
+  attribution_id: string;
+  evidence_id: string;
+  attribution_role: AttributionRole;
+  actor_reference_kind: ActorReferenceKind;
+  actor_principal_id: string | null;
+  actor_name: string | null;
+  actor_organization_name: string | null;
+  actor_type: ActorType;
+  basis: string;
+  review_method: string | null;
+  recorded_by: string;
+  recorded_at: string;
+  supersedes_id: string | null;
+  is_active: boolean;
+}
+
+/**
+ * Request body for
+ * `POST /v1/evidence/attributions/{attribution_id}/corrections`. Carries
+ * no `evidence_id` — `correct_attribution` resolves it from the
+ * attribution's own lineage (GD-012 §4).
+ */
+export interface CorrectAttributionRequest {
+  attribution_role: AttributionRole;
+  actor_reference_kind: ActorReferenceKind;
+  actor_type: ActorType;
+  basis: string;
+  actor_principal_id?: string | null;
+  actor_name?: string | null;
+  actor_organization_name?: string | null;
+  review_method?: string | null;
 }
 
 export interface CreateDelegationRequest {
@@ -269,6 +337,20 @@ export interface Parcel {
   updated_at: string;
   archived_at?: string | null;
   geometry_reference?: string | null;
+}
+
+/**
+ * Request body for `POST /v1/evidence/{evidence_id}/attributions`.
+ */
+export interface RecordAttributionRequest {
+  attribution_role: AttributionRole;
+  actor_reference_kind: ActorReferenceKind;
+  actor_type: ActorType;
+  basis: string;
+  actor_principal_id?: string | null;
+  actor_name?: string | null;
+  actor_organization_name?: string | null;
+  review_method?: string | null;
 }
 
 export interface RegisterRequest {

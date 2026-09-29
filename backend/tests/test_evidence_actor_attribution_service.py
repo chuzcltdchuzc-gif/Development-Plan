@@ -556,7 +556,12 @@ async def test_cross_tenant_actor_cannot_be_linked_via_live_internal_reference(
             basis="attempted cross-tenant live reference",
         )
     assert exc_info.value.status_code == 400
-    assert "same tenant" in exc_info.value.detail
+    # GD-012 §6.4: message must not distinguish "cross-tenant" from
+    # "nonexistent" — see test_actor_principal_existence_oracle_remediated
+    # below for the byte-identical-response proof.
+    assert exc_info.value.detail == (
+        "actor_principal_id must reference an existing principal in the caller's own tenant"
+    )
 
 
 async def test_cross_tenant_actor_via_snapshot_grants_no_disclosure_or_access(
@@ -613,3 +618,49 @@ async def test_nonexistent_internal_principal_rejected() -> None:
             basis="references a principal that does not exist",
         )
     assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == (
+        "actor_principal_id must reference an existing principal in the caller's own tenant"
+    )
+
+
+async def test_actor_principal_existence_oracle_remediated(
+    evidence_repo: InMemoryEvidenceRepository,
+) -> None:
+    """GD-012 §6.4/§9: a nonexistent actor_principal_id and one that exists
+    in a different tenant must produce a byte-identical response — status,
+    detail, and error shape — so an authenticated caller cannot use this
+    field as a cross-tenant principal-existence oracle."""
+    from tests.fakes.evidence import (
+        InMemoryEvidenceActorAttributionRepository as _AttrRepo,
+    )
+    from tests.fakes.evidence import (
+        StaticPrincipalTenantPort as _PT,
+    )
+
+    record = await _seed_evidence(evidence_repo, tenant_id="ten_1", parcel_id="par_1")
+    ctx = _ctx(tenant_id="ten_1", principal_id="usr_1")
+
+    async def _attempt(principal_tenant: _PT) -> HTTPException:
+        svc = EvidenceActorAttributionService(
+            attributions=_AttrRepo(),
+            evidence=evidence_repo,
+            parcel_existence=_StaticParcelExistence(
+                {"par_1": ParcelAuthorityInfo("ten_1", "usr_1")}
+            ),
+            principal_tenant=principal_tenant,
+            session=cast(AsyncSession, _FakeSession()),
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            await svc.record_attribution(
+                ctx=ctx, evidence_id=record.evidence_id, attribution_role=ORIGINATED_BY,
+                actor_reference_kind=INTERNAL_PRINCIPAL, actor_type=ACTOR_TYPE_INDIVIDUAL,
+                actor_principal_id="usr_probe", actor_name="Probe",
+                basis="existence-oracle regression",
+            )
+        return exc_info.value
+
+    nonexistent = await _attempt(_PT({}))
+    cross_tenant = await _attempt(_PT({"usr_probe": "ten_2"}))
+
+    assert nonexistent.status_code == cross_tenant.status_code == 400
+    assert nonexistent.detail == cross_tenant.detail

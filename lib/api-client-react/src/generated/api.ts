@@ -22,6 +22,8 @@ import type {
   AcceptInvitationRequest,
   AcceptInvitationSupabaseRequest,
   AssignRoleRequest,
+  AttributionResponse,
+  CorrectAttributionRequest,
   CreateDelegationRequest,
   CreateInvitationRequest,
   CreateParcelRequest,
@@ -37,6 +39,7 @@ import type {
   LoginRequest,
   Parcel,
   ReadinessCheck200,
+  RecordAttributionRequest,
   RegisterRequest,
   RoleAssignmentResponse,
   SetGeometryReferenceRequest,
@@ -2589,4 +2592,148 @@ export function useListParcelEvidence<TData = Awaited<ReturnType<typeof listParc
 
 
 
+
+export const getRecordEvidenceAttributionUrl = (evidenceId: string,) => {
+
+
+
+
+  return `/v1/evidence/${evidenceId}/attributions`
+}
+
+/**
+ * @summary Record Evidence Attribution
+ */
+export const recordEvidenceAttribution = async (evidenceId: string,
+    recordAttributionRequest: RecordAttributionRequest, options?: Parameters<typeof customFetch>[1]): Promise<AttributionResponse> => {
+
+  return customFetch<AttributionResponse>(getRecordEvidenceAttributionUrl(evidenceId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recordAttributionRequest)
+  }
+);}
+
+
+
+
+
+export const getRecordEvidenceAttributionMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordEvidenceAttribution>>, TError,{evidenceId: string;data: BodyType<RecordAttributionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordEvidenceAttribution>>, TError,{evidenceId: string;data: BodyType<RecordAttributionRequest>}, TContext> => {
+
+const mutationKey = ['recordEvidenceAttribution'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordEvidenceAttribution>>, {evidenceId: string;data: BodyType<RecordAttributionRequest>}> = (props) => {
+          const {evidenceId,data} = props ?? {};
+
+          return  recordEvidenceAttribution(evidenceId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordEvidenceAttributionMutationResult = NonNullable<Awaited<ReturnType<typeof recordEvidenceAttribution>>>
+    export type RecordEvidenceAttributionMutationBody = BodyType<RecordAttributionRequest>
+    export type RecordEvidenceAttributionMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Record Evidence Attribution
+ */
+export const useRecordEvidenceAttribution = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordEvidenceAttribution>>, TError,{evidenceId: string;data: BodyType<RecordAttributionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordEvidenceAttribution>>,
+        TError,
+        {evidenceId: string;data: BodyType<RecordAttributionRequest>},
+        TContext
+      > => {
+      return useMutation(getRecordEvidenceAttributionMutationOptions(options));
+    }
+
+export const getCorrectEvidenceAttributionUrl = (attributionId: string,) => {
+
+
+
+
+  return `/v1/evidence/attributions/${attributionId}/corrections`
+}
+
+/**
+ * @summary Correct Evidence Attribution
+ */
+export const correctEvidenceAttribution = async (attributionId: string,
+    correctAttributionRequest: CorrectAttributionRequest, options?: Parameters<typeof customFetch>[1]): Promise<AttributionResponse> => {
+
+  return customFetch<AttributionResponse>(getCorrectEvidenceAttributionUrl(attributionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(correctAttributionRequest)
+  }
+);}
+
+
+
+
+
+export const getCorrectEvidenceAttributionMutationOptions = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctEvidenceAttribution>>, TError,{attributionId: string;data: BodyType<CorrectAttributionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof correctEvidenceAttribution>>, TError,{attributionId: string;data: BodyType<CorrectAttributionRequest>}, TContext> => {
+
+const mutationKey = ['correctEvidenceAttribution'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof correctEvidenceAttribution>>, {attributionId: string;data: BodyType<CorrectAttributionRequest>}> = (props) => {
+          const {attributionId,data} = props ?? {};
+
+          return  correctEvidenceAttribution(attributionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CorrectEvidenceAttributionMutationResult = NonNullable<Awaited<ReturnType<typeof correctEvidenceAttribution>>>
+    export type CorrectEvidenceAttributionMutationBody = BodyType<CorrectAttributionRequest>
+    export type CorrectEvidenceAttributionMutationError = ErrorType<HTTPValidationError>
+
+    /**
+ * @summary Correct Evidence Attribution
+ */
+export const useCorrectEvidenceAttribution = <TError = ErrorType<HTTPValidationError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof correctEvidenceAttribution>>, TError,{attributionId: string;data: BodyType<CorrectAttributionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof correctEvidenceAttribution>>,
+        TError,
+        {attributionId: string;data: BodyType<CorrectAttributionRequest>},
+        TContext
+      > => {
+      return useMutation(getCorrectEvidenceAttributionMutationOptions(options));
+    }
 
