@@ -3,6 +3,15 @@
 Lives in the kernel alongside audit_orm.py — audit logging is cross-cutting,
 not owned by any single bounded context. tests/fakes/audit_store.py
 implements the same protocol for the fast, hermetic acceptance-test suite.
+
+Also home to `audit_staged()` (GD-009 Batch 1, docs/adr/ADR-029,
+docs/GD-009-audit-transaction-semantics-implementation-authorization-and-
+adr-007-regularisation.md, resumed under docs/GD-011-gd009-batch1-
+resumption-authorization.md) — the explicit, transaction-coupled
+successful-mutation audit path. It lives here, not in app.kernel.audit,
+because it is inherently Postgres/session-specific (it takes the caller's
+own AsyncSession directly), unlike audit()'s storage-agnostic AuditStore
+Protocol resolution.
 """
 from __future__ import annotations
 
@@ -12,7 +21,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.kernel.audit import GENESIS_HASH, AuditEntry
+from app.kernel.audit import GENESIS_HASH, AuditEntry, _build_entry
 from app.kernel.audit_orm import AuditLogRecord
 
 
@@ -32,27 +41,28 @@ class PostgresAuditStore:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def append(self, entry: AuditEntry) -> None:
-        self._session.add(
-            AuditLogRecord(
-                id=uuid.UUID(entry.entry_id) if _looks_like_uuid(entry.entry_id) else uuid.uuid4(),
-                action=entry.action,
-                resource_type=entry.resource_type,
-                resource_id=entry.resource_id,
-                decision=entry.decision,
-                principal_id=entry.principal_id,
-                payload=entry.payload,
-                prev_hash=entry.prev_hash,
-                hash=entry.hash,
-                # MUST match entry.created_at exactly — it's part of the
-                # hashed content (app.kernel.audit._compute_hash). Letting
-                # the column's server_default=func.now() generate its own
-                # value here means the persisted created_at never matches
-                # what was actually hashed, so verify_chain() fails on every
-                # single entry — confirmed against a live Postgres.
-                created_at=datetime.fromisoformat(entry.created_at),
-            )
+    def _to_record(self, entry: AuditEntry) -> AuditLogRecord:
+        return AuditLogRecord(
+            id=uuid.UUID(entry.entry_id) if _looks_like_uuid(entry.entry_id) else uuid.uuid4(),
+            action=entry.action,
+            resource_type=entry.resource_type,
+            resource_id=entry.resource_id,
+            decision=entry.decision,
+            principal_id=entry.principal_id,
+            payload=entry.payload,
+            prev_hash=entry.prev_hash,
+            hash=entry.hash,
+            # MUST match entry.created_at exactly — it's part of the
+            # hashed content (app.kernel.audit._compute_hash). Letting
+            # the column's server_default=func.now() generate its own
+            # value here means the persisted created_at never matches
+            # what was actually hashed, so verify_chain() fails on every
+            # single entry — confirmed against a live Postgres.
+            created_at=datetime.fromisoformat(entry.created_at),
         )
+
+    async def append(self, entry: AuditEntry) -> None:
+        self._session.add(self._to_record(entry))
         # Commits immediately — NOT just flush(). An audit entry must be
         # durable the instant it's recorded, independent of whatever the
         # rest of the request does afterward. Confirmed against a live
@@ -64,6 +74,22 @@ class PostgresAuditStore:
         # SQLAlchemy auto-begins a fresh transaction after this commit, so
         # whatever the caller does next in the same session is unaffected.
         await self._session.commit()
+
+    async def append_staged(self, entry: AuditEntry) -> None:
+        """GD-009 Batch 1 — stages the row into this session via `add()` +
+        `flush()` only. Deliberately never commits: the caller's own
+        transaction (app.kernel.uow.get_db_session's single, final
+        `await session.commit()`) remains the sole commit point, so this
+        row becomes durable, or is rolled back, together with whatever
+        else that transaction does — the same non-intermediate-commit
+        discipline GD-009 §10 requires to avoid silently clearing the
+        request's RLS `is_local` scoping. Not part of the `AuditStore`
+        Protocol (app.kernel.audit.AuditStore) and never called by
+        `audit()` or by `get_audit_store()`'s resolution — only by
+        `audit_staged()` below, invoked explicitly, by name, at an
+        authorized call site."""
+        self._session.add(self._to_record(entry))
+        await self._session.flush()
 
     async def last_hash(self) -> str:
         result = await self._session.execute(
@@ -130,3 +156,54 @@ class EagerPostgresAuditStore:
     async def all_entries(self) -> list[AuditEntry]:
         async with self._session_factory() as session:
             return await PostgresAuditStore(session).all_entries()
+
+
+async def audit_staged(
+    session: AsyncSession,
+    action: str,
+    *,
+    resource_type: str = "unknown",
+    resource_id: str | None = None,
+    decision: str | None = None,
+    payload: dict | None = None,
+    entry_id: str | None = None,
+) -> AuditEntry:
+    """GD-009 Batch 1 (docs/adr/ADR-029, docs/GD-009-...,
+    docs/GD-011-gd009-batch1-resumption-authorization.md) — explicit,
+    transaction-coupled successful-mutation audit staging.
+
+    Stages the audit row into the CALLER'S OWN, already-open `session` via
+    `PostgresAuditStore.append_staged()` (`add()` + `flush()`, never
+    `commit()`), so it becomes durable, or is rolled back, together with
+    whatever mutation the caller is already committing in that same
+    session — exactly at that session's own single, final commit point
+    (app.kernel.uow.get_db_session). No intermediate commit is introduced
+    anywhere in this function.
+
+    Must be called explicitly, by name, at an authorized call site only
+    (GD-009 Batch 1: app.contexts.evidence.application.attribution_service.
+    EvidenceActorAttributionService.record_attribution/correct_attribution).
+    This function is completely independent of app.kernel.audit.audit(),
+    get_audit_store(), configure_audit_store(), and _store_var: calling it
+    does not read, set, or reset any of those, and has zero effect on any
+    other audit() call in this or any other request. It is not reachable
+    through any ambient, global, request-scoped, session-scoped, ContextVar,
+    or dependency-container mechanism — only by importing and calling this
+    function directly, at the sites GD-009 authorizes.
+
+    Never use this for denial or failure audits — they must keep calling
+    audit() unchanged, per GD-009 §9 and ADR-029 §6 (their entire value is
+    surviving a rollback this function's own staged row is specifically
+    designed *not* to survive)."""
+    store = PostgresAuditStore(session)
+    entry = await _build_entry(
+        store,
+        action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        decision=decision,
+        payload=payload,
+        entry_id=entry_id,
+    )
+    await store.append_staged(entry)
+    return entry

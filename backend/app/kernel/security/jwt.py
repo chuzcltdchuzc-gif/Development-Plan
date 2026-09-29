@@ -1,8 +1,9 @@
 """Access-token verification against an external IdP's JWKS.
 
-The IdP (Keycloak) issues access tokens; this side only verifies them
-(ADR-004) — there is no token issuer/signing-key store here. `JWKSProvider`
-is a port so tests substitute a fixed keypair instead of a real realm.
+The IdP (historically Keycloak; Supabase Auth as the ADR-025 production
+provider) issues access tokens; this side only verifies them (ADR-004) —
+there is no token issuer/signing-key store here. `JWKSProvider` is a port so
+tests substitute a fixed keypair instead of a real realm/project.
 """
 from __future__ import annotations
 
@@ -12,7 +13,13 @@ from typing import Protocol
 import jwt as pyjwt
 from jwt import InvalidTokenError
 
-ALGORITHM = "RS256"
+# Kept as the module default so Keycloak's existing wiring (main.py) needs no
+# change: it never passed `algorithms` explicitly, so its behavior is
+# unaffected by this becoming a parameter. Supabase's own default signing
+# algorithm for its asymmetric (JWKS-published) keys is ES256, not RS256 —
+# hence this needing to become configurable per IMVP-3, rather than a second,
+# duplicated verifier class.
+DEFAULT_ALGORITHM = "RS256"
 
 
 class JWKSProvider(Protocol):
@@ -22,10 +29,21 @@ class JWKSProvider(Protocol):
 
 
 class JwtVerifier:
-    def __init__(self, *, jwks: JWKSProvider, issuer: str, audience: str) -> None:
+    def __init__(
+        self,
+        *,
+        jwks: JWKSProvider,
+        issuer: str,
+        audience: str,
+        algorithms: list[str] | None = None,
+    ) -> None:
         self._jwks = jwks
         self._issuer = issuer
         self._audience = audience
+        # Never trust the token's own `alg` header (classic JWT "alg: none" /
+        # algorithm-confusion vulnerability class) — always pass an explicit,
+        # server-configured allowlist to pyjwt, never derive it from the token.
+        self._algorithms = list(algorithms) if algorithms else [DEFAULT_ALGORITHM]
 
     async def verify(self, token: str) -> dict:
         """Return verified claims, or raise InvalidTokenError."""
@@ -46,7 +64,7 @@ class JwtVerifier:
         return pyjwt.decode(
             token,
             public_key,
-            algorithms=[ALGORITHM],
+            algorithms=self._algorithms,
             audience=self._audience,
             issuer=self._issuer,
             options={"require": ["exp", "iat", "iss", "aud", "sub"]},

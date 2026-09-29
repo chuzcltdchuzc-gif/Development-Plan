@@ -22,8 +22,10 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import app.contexts.evidence.adapters.orm  # noqa: F401 — registers models with Base.metadata
 import app.contexts.identity.adapters.orm  # noqa: F401 — registers models with Base.metadata
 import app.contexts.registry.adapters.orm  # noqa: F401 — registers models with Base.metadata
+import app.contexts.spatial.adapters.orm  # noqa: F401 — registers models with Base.metadata
 import app.kernel.audit_orm  # noqa: F401 — registers models with Base.metadata
 from app.kernel.db import Base
 

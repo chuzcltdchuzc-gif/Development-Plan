@@ -53,7 +53,7 @@ async def _seed_user_with_role(
         email=email, password=password, full_name="Seed User"
     )
     user = User.new(
-        keycloak_subject=subject, email=email, full_name="Seed User", country="NG",
+        identity_subject=subject, email=email, full_name="Seed User", country="NG",
         tenant_id=tenant_id,
     )
     user.roles = [role]

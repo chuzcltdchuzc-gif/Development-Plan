@@ -1,6 +1,11 @@
 # ADR-004 — Authentication & Authorisation Model
 
-**Status:** Accepted (Keycloak vs. Auth0 left as an explicit open sub-decision — see below)
+**Status:** Accepted (Keycloak vs. Auth0 left as an explicit open sub-decision — see below).
+**Preserved as historical record of what was decided on 2026-07-13 and confirmed 2026-07-30 — not
+edited retroactively.** §1 (the identity-provider choice, Keycloak vs. Auth0) is superseded by
+`docs/adr/ADR-025-supabase-platform-baseline.md` (Proposed, 2026-07-30) — Supabase Auth is now the
+forward target. **§2–§5 (the PDP/PEP/PIP policy engine, single authorization path, role-hierarchy
+check, rate limiting) are unaffected and remain in force**, per ADR-025 §"Context" and E2.
 **Date:** 2026-07-13
 
 ## Context

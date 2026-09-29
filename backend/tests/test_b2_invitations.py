@@ -40,7 +40,7 @@ async def _seed_user_with_role(
     subject = await harness.identity_provider.create_user(
         email=email, password=password, full_name="Seed User"
     )
-    user = User.new(keycloak_subject=subject, email=email, full_name="Seed User", country="NG")
+    user = User.new(identity_subject=subject, email=email, full_name="Seed User", country="NG")
     user.roles = [role]
     user = await harness.users.add(user)
     # B2 slice 3: the context hydrator requires an ACTIVE Tenant row for
