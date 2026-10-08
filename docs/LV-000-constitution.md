@@ -542,6 +542,50 @@ authentication/authorization/tenant-isolation change, any frontend work, any bro
 two-endpoint scope, or any of the programmes `GD-008`/`ADR-026`/`ADR-028`/`GD-009`/`GD-011` already
 exclude. All other `GD-012` and `GD-013` provisions remain in force, unaffected and unamended.
 
+**GD-015 — Surveyor Partner Programme Phase 0 Discovery and Demand-Validation Research Authorization.**
+*(Ratified 8 October 2026; full operative text at `docs/GD-015-surveyor-partner-programme-phase-0-
+discovery-authorization.md`.)* Operative authority: **Article XVI §2** — GD-015 is a later numbered
+decision that explicitly names `docs/GD-008-surveyor-network-phase-0-principles-and-authorization-
+boundary.md` §17 and `docs/PARTNER_PROGRAMME_STRATEGY.md`. GD-015 authorizes a distinct, narrowly
+bounded Phase 0A demand-research and system-reality exercise. It responds to the outstanding need for
+an express Governance decision that GD-008 §17 identified, but it does **not** open, partially open,
+satisfy, discharge, replace, or pre-approve the architecture-discovery, bounded-context, accreditation,
+onboarding, or lifecycle Approval Gates established by GD-008, `docs/MARKETPLACE_DISCOVERY_AND_
+PLANNING.md`, `docs/PARTNER_PROGRAMME_STRATEGY.md`, or any other governing instrument *(corrected on
+second-preliminary-review remediation: this entry previously read "to open, in narrowly bounded
+research-only form, the Partner Programme Phase 0 discovery gate" and named `PARTNER_PROGRAMME_
+STRATEGY.md` as "the planning document whose Approval Gate this Decision partially and narrowly
+opens" — language that contradicted this Decision's own header and §21 and is removed here to match
+them)*. It is not proposed under Article XIV and does not amend this Constitution.
+
+**Decision.** Authorization of a research-only Phase 0A for a prospective Surveyor Partner Programme:
+read-only, access-bounded reality/composite-representation assessment; separately recruited and
+separately analysed institutional and retail stakeholder research, with registered-surveyor status
+checked as an eligibility/classification matter only (never accreditation) and a referral-concentration
+ceiling on institutional evidence; and a one-day demand test (methodology per the companion playbook,
+gated on a required Nigerian data-protection review and an informed-participation/privacy-notice step),
+concluding at a governance checkpoint recording PROCEED, PROCEED WITH CONDITIONS, PIVOT, STOP, or
+INDETERMINATE (default on incomplete, contaminated, insufficient, or contradictory evidence).
+Institutional and retail research results must not be aggregated for any threshold, rate, or
+checkpoint-outcome purpose; retail evidence alone may never produce a PROCEED outcome; and the
+institutional threshold itself requires a minimum completed-interview sample below which the result is
+INDETERMINATE regardless of commitment count, a registered-surveyor-specific sub-minimum, a minimum
+qualifying-commitment rate rather than a raw count alone, a stated denominator, and prospectively
+defined recruitment waves, not a raw, undifferentiated institutional count. Phase 0B (any operational
+pilot, partner onboarding, live dashboard, document intake, government pilot, or payment collection)
+remains dormant and requires its own, later, explicit Governance Authority approval, not an automatic
+consequence of any Phase 0A outcome.
+
+**Scope excluded — no retroactive expansion.** This decision does not authorise implementation of any
+Marketplace, Partner, Job, Assignment, accreditation, payment, or Surveyor Dashboard capability
+(`GD-008` §15); any government dashboard, account, archive ingestion, integration, or endorsement
+claim; any architecture or bounded-context decision (`GD-008` §2 remains unresolved by this decision);
+any payment, deposit, or reservation collection; any elevated or cross-tenant production access; any
+contact with SURCON, government officials, or other institutions beyond the narrow public-register
+consultation §7.1 describes; or any of the activity `GD-015` §22 itself excludes. This decision does
+not satisfy, discharge, replace, or pre-approve `MARKETPLACE_DISCOVERY_AND_PLANNING.md`'s or
+`PARTNER_PROGRAMME_STRATEGY.md`'s own Approval Gate (`GD-015` §21).
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
