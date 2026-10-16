@@ -13,6 +13,15 @@ from dataclasses import dataclass
 
 from fastapi import Depends, FastAPI, HTTPException, status
 
+from app.contexts.evidence.api import attribution_router, evidence_router
+from app.contexts.evidence.application.attribution_service import (
+    EvidenceActorAttributionService,
+)
+from app.contexts.evidence.dependencies import (
+    get_evidence_parcel_existence_port,
+    get_evidence_repository,
+    get_storage_port,
+)
 from app.contexts.identity.api import admin_router, auth_router
 from app.contexts.identity.context_hydration import build_context_hydrator
 from app.contexts.identity.dependencies import (
@@ -26,8 +35,14 @@ from app.contexts.identity.dependencies import (
 from app.contexts.registry.api import parcel_router
 from app.contexts.registry.dependencies import (
     get_geometry_port,
+    get_parcel_history_repository,
     get_parcel_number_allocator,
     get_parcel_repository,
+)
+from app.contexts.spatial.api import spatial_router
+from app.contexts.spatial.dependencies import (
+    get_parcel_existence_port,
+    get_parcel_geometry_repository,
 )
 from app.kernel.audit import configure_audit_store
 from app.kernel.authorization.pep import configure_pep, current_context_dep, require_role
@@ -36,6 +51,11 @@ from app.kernel.errors import register_error_handlers
 from app.kernel.security.http_hardening import configure_security
 from app.kernel.security.jwt import JwtVerifier
 from tests.fakes.audit_store import InMemoryAuditStore
+from tests.fakes.evidence import (
+    FakeEvidenceParcelExistencePort,
+    InMemoryEvidenceActorAttributionRepository,
+    InMemoryEvidenceRepository,
+)
 from tests.fakes.identity import (
     FakeIdentityProvider,
     InMemoryDelegationRepository,
@@ -47,9 +67,54 @@ from tests.fakes.identity import (
 from tests.fakes.jwks import FakeKeycloak
 from tests.fakes.registry import (
     FakeGeometryPort,
+    InMemoryParcelHistoryRepository,
     InMemoryParcelNumberAllocator,
     InMemoryParcelRepository,
 )
+from tests.fakes.spatial import FakeParcelExistencePort, InMemoryParcelGeometryRepository
+from tests.fakes.storage import InMemoryStoragePort
+from tests.fakes.supabase_jwks import FakeSupabase
+
+
+class _UserBackedPrincipalTenantPort:
+    """PrincipalTenantPort backed by the SAME InMemoryUserRepository the
+    harness already seeds via `_seed_user_with_role` — so an
+    actor_principal_id referencing any user a test has created resolves to
+    that user's real tenant_id, exactly as PostgresPrincipalTenantAdapter
+    would in production. Test-only; production wires the real adapter."""
+
+    def __init__(self, users: InMemoryUserRepository) -> None:
+        self._users = users
+
+    async def get_tenant_id(self, principal_id: str) -> str | None:
+        user = await self._users.get(principal_id)
+        return user.tenant_id if user else None
+
+
+class _FakeAuditSession:
+    """Just enough of AsyncSession's surface for `audit_staged()`/
+    `PostgresAuditStore.append_staged()` (GD-009 Batch 1) to run without a
+    real database — mirrors
+    tests/test_evidence_actor_attribution_service.py's own `_FakeSession`
+    exactly, duplicated here (not imported) since that class is private to
+    its own test module."""
+
+    def __init__(self) -> None:
+        self.added: list[object] = []
+        self.flush_count = 0
+
+    def add(self, instance: object) -> None:
+        self.added.append(instance)
+
+    async def flush(self) -> None:
+        self.flush_count += 1
+
+    async def execute(self, *args: object, **kwargs: object) -> object:
+        class _Result:
+            def scalar_one_or_none(self) -> None:
+                return None
+
+        return _Result()
 
 
 @dataclass
@@ -63,12 +128,20 @@ class AppHarness:
     delegations: InMemoryDelegationRepository
     parcels: InMemoryParcelRepository
     parcel_numbers: InMemoryParcelNumberAllocator
+    parcel_history: InMemoryParcelHistoryRepository
     geometry: FakeGeometryPort
+    parcel_geometries: InMemoryParcelGeometryRepository
     identity_provider: FakeIdentityProvider
     audit_store: InMemoryAuditStore
+    evidence: InMemoryEvidenceRepository
+    storage: InMemoryStoragePort
+    evidence_attributions: InMemoryEvidenceActorAttributionRepository
+    attribution_audit_session: _FakeAuditSession
 
 
-def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
+def build_test_app(
+    *, rate_limit_enabled: bool = True, supabase: FakeSupabase | None = None
+) -> AppHarness:
     keycloak = FakeKeycloak()
     users = InMemoryUserRepository()
     sessions = InMemorySessionRepository()
@@ -77,13 +150,31 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     delegations = InMemoryDelegationRepository()
     parcels = InMemoryParcelRepository()
     parcel_numbers = InMemoryParcelNumberAllocator()
+    parcel_history = InMemoryParcelHistoryRepository()
     geometry = FakeGeometryPort()
+    parcel_geometries = InMemoryParcelGeometryRepository()
+    parcel_existence = FakeParcelExistencePort(parcels)
     identity_provider = FakeIdentityProvider(keycloak)
     audit_store = InMemoryAuditStore()
+    evidence = InMemoryEvidenceRepository()
+    storage = InMemoryStoragePort()
+    evidence_attributions = InMemoryEvidenceActorAttributionRepository()
 
     configure_audit_store(audit_store)
 
-    verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
+    # IMVP-3A: production's PEP verifier trusts Supabase exclusively
+    # (app.main), not Keycloak — Keycloak's fake stays wired below either
+    # way (AuthService.__init__ still requires an IdentityProvider for the
+    # historical register/login/refresh endpoints), but which verifier the
+    # PEP itself checks incoming tokens against must match whichever
+    # provider a given test's tokens actually come from.
+    if supabase is not None:
+        verifier = JwtVerifier(
+            jwks=supabase, issuer=supabase.issuer, audience=supabase.audience,
+            algorithms=["ES256"],
+        )
+    else:
+        verifier = JwtVerifier(jwks=keycloak, issuer=keycloak.issuer, audience=keycloak.audience)
     configure_pep(verifier, build_context_hydrator(users, tenants, delegations))
 
     app = FastAPI(title="landvault-api-test")
@@ -92,6 +183,9 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.include_router(auth_router.router)
     app.include_router(admin_router.router)
     app.include_router(parcel_router.router)
+    app.include_router(spatial_router.router)
+    app.include_router(evidence_router.router)
+    app.include_router(attribution_router.router)
 
     # Same DI seam production uses (app.contexts.identity.dependencies) —
     # tests never touch get_db_session at all, since these overrides short-
@@ -104,7 +198,45 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
     app.dependency_overrides[get_delegation_repository] = lambda: delegations
     app.dependency_overrides[get_parcel_repository] = lambda: parcels
     app.dependency_overrides[get_parcel_number_allocator] = lambda: parcel_numbers
+    app.dependency_overrides[get_parcel_history_repository] = lambda: parcel_history
     app.dependency_overrides[get_geometry_port] = lambda: geometry
+    app.dependency_overrides[get_parcel_geometry_repository] = lambda: parcel_geometries
+    app.dependency_overrides[get_parcel_existence_port] = lambda: parcel_existence
+    # IMVP-5: evidence_router.router is included above; wire its repository,
+    # storage, and parcel-existence ports to hermetic fakes, exactly the
+    # same override shape as every other context in this harness.
+    app.dependency_overrides[get_evidence_repository] = lambda: evidence
+    app.dependency_overrides[get_storage_port] = lambda: storage
+    app.dependency_overrides[get_evidence_parcel_existence_port] = (
+        lambda: FakeEvidenceParcelExistencePort(parcels)
+    )
+    # GD-012/GD-013: attribution_router.py deliberately does NOT use
+    # get_evidence_actor_attribution_service (dependencies.py's shared,
+    # default-scope provider) — it builds the service via its own five
+    # endpoint-local, function-scoped providers (GD-013 §3). Overriding
+    # the router's own private service provider directly is therefore the
+    # correct override seam here, not the individual sub-providers above.
+    #
+    # GD-014 obligation 7: `attribution_session` is created once and shared
+    # across every request this harness serves (not re-instantiated per
+    # request), and exposed below as `AppHarness.attribution_audit_session`
+    # — the only hermetically-observable record of whether
+    # `audit_staged()`'s `session.add()` (the successful-mutation audit
+    # event's staging call) was ever reached for a given request, since
+    # `audit_staged()` writes to the service's own `.session` directly
+    # (via `PostgresAuditStore(session).append_staged()`), never through
+    # `configure_audit_store()`/`InMemoryAuditStore` (that store only
+    # observes the separate, eager `audit()` denial path).
+    attribution_session = _FakeAuditSession()
+    app.dependency_overrides[attribution_router._get_attribution_service] = (
+        lambda: EvidenceActorAttributionService(
+            attributions=evidence_attributions,
+            evidence=evidence,
+            parcel_existence=FakeEvidenceParcelExistencePort(parcels),
+            principal_tenant=_UserBackedPrincipalTenantPort(users),
+            session=attribution_session,  # type: ignore[arg-type]
+        )
+    )
 
     @app.get("/v1/test/protected")
     async def protected_route(ctx: ExecutionContext = Depends(current_context_dep)) -> dict:
@@ -132,7 +264,13 @@ def build_test_app(*, rate_limit_enabled: bool = True) -> AppHarness:
         delegations=delegations,
         parcels=parcels,
         parcel_numbers=parcel_numbers,
+        parcel_history=parcel_history,
         geometry=geometry,
+        parcel_geometries=parcel_geometries,
         identity_provider=identity_provider,
         audit_store=audit_store,
+        evidence=evidence,
+        storage=storage,
+        evidence_attributions=evidence_attributions,
+        attribution_audit_session=attribution_session,
     )
