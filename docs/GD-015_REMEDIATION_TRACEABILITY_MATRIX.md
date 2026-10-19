@@ -253,3 +253,26 @@ October 2026, alongside the original remediation history (Parts A–E) and the p
 event (Part F). GD-015 is now `ACCEPTED` and `IN FORCE`; the package's remaining outstanding execution
 prerequisites are consolidated in `docs/GD-015_READINESS_REPORT.md` §11, and nothing in this matrix
 authorizes Phase 0A execution or satisfies any outstanding Playbook §16 gate.
+
+## Post-merge publication status — 16 October 2026
+
+*This section is appended after PR #40's merge. It does not reopen Parts A–H above or the Summary
+above, and introduces no new parameter. Part H's own closing sentence — "No Git commit, push, pull
+request, or merge has occurred for any document in this package" — is retained unchanged as an accurate
+historical snapshot of the ratification-stage state at the time Part H was written, superseded only as
+to publication status by the record below.*
+
+- PR: `#40`
+- Source commit (pre-merge): `256fcddad5b9ffa255f56b0016387f8a6ff01e3f`
+- Resulting authoritative `main` SHA (squash-merge commit): `f757ad63e8a8921f661c8b8d8938e7e46a750bad`
+- Squash-merge date: **16 October 2026**
+- Exact five-file publication scope: `docs/GD-015-surveyor-partner-programme-phase-0-discovery-
+  authorization.md`, `docs/GD-015_ONE_DAY_DEMAND_TEST_PLAYBOOK.md`, `docs/GD-015_READINESS_REPORT.md`,
+  `docs/GD-015_REMEDIATION_TRACEABILITY_MATRIX.md`, `docs/LV-000-constitution.md`.
+
+This publication changed repository state only — committing, pushing, and merging the already-ratified
+package — and did not alter any substantive GD-015 governance term: Parameters A–H (Part F/Part H
+above) are unchanged, no Parameter I exists, the fourteen formal-review advisory findings and A1–A2
+remain unresolved and non-blocking, and the outstanding execution prerequisites recorded in Part H above
+(Nigerian data-protection review, Project Lead/alternate naming, SURCON public-register usability)
+remain outstanding, unaffected by publication.

@@ -295,3 +295,36 @@ this annotation:
 Ratification satisfies Playbook §16 item 1 only. No Phase 0A activity is authorized merely by
 ratification beyond the narrow item-8 reviewer-commissioning exception Decision §17 itself describes.
 No Git commit, push, pull request, or merge has occurred for any document in this package.
+
+## 12. Post-merge publication status — 16 October 2026
+
+*This section is appended after PR #40's merge. It does not rewrite §11 above or any earlier section.
+The sentence closing §11 — "No Git commit, push, pull request, or merge has occurred for any document
+in this package" — is retained unchanged as an accurate historical snapshot of the ratification-stage
+state at the time §11 was written. It is superseded only as to publication status, by the facts below,
+and remains true of the point in time it describes.*
+
+GD-015 was ratified by the Governance Authority on **8 October 2026** (§11 above). The ratified package
+was subsequently committed locally, a pull request (**PR #40**, `docs: ratify GD-015 surveyor partner
+Phase 0 discovery`) was opened from that commit, independently reviewed and approved, and required CI
+completed successfully before merge. PR #40 was squash-merged into `main` on **16 October 2026**.
+
+**Authoritative post-merge record:**
+
+- PR: `#40`
+- Source commit (pre-merge, branch `docs/gd015-surveyor-partner-phase0-draft`):
+  `256fcddad5b9ffa255f56b0016387f8a6ff01e3f`
+- Resulting `main` SHA (squash-merge commit): `f757ad63e8a8921f661c8b8d8938e7e46a750bad`
+- Parent: `a93fd2fe428758d0393a1e00d48e113575ed9f3c`
+- Tree: `d77ec0a07c8557a2a2f4f8c85144c1c70c9fa175`
+- Source branch `docs/gd015-surveyor-partner-phase0-draft`: preserved, not deleted, as of this record.
+
+This publication changed only the repository's commit history and `main`'s pointer; it did not alter
+any substantive GD-015 governance term. GD-015 remains `ACCEPTED` and `IN FORCE`, ratified 8 October
+2026. Parameters A–H (Traceability Matrix Part G/H) are unchanged, and no Parameter I exists. Merge does
+not itself satisfy any outstanding Playbook §16 execution prerequisite: the Nigerian data-protection
+review required by Decision §17 item 8 has not been recorded as completed; no Project Lead or alternate
+has been recorded as formally named; and whether SURCON's public register is, in practice, usable for
+the §7.1 eligibility check remains unverified. The fourteen advisory findings from the formal governance
+review, and A1–A2 from the first preliminary review, remain non-blocking and unresolved, unchanged by
+this record.
