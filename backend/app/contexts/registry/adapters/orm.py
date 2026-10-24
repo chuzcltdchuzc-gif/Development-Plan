@@ -68,6 +68,71 @@ class ParcelRecord(Base):
     __table_args__ = (Index("ix_parcels_tenant", "tenant_id"),)
 
 
+class ParcelOwnershipHistoryRecord(Base):
+    """Append-only ownership-assertion history (B3, docs/adr/ADR-023).
+    Enforced append-only at two independent layers — see
+    migrations/versions/0011_registry_ownership_status_history.py — not by
+    ORM convention alone; nothing here prevents a caller from constructing
+    an UPDATE statement, the migration's GRANT and trigger do that."""
+
+    __tablename__ = "parcel_ownership_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    parcel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("parcels.id"), nullable=False)
+    asserted_holder_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    asserted_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    basis: Mapped[str] = mapped_column(String, nullable=False)
+    recorded_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("identity_users.id"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )
+    audit_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("parcel_ownership_history.id"), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_parcel_ownership_history_tenant", "tenant_id"),
+        Index("ix_parcel_ownership_history_parcel", "parcel_id"),
+        Index("ix_parcel_ownership_history_supersedes", "supersedes_id"),
+    )
+
+
+class ParcelStatusHistoryRecord(Base):
+    """Append-only status-assertion history (B3, docs/adr/ADR-023). Same
+    shape and same two-layer append-only enforcement as
+    ParcelOwnershipHistoryRecord — a genuinely separate table, not a
+    polymorphic shared one (docs/adr/ADR-023 "Schema")."""
+
+    __tablename__ = "parcel_status_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    parcel_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("parcels.id"), nullable=False)
+    asserted_holder_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    asserted_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    basis: Mapped[str] = mapped_column(String, nullable=False)
+    recorded_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("identity_users.id"), nullable=False
+    )
+    recorded_at: Mapped[datetime] = mapped_column(
+        TZDateTime, server_default=func.now(), nullable=False
+    )
+    audit_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    supersedes_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("parcel_status_history.id"), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_parcel_status_history_tenant", "tenant_id"),
+        Index("ix_parcel_status_history_parcel", "parcel_id"),
+        Index("ix_parcel_status_history_supersedes", "supersedes_id"),
+    )
+
+
 class RegistryParcelCounterRecord(Base):
     """Per-country_code atomic allocation counter (B3 slice 2,
     docs/adr/ADR-014 — migrations/versions/0008_registry_parcel_counters.py).

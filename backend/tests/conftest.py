@@ -17,3 +17,12 @@ os.environ.setdefault(
 )
 os.environ.setdefault("KEYCLOAK_ADMIN_API_URL", "https://idp.test/admin/realms/landvault")
 os.environ.setdefault("JWT_AUDIENCE", "landvault-api")
+# Supabase Auth (B1 — production identity provider, ADR-025). Only
+# SUPABASE_PROJECT_URL has no default in Settings; the placeholder below is
+# never actually contacted by the hermetic suite (nothing here exercises a
+# real JWKS fetch — that's SupabaseJWKSProvider, unit-tested separately
+# against tests/fakes/supabase_jwks.py, not against this URL).
+os.environ.setdefault("SUPABASE_PROJECT_URL", "https://test-project.supabase.test")
+# Supabase Storage (B5 IMVP-5). Never actually contacted by the hermetic
+# suite — real-adapter tests mock httpx directly rather than hitting this URL.
+os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key")

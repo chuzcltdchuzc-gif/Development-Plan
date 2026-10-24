@@ -3,7 +3,10 @@
 **Status:** Accepted — extends ADR-009 (B1 Platform Freeze), ADR-013 (Parcel Aggregate &
 Registry Domain Model), ADR-014 (Atomic Parcel Number Allocation), ADR-015 (Registry Mutation
 Authorization Model). Does not modify any frozen decision; see §"Relationship to the frozen
-baseline."
+baseline." **Preserved as historical record of what B3 decided at the time it shipped — not
+edited retroactively.** `GeometryPort`'s `reference_is_valid` signature has since been amended;
+see `docs/adr/ADR-019-geometry-port-interface-amendment.md` (accepted) for the current contract
+and the reasoning for extending it.
 
 **Date:** 2026-07-20
 
