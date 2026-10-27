@@ -14,8 +14,14 @@ from app.contexts.identity.api.dtos import (
     AssignRoleRequest,
     CreateDelegationRequest,
     CreateInvitationRequest,
+    DelegationSummaryEffectiveResponse,
+    DelegationSummaryResponse,
     ExtendDelegationRequest,
+    InvitationCreatedResponse,
+    InvitationSummaryResponse,
+    RoleAssignmentResponse,
     SuspendTenantRequest,
+    TenantSummaryResponse,
 )
 from app.contexts.identity.application.admin_service import AdminService
 from app.contexts.identity.dependencies import get_admin_service
@@ -26,7 +32,9 @@ from app.kernel.context import ExecutionContext
 router = APIRouter(prefix="/v1/admin", tags=["identity-admin"])
 
 
-@router.post("/users/{user_id}/roles")
+@router.post(
+    "/users/{user_id}/roles", response_model=RoleAssignmentResponse, operation_id="assignRole"
+)
 async def assign_role(
     user_id: str,
     body: AssignRoleRequest,
@@ -36,7 +44,12 @@ async def assign_role(
     return await admin_service.assign_role(ctx=ctx, target_user_id=user_id, role=body.role)
 
 
-@router.post("/invitations", status_code=201)
+@router.post(
+    "/invitations",
+    status_code=201,
+    response_model=InvitationCreatedResponse,
+    operation_id="createInvitation",
+)
 async def create_invitation(
     body: CreateInvitationRequest,
     ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
@@ -45,7 +58,11 @@ async def create_invitation(
     return await admin_service.create_invitation(ctx=ctx, email=body.email, role=body.role)
 
 
-@router.get("/invitations")
+@router.get(
+    "/invitations",
+    response_model=list[InvitationSummaryResponse],
+    operation_id="listInvitations",
+)
 async def list_invitations(
     ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
     admin_service: AdminService = Depends(get_admin_service),
@@ -53,7 +70,11 @@ async def list_invitations(
     return await admin_service.list_invitations(ctx=ctx)
 
 
-@router.post("/invitations/{invitation_id}/revoke")
+@router.post(
+    "/invitations/{invitation_id}/revoke",
+    response_model=InvitationSummaryResponse,
+    operation_id="revokeInvitation",
+)
 async def revoke_invitation(
     invitation_id: str,
     ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
@@ -68,7 +89,7 @@ async def revoke_invitation(
 # action, not something a tenant's own compliance_officer/surveyor_general
 # should be able to do to their own tenant.
 
-@router.get("/tenants")
+@router.get("/tenants", response_model=list[TenantSummaryResponse], operation_id="listTenants")
 async def list_tenants(
     _ctx: ExecutionContext = Depends(require_role("super_admin")),
     admin_service: AdminService = Depends(get_admin_service),
@@ -76,7 +97,9 @@ async def list_tenants(
     return await admin_service.list_tenants()
 
 
-@router.get("/tenants/{tenant_id}")
+@router.get(
+    "/tenants/{tenant_id}", response_model=TenantSummaryResponse, operation_id="getTenant"
+)
 async def get_tenant(
     tenant_id: str,
     _ctx: ExecutionContext = Depends(require_role("super_admin")),
@@ -85,7 +108,11 @@ async def get_tenant(
     return await admin_service.get_tenant(tenant_id=tenant_id)
 
 
-@router.post("/tenants/{tenant_id}/suspend")
+@router.post(
+    "/tenants/{tenant_id}/suspend",
+    response_model=TenantSummaryResponse,
+    operation_id="suspendTenant",
+)
 async def suspend_tenant(
     tenant_id: str,
     body: SuspendTenantRequest,
@@ -95,7 +122,11 @@ async def suspend_tenant(
     return await admin_service.suspend_tenant(ctx=ctx, tenant_id=tenant_id, reason=body.reason)
 
 
-@router.post("/tenants/{tenant_id}/reactivate")
+@router.post(
+    "/tenants/{tenant_id}/reactivate",
+    response_model=TenantSummaryResponse,
+    operation_id="reactivateTenant",
+)
 async def reactivate_tenant(
     tenant_id: str,
     ctx: ExecutionContext = Depends(require_role("super_admin")),
@@ -104,7 +135,11 @@ async def reactivate_tenant(
     return await admin_service.reactivate_tenant(ctx=ctx, tenant_id=tenant_id)
 
 
-@router.post("/tenants/{tenant_id}/archive")
+@router.post(
+    "/tenants/{tenant_id}/archive",
+    response_model=TenantSummaryResponse,
+    operation_id="archiveTenant",
+)
 async def archive_tenant(
     tenant_id: str,
     ctx: ExecutionContext = Depends(require_role("super_admin")),
@@ -119,7 +154,12 @@ async def archive_tenant(
 # actions above. Every delegated role is independently ceiling-checked
 # against the caller's own current rank inside AdminService.
 
-@router.post("/delegations", status_code=201)
+@router.post(
+    "/delegations",
+    status_code=201,
+    response_model=DelegationSummaryResponse,
+    operation_id="createDelegation",
+)
 async def create_delegation(
     body: CreateDelegationRequest,
     ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
@@ -134,7 +174,11 @@ async def create_delegation(
     )
 
 
-@router.get("/delegations")
+@router.get(
+    "/delegations",
+    response_model=list[DelegationSummaryEffectiveResponse],
+    operation_id="listDelegations",
+)
 async def list_delegations(
     ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
     admin_service: AdminService = Depends(get_admin_service),
@@ -142,7 +186,11 @@ async def list_delegations(
     return await admin_service.list_delegations(ctx=ctx)
 
 
-@router.get("/delegations/{delegation_id}")
+@router.get(
+    "/delegations/{delegation_id}",
+    response_model=DelegationSummaryEffectiveResponse,
+    operation_id="getDelegation",
+)
 async def get_delegation(
     delegation_id: str,
     ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
@@ -151,7 +199,11 @@ async def get_delegation(
     return await admin_service.get_delegation(ctx=ctx, delegation_id=delegation_id)
 
 
-@router.post("/delegations/{delegation_id}/revoke")
+@router.post(
+    "/delegations/{delegation_id}/revoke",
+    response_model=DelegationSummaryResponse,
+    operation_id="revokeDelegation",
+)
 async def revoke_delegation(
     delegation_id: str,
     ctx: ExecutionContext = Depends(require_role(*GOVERNANCE_ROLES)),
@@ -160,7 +212,11 @@ async def revoke_delegation(
     return await admin_service.revoke_delegation(ctx=ctx, delegation_id=delegation_id)
 
 
-@router.post("/delegations/{delegation_id}/extend")
+@router.post(
+    "/delegations/{delegation_id}/extend",
+    response_model=DelegationSummaryResponse,
+    operation_id="extendDelegation",
+)
 async def extend_delegation(
     delegation_id: str,
     body: ExtendDelegationRequest,
