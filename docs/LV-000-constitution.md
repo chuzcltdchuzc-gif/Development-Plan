@@ -586,6 +586,35 @@ consultation §7.1 describes; or any of the activity `GD-015` §22 itself exclud
 not satisfy, discharge, replace, or pre-approve `MARKETPLACE_DISCOVERY_AND_PLANNING.md`'s or
 `PARTNER_PROGRAMME_STRATEGY.md`'s own Approval Gate (`GD-015` §21).
 
+**GD-016 — ADR-031 Initial Supabase Identity Bootstrap Implementation Authorization.** *(Ratified
+28 October 2026; full operative text at `docs/GD-016-adr-031-initial-supabase-identity-bootstrap-
+implementation-authorization.md`.)* Operative authority: **Article XVI §2** — GD-016 is a later
+numbered decision that explicitly names `docs/adr/ADR-031-initial-supabase-identity-bootstrap-and-
+first-tenant-provisioning.md` (Accepted, 22 October 2026) and `docs/adr/ADR-032-bootstrap-pdp-action-
+ownership-and-explicit-deny-semantics.md` (Accepted, 27 October 2026), and implements `ADR-031` as
+qualified by `ADR-032`. GD-016 authorizes a bounded initial Supabase identity/first-tenant bootstrap
+implementation package — exactly four production files and seven test files — subject in full to its
+own file allowlist, CLI input contract, verified-email contract, standalone CLI composition root,
+eager-audit and `EXCLUSIVE`-tenant-lock concurrency requirements, Tenant→User→owner persistence
+sequence, 52 mandatory tests, 21 STOP conditions, and explicit non-authorizations. The two bootstrap
+PDP policies — `identity.bootstrap_preflight` (priority 15) and `identity.bootstrap_first_tenant`
+(priority 16) — are action-owning, explicit-DENY policies under `ADR-032`: unrelated action → `None`;
+matching action with every condition satisfied → PERMIT; matching action with any condition failed →
+explicit DENY, stopping evaluation before the existing `platform.super_admin` priority-20 default
+policy is ever reached. Bootstrap actor attribution is bound exclusively to the verified Supabase JWT
+subject, never to any internal LandVault id a hydrator may separately resolve for that subject. This
+Decision does not authorize, and no implementation under it may introduce, any HTTP bootstrap route,
+Supabase Admin API use, database migration, role outside `{compliance_officer, surveyor_general}`,
+`super_admin` bootstrap grant, or production bootstrap execution. Implementation may not begin until
+this Decision's own governance-publication sequence (commit, push, PR, human approval/CI, merge,
+post-merge verification) has completed, and a later, separate implementation branch/worktree
+authorization pins the exact post-publication `main` SHA; implementation must STOP if that pinned SHA
+moves before implementation begins. Ratification of this Decision, and later merge of its
+implementation, do not by themselves close MVP-DEMO-002 — closure requires a later, separately
+recorded successful end-to-end rerun of the legitimate bootstrap mechanism. This decision does not
+amend `ADR-031`, `ADR-032`, `ADR-009`, `ADR-012`, `ADR-029`, `ADR-030`, `GD-009`, `GD-010`, or `GD-011`.
+It is not proposed under Article XIV and does not amend this Constitution.
+
 **§2.** A decision in this Log is amended only by a later numbered decision that names it. Decisions are never edited in place and never removed.
 
 ### Article XVII — Enactment, transition and continuity
