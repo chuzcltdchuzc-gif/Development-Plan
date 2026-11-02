@@ -180,16 +180,19 @@ async def audit_staged(
     (app.kernel.uow.get_db_session). No intermediate commit is introduced
     anywhere in this function.
 
-    Must be called explicitly, by name, at an authorized call site only
-    (GD-009 Batch 1: app.contexts.evidence.application.attribution_service.
-    EvidenceActorAttributionService.record_attribution/correct_attribution).
+    Must be called explicitly, by name, at an authorized call site only —
+    currently: (GD-009 Batch 1) app.contexts.evidence.application.
+    attribution_service.EvidenceActorAttributionService.record_attribution/
+    correct_attribution; and (GD-016) app.contexts.identity.application.
+    bootstrap_service's two bootstrap successful-mutation call sites,
+    staging identity.tenant.bootstrapped and identity.user.registered.
     This function is completely independent of app.kernel.audit.audit(),
     get_audit_store(), configure_audit_store(), and _store_var: calling it
     does not read, set, or reset any of those, and has zero effect on any
     other audit() call in this or any other request. It is not reachable
     through any ambient, global, request-scoped, session-scoped, ContextVar,
     or dependency-container mechanism — only by importing and calling this
-    function directly, at the sites GD-009 authorizes.
+    function directly, at the sites GD-009 and GD-016 authorize.
 
     Never use this for denial or failure audits — they must keep calling
     audit() unchanged, per GD-009 §9 and ADR-029 §6 (their entire value is
