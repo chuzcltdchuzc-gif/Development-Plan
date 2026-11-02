@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "AquaSavannah LandVault"
+description = "A land-registry and verification platform for Nigeria. Allows users to register, search, and verify land titles. Currently in Phase 2 development, with a modern web interface built in React."
+version = "1.0.0"
+id = "artifacts/landvault-web"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23934
+
+[services.development]
+run = "pnpm --filter @workspace/landvault-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/landvault-web", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/landvault-web/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23934"
+BASE_PATH = "/"

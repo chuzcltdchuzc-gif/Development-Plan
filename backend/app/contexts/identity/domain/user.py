@@ -1,6 +1,7 @@
 """User aggregate — Identity context's canonical authority on who a
-principal is. Authentication adapters (Keycloak) verify credentials; this
-aggregate owns roles, status, and tenant/country/org scope.
+principal is. Authentication adapters (Keycloak historically; Supabase Auth
+as the ADR-025 production provider) verify credentials; this aggregate owns
+roles, status, and tenant/country/org scope.
 """
 from __future__ import annotations
 
@@ -17,12 +18,12 @@ def _now_iso() -> str:
 
 @dataclass
 class User:
-    """User aggregate root. `keycloak_subject` is the IdP's stable `sub`
+    """User aggregate root. `identity_subject` is the IdP's stable `sub`
     claim — the join point between our data and the IdP's (docs/adr/ADR-004
     consequence: this join must exist since we no longer issue tokens)."""
 
     user_id: str
-    keycloak_subject: str
+    identity_subject: str
     email: str
     full_name: str
     country: str
@@ -40,7 +41,7 @@ class User:
     def new(
         cls,
         *,
-        keycloak_subject: str,
+        identity_subject: str,
         email: str,
         full_name: str,
         country: str,
@@ -56,7 +57,7 @@ class User:
             # add() consistently uses the DB-assigned id) but meant the
             # aggregate's own id was never the one actually persisted.
             user_id=str(uuid.uuid4()),
-            keycloak_subject=keycloak_subject,
+            identity_subject=identity_subject,
             email=email.strip().lower(),
             full_name=full_name.strip(),
             country=country.upper(),

@@ -45,6 +45,16 @@ services:
       # alembic upgrade head`; the owning role, deliberately not what the
       # running app uses (DATABASE_URL above).
       MIGRATIONS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # .env's KEYCLOAK_* values are host-oriented (localhost:8080, for
+      # running the backend outside Docker against Keycloak's published
+      # port) — unreachable from inside this container's network, where
+      # Keycloak is only addressable via its compose service name. Found
+      # and fixed as a B4 Slice 2 live-verification blocker (pre-existing
+      # gap, not introduced by Slice 2 — DATABASE_URL got the identical
+      # override above but these three were never added).
+      KEYCLOAK_REALM_URL: http://keycloak:8080/realms/landvault
+      KEYCLOAK_ADMIN_TOKEN_URL: http://keycloak:8080/realms/landvault/protocol/openid-connect/token
+      KEYCLOAK_ADMIN_API_URL: http://keycloak:8080/admin/realms/landvault
     depends_on:
       postgres:
         condition: service_healthy

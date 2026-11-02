@@ -104,8 +104,8 @@ def build_context_hydrator(
     optional so existing tests that don't care about tenant lifecycle or
     delegation don't need to thread them through."""
 
-    async def _hydrate(keycloak_subject: str) -> dict | None:
-        user = await users.get_by_keycloak_subject(keycloak_subject)
+    async def _hydrate(identity_subject: str) -> dict | None:
+        user = await users.get_by_identity_subject(identity_subject)
         if user is None or not user.can_authenticate():
             return None
         tenant: Tenant | None = None
@@ -146,11 +146,11 @@ def build_production_context_hydrator(
     still active, and which delegated roles (if any) currently apply.
     """
 
-    async def _hydrate(keycloak_subject: str) -> dict | None:
+    async def _hydrate(identity_subject: str) -> dict | None:
         async with session_factory() as session:
             await session.execute(text("SET LOCAL app.is_super_admin = 'true'"))
             users = PostgresUserRepository(session)
-            user = await users.get_by_keycloak_subject(keycloak_subject)
+            user = await users.get_by_identity_subject(identity_subject)
             if user is None or not user.can_authenticate():
                 await session.rollback()
                 return None

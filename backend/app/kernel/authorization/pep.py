@@ -20,7 +20,8 @@ import logging
 from collections.abc import Awaitable, Callable
 from contextvars import Token
 
-from fastapi import Cookie, Depends, Header, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidTokenError
 
 from app.kernel.audit import audit
@@ -42,6 +43,31 @@ ContextHydrator = Callable[[str], Awaitable[dict | None]]
 
 _verifier: JwtVerifier | None = None
 _hydrator: ContextHydrator | None = None
+
+# OpenAPI Security Metadata Hardening: this is a *documentation-only*
+# marker — its extraction result is never read. Real token extraction and
+# verification is entirely `_extract_bearer`/`_build_context_from_token`
+# below, unchanged. `auto_error=False` makes `HTTPBearer.__call__` a pure
+# passive header peek that never raises and never blocks the cookie-only
+# path (docs/adr — the same "Authorization header OR lv_access cookie"
+# shape `_extract_bearer` already implements); it exists solely so
+# FastAPI's OpenAPI generator attaches a `bearerAuth`-style
+# `securitySchemes` entry, and a `security` requirement, to every route
+# that actually depends on `require_auth` below — never to routes that
+# don't (e.g. /v1/auth/register, /v1/auth/login, /v1/auth/refresh, which
+# reach `current_context_dep` only transitively through their DB session
+# dependency and must NOT appear to require bearer auth in the schema).
+supabase_bearer_scheme = HTTPBearer(
+    scheme_name="SupabaseBearerAuth",
+    bearerFormat="JWT",
+    description=(
+        "Supabase Auth access token (ADR-025), verified against the "
+        "project's JWKS. Send as 'Authorization: Bearer <token>'; the "
+        "browser session flow may instead rely on the 'lv_access' cookie "
+        "set by that flow — both are accepted identically by the server."
+    ),
+    auto_error=False,
+)
 
 
 def configure_pep(verifier: JwtVerifier, hydrator: ContextHydrator) -> None:
@@ -107,13 +133,21 @@ async def _build_context_from_token(request: Request, token: str | None) -> Exec
     )
 
 
-async def current_context_dep(
-    request: Request,
-    authorization: str | None = Header(default=None),
-    lv_access: str | None = Cookie(default=None),
-) -> ExecutionContext:
-    """Build the ExecutionContext for the current request (may be anonymous)."""
-    token = _extract_bearer(authorization, lv_access)
+async def current_context_dep(request: Request) -> ExecutionContext:
+    """Build the ExecutionContext for the current request (may be anonymous).
+
+    Reads the Authorization header / lv_access cookie straight off `request`
+    rather than declaring them as FastAPI Header()/Cookie() parameters —
+    identical extraction, but it stops every route that depends on this
+    (transitively, every route in the app, via get_db_session) from showing
+    a spurious "authorization"/"lv_access" optional-string parameter in the
+    exported OpenAPI, which used to be the *only* way protected routes were
+    represented there at all (OpenAPI Security Metadata Hardening). The
+    actual bearer requirement is now `supabase_bearer_scheme` below, added
+    only to `require_auth`."""
+    token = _extract_bearer(
+        request.headers.get("authorization"), request.cookies.get("lv_access")
+    )
     ctx = await _build_context_from_token(request, token)
     token_ref = set_context(ctx)
     request.state.kernel_ctx_token = token_ref
@@ -122,6 +156,8 @@ async def current_context_dep(
 
 async def require_auth(
     ctx: ExecutionContext = Depends(current_context_dep),
+    _bearer_scheme_for_openapi_only: HTTPAuthorizationCredentials
+    | None = Security(supabase_bearer_scheme),
 ) -> ExecutionContext:
     if ctx.is_anonymous:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")

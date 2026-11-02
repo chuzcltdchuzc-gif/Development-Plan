@@ -13,11 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 def build_health_router(engine: AsyncEngine) -> APIRouter:
     router = APIRouter(tags=["health"])
 
-    @router.get("/health/live")
+    @router.get("/health/live", operation_id="livenessCheck")
     async def liveness() -> dict[str, str]:
         return {"status": "ok"}
 
-    @router.get("/health/ready")
+    @router.get("/health/ready", operation_id="readinessCheck")
     async def readiness(response: Response) -> dict[str, str]:
         try:
             async with engine.connect() as conn:
